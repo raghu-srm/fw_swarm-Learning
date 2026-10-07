@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fixed-Wing Swarm Learning — Graphs & Digraphs</title>
+<script>
+  window.MathJax = {
+    tex: {
+      inlineMath: [['\\(', '\\)'], ['$', '$']],
+      displayMath: [['\\[', '\\]'], ['$$', '$$']]
+    }
+  };
+</script>
+<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+<style>
+  :root {
+    --bg: #f6f8fb;
+    --card: #ffffff;
+    --text: #172033;
+    --muted: #5d687a;
+    --accent: #2457d6;
+    --accent-light: #eaf0ff;
+    --border: #dce2ec;
+    --code: #111827;
+    --success: #147a4b;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.65;
+  }
+  header {
+    background: linear-gradient(135deg, #172554, #2457d6);
+    color: white;
+    padding: 56px 20px 44px;
+  }
+  header .wrap, main { max-width: 1050px; margin: auto; }
+  h1 { margin: 0 0 10px; font-size: clamp(2rem, 5vw, 3.2rem); }
+  h2 { margin-top: 0; font-size: 1.8rem; }
+  h3 { margin-top: 1.6rem; }
+  .subtitle { max-width: 760px; color: #dbe6ff; font-size: 1.08rem; }
+  main { padding: 28px 20px 70px; }
+  nav, section, .callout {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+    margin: 20px 0;
+    box-shadow: 0 3px 12px rgba(20, 35, 70, .05);
+  }
+  nav h2 { font-size: 1.35rem; }
+  nav ol { margin-bottom: 0; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code, pre {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  code {
+    background: #eef1f6;
+    padding: 2px 5px;
+    border-radius: 5px;
+  }
+  pre {
+    background: var(--code);
+    color: #e5e7eb;
+    padding: 18px;
+    border-radius: 10px;
+    overflow-x: auto;
+  }
+  .formula {
+    background: var(--accent-light);
+    border-left: 4px solid var(--accent);
+    padding: 14px 18px;
+    margin: 16px 0;
+    font-family: Georgia, serif;
+    font-size: 1.08rem;
+  }
+  .formula .matrix {
+    display: inline-block;
+    white-space: pre;
+    vertical-align: middle;
+    letter-spacing: 0.02em;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+  }
+  .mini {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    background: #fbfcff;
+  }
+  .mini strong { display: block; margin-bottom: 5px; }
+  .success {
+    border-left: 4px solid var(--success);
+    background: #edf9f3;
+    padding: 14px 18px;
+    border-radius: 8px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 15px 0;
+  }
+  th, td {
+    text-align: left;
+    padding: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  th { background: #f1f4f9; }
+  .q {
+    margin: 22px 0;
+    padding: 18px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+  .answer {
+    color: var(--success);
+    font-weight: 700;
+  }
+  .tag {
+    display: inline-block;
+    background: #eaf0ff;
+    color: #204bb4;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: .82rem;
+    margin: 3px;
+  }
+  footer {
+    text-align: center;
+    color: var(--muted);
+    padding: 30px 20px 50px;
+  }
+  @media print {
+    nav { break-after: page; }
+    section { box-shadow: none; }
+  }
+</style>
+</head>
+
+<body>
+<header>
+  <div class="wrap">
+    <h1>Fixed-Wing Swarm Learning</h1>
+    <div class="subtitle">
+      Part 1: <strong>Graphs &amp; Digraphs</strong> —
+      the mathematical foundation for distributed swarm control, consensus,
+      formation control, and multi-UAV communication.
+    </div>
+    <p><span class="tag">Graphs</span><span class="tag">Digraphs</span>
+       <span class="tag">UAV Swarms</span><span class="tag">Distributed Control</span></p>
+  </div>
+</header>
+
+<main>
+<nav id="index">
+  <h2>Index</h2>
+  <ol>
+    <li><a href="#big-picture">Big Picture</a></li>
+    <li><a href="#graph">What is a Graph?</a></li>
+    <li><a href="#undirected">Undirected Graph</a></li>
+    <li><a href="#directed">Directed Graph / Digraph</a></li>
+    <li><a href="#neighbors">Neighbors</a></li>
+    <li><a href="#degree">Degree</a></li>
+    <li><a href="#representation">Graph Representation</a></li>
+    <li><a href="#swarm">Graph Interpretation for UAV Swarms</a></li>
+    <li><a href="#important">Important Distinctions</a></li>
+    <li><a href="#summary">Key Summary</a></li>
+    <li><a href="#next">Next Topic</a></li>
+  </ol>
+</nav>
+
+<section id="big-picture">
+  <h2>1. Big Picture</h2>
+  <p>
+    In a multi-UAV swarm, every aircraft has its own state and controller,
+    but a distributed controller also needs to know <em>which other UAVs it
+    can communicate with or sense</em>.
+  </p>
+
+  <div class="formula">
+    \[ \text{Graph topology} + \text{vehicle dynamics} + \text{control law} = \text{distributed swarm control} \]
+  </div>
+
+  <p>
+    Graph theory describes the <strong>relationship/topology</strong> between
+    agents. It does not by itself describe aircraft dynamics, position,
+    velocity, or heading.
+  </p>
+
+  <div class="grid">
+    <div class="mini"><strong>Geometry</strong>Where are the aircraft?<br><code>p₁, p₂, ...</code></div>
+    <div class="mini"><strong>Dynamics</strong>How does an aircraft move?<br>\(\dot{x} = f(x,u)\)</div>
+    <div class="mini"><strong>Topology</strong>Who interacts with whom?<br>\(G = (V,E)\)</div>
+  </div>
+</section>
+
+<section id="graph">
+  <h2>2. What is a Graph?</h2>
+  <p>A graph is commonly written as:</p>
+  <div class="formula">\[ G = (V, E) \]</div>
+  <ul>
+    <li><strong>V</strong> — set of vertices/nodes</li>
+    <li><strong>E</strong> — set of edges</li>
+  </ul>
+
+  <p>For a swarm:</p>
+  <pre>
+UAV 1 ---- UAV 2
+  |          |
+  |          |
+UAV 3 ---- UAV 4
+  </pre>
+
+  <p>
+    Each UAV is a node. An edge represents a relationship such as
+    communication, sensing, or information exchange.
+  </p>
+
+  <p>For example:</p>
+  <div class="formula">\[ V = \{1, 2, 3, 4\} \]</div>
+  <div class="formula">\[ E = \{(1,2), (1,3), (2,4), (3,4)\} \]</div>
+</section>
+
+<section id="undirected">
+  <h2>3. Undirected Graph</h2>
+  <p>
+    In an undirected graph, an edge has no direction. If UAV 1 can
+    communicate with UAV 2, communication is modeled as:
+  </p>
+  <div class="formula">\[ 1 \leftrightarrow 2 \]</div>
+
+  <p>For example:</p>
+  <pre>
+      2
+     / \
+    /   \
+   1-----3
+  </pre>
+
+  <p>
+    The relationship is symmetric: if <code>(1,2)</code> is an edge,
+    then the connection also works in the opposite direction.
+  </p>
+
+  <div class="success">
+    <strong>Key idea:</strong> The graph is undirected when the relationship
+    between two nodes is bidirectional/symmetric.
+  </div>
+</section>
+
+<section id="directed">
+  <h2>4. Directed Graph / Digraph</h2>
+  <p>
+    In a directed graph, an edge has a direction. We write:
+  </p>
+  <div class="formula">\[ 1 \rightarrow 2 \]</div>
+
+  <p>
+    This means UAV 1 sends information to UAV 2. It does not automatically
+    mean that UAV 2 sends information back to UAV 1.
+  </p>
+
+  <pre>
+  1 → 2 → 3
+  </pre>
+
+  <p>
+    A directed graph is often called a <strong>digraph</strong>.
+    Digraphs are particularly useful for modeling asymmetric communication,
+    sensing, leader-follower structures, and directed information flow.
+  </p>
+
+  <h3>Why directed graphs matter for UAVs</h3>
+  <ul>
+    <li>Communication range can be asymmetric.</li>
+    <li>Antenna orientation can affect links.</li>
+    <li>Packet loss can make information flow effectively asymmetric.</li>
+    <li>Different UAVs may have different sensors.</li>
+    <li>A leader may broadcast information to followers without receiving the same information back.</li>
+  </ul>
+</section>
+
+<section id="neighbors">
+  <h2>5. Neighbors</h2>
+
+  <pre>
+1 → 2 → 3
+    ↑
+    |
+    4
+  </pre>
+
+  <p>For UAV 2:</p>
+
+  <h3>In-neighbors</h3>
+  <p>
+    Nodes that send information <strong>to</strong> node 2:
+  </p>
+  <div class="formula">\[ N_2^{\mathrm{in}} = \{1, 4\} \]</div>
+
+  <h3>Out-neighbors</h3>
+  <p>
+    Nodes that receive information <strong>from</strong> node 2:
+  </p>
+  <div class="formula">\[ N_2^{\mathrm{out}} = \{3\} \]</div>
+
+  <div class="success">
+    <strong>Memory aid:</strong>
+    <br>In-neighbor → information comes <strong>IN</strong>.
+    <br>Out-neighbor → information goes <strong>OUT</strong>.
+  </div>
+</section>
+
+<section id="degree">
+  <h2>6. Degree</h2>
+
+  <p>For an undirected graph, degree counts the number of connections:</p>
+  <div class="formula">\[ d_i = |N_i| \]</div>
+
+  <pre>
+      2
+      |
+      |
+1 ----3---- 4
+  </pre>
+
+  <p>For node 3:</p>
+  <div class="formula">\[ d_3 = 3 \]</div>
+
+  <h3>Directed graphs: in-degree and out-degree</h3>
+
+  <pre>
+1 → 2 → 3
+    ↑
+    |
+    4
+  </pre>
+
+  <p>For node 2:</p>
+  <ul>
+    <li>Incoming edges: <code>1 → 2</code> and <code>4 → 2</code></li>
+    <li>Outgoing edge: <code>2 → 3</code></li>
+  </ul>
+
+  <div class="formula">
+    \[ d_2^{\mathrm{in}} = 2 \qquad d_2^{\mathrm{out}} = 1 \]
+  </div>
+</section>
+
+<section id="representation">
+  <h2>7. Graph Representation</h2>
+  <p>
+    A graph can be represented in several ways. The most important forms
+    for swarm-control learning are:
+  </p>
+
+  <ol>
+    <li>Graph drawing</li>
+    <li>Adjacency matrix</li>
+    <li>Degree matrix</li>
+    <li>Graph Laplacian</li>
+  </ol>
+
+  <p>Example undirected topology:</p>
+  <pre>
+1 ---- 2
+|      |
+|      |
+3 ---- 4
+  </pre>
+
+  <p>Its adjacency matrix is:</p>
+
+  <div class="formula">
+    \[
+    A =
+    \begin{bmatrix}
+    0 & 1 & 1 & 0 \\
+    1 & 0 & 0 & 1 \\
+    1 & 0 & 0 & 1 \\
+    0 & 1 & 1 & 0
+    \end{bmatrix}
+    \]
+  </div>
+
+  <p>
+    The entry <code>aᵢⱼ</code> tells us whether the corresponding connection
+    exists. We will study adjacency matrices in the next lesson.
+  </p>
+</section>
+
+<section id="swarm">
+  <h2>8. Graph Interpretation for UAV Swarms</h2>
+
+  <p>
+    Suppose UAV <code>i</code> has state:
+  </p>
+
+  <div class="formula">
+    \[ x_i = [p_{x,i}, p_{y,i}, p_{z,i}, v_i, \psi_i]^T \]
+  </div>
+
+  <p>
+    The graph determines which other UAV states it is allowed to use.
+    If:
+  </p>
+
+  <div class="formula">\[ N_1 = \{2, 3\} \]</div>
+
+  <p>
+    UAV 1 may use information from UAVs 2 and 3 in a distributed controller.
+  </p>
+
+  <div class="formula">
+    \[ u_i = f(x_i, x_j, j \in N_i) \]
+  </div>
+
+  <p>
+    In words: UAV <code>i</code> calculates its control using its own state
+    and information received from its neighbors.
+  </p>
+
+  <h3>Direct vs. indirect information flow</h3>
+  <pre>
+1 → 2 → 3 → 4
+  </pre>
+
+  <p>
+    UAV 4 does not have a direct edge from UAV 1, but information from UAV 1
+    can potentially propagate through the path:
+  </p>
+
+  <div class="formula">\[ 1 \rightarrow 2 \rightarrow 3 \rightarrow 4 \]</div>
+
+  <p>
+    This distinction becomes important when studying connectivity and consensus.
+  </p>
+</section>
+
+<section id="important">
+  <h2>9. Important Distinctions</h2>
+
+  <table>
+    <thead>
+      <tr><th>Concept</th><th>Meaning</th><th>UAV interpretation</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Node / vertex</td><td>An agent in the graph</td><td>A UAV</td></tr>
+      <tr><td>Edge</td><td>Relationship between nodes</td><td>Communication/sensing relationship</td></tr>
+      <tr><td>Undirected edge</td><td>Bidirectional relationship</td><td>Both UAVs exchange information</td></tr>
+      <tr><td>Directed edge</td><td>One-way information flow</td><td>One UAV sends information to another</td></tr>
+      <tr><td>In-neighbor</td><td>Information source</td><td>UAV sending information to the current UAV</td></tr>
+      <tr><td>Out-neighbor</td><td>Information destination</td><td>UAV receiving information from the current UAV</td></tr>
+      <tr><td>Degree</td><td>Number of connections</td><td>Number of connected neighbors</td></tr>
+      <tr><td>Connectivity</td><td>Whether nodes can reach each other through paths</td><td>Whether information can propagate through the swarm</td></tr>
+    </tbody>
+  </table>
+
+  <div class="formula">
+    \[
+    \text{Geometry} = \text{where the UAVs are} \\
+    \text{Dynamics} = \text{how the UAVs move} \\
+    \text{Graph} = \text{who interacts with whom}
+    \]
+  </div>
+</section>
+
+<section id="summary">
+  <h2>11. Key Summary</h2>
+  <ol>
+    <li>A graph models relationships among agents.</li>
+    <li><code>G = (V,E)</code> consists of nodes and edges.</li>
+    <li>Undirected edges represent bidirectional relationships.</li>
+    <li>Directed edges represent one-way information flow.</li>
+    <li>In-neighbors are information sources for a node.</li>
+    <li>Out-neighbors are nodes receiving information from a node.</li>
+    <li>Directed graphs have separate in-degree and out-degree.</li>
+    <li>Information can propagate through multi-edge paths.</li>
+    <li>Communication failures can disconnect a swarm.</li>
+    <li>Graph topology determines which neighboring states can enter a distributed controller.</li>
+  </ol>
+
+  <div class="formula">
+    \[ u_i = f(x_i, x_j, j \in N_i) \]
+  </div>
+
+  <p>
+    This equation is the conceptual bridge from graph theory to distributed
+    multi-UAV control.
+  </p>
+</section>
+
+<section id="next">
+  <h2>12. Next Topic</h2>
+  <h3>Adjacency &amp; Degree Matrices</h3>
+  <p>
+    Next, we convert graph drawings into numerical matrices that can be
+    implemented directly in algorithms and software.
+  </p>
+
+  <div class="formula">
+    \[ \text{Graph} \rightarrow \text{Adjacency matrix } A \rightarrow \text{Degree matrix } D \rightarrow \text{Laplacian } L \]
+  </div>
+
+  <p>
+    We will then use these matrices to understand consensus and, eventually,
+    connect the mathematics to ROS 2, PX4, and Gazebo multi-vehicle control.
+  </p>
+</section>
+</main>
+
+<footer>
+  Fixed-Wing Swarm Learning · Part 1 · Graphs &amp; Digraphs
+</footer>
+</body>
+</html>

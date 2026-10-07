@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fixed-Wing Swarm Learning — Adjacency & Degree Matrices</title>
+
+<!-- MathJax renders all LaTeX equations in the browser -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [['\\(','\\)']],
+    displayMath: [['\\[','\\]']]
+  },
+  svg: { fontCache: 'global' }
+};
+</script>
+<script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+<style>
+:root {
+  --bg:#f6f8fb;
+  --card:#fff;
+  --text:#172033;
+  --muted:#5d687a;
+  --accent:#2457d6;
+  --accent-light:#eaf0ff;
+  --border:#dce2ec;
+  --code:#111827;
+  --success:#147a4b;
+}
+* { box-sizing:border-box; }
+html { scroll-behavior:smooth; }
+body {
+  margin:0;
+  font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  line-height:1.7;
+}
+header {
+  background:linear-gradient(135deg,#172554,#2457d6);
+  color:white;
+  padding:56px 20px 44px;
+}
+.wrap, main { max-width:1050px; margin:auto; }
+h1 { margin:0 0 10px; font-size:clamp(2rem,5vw,3.2rem); }
+h2 { font-size:1.8rem; margin-top:0; }
+h3 { margin-top:1.6rem; }
+.subtitle { max-width:800px; color:#dbe6ff; font-size:1.08rem; }
+main { padding:28px 20px 70px; }
+nav, section, .callout {
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:24px;
+  margin:20px 0;
+  box-shadow:0 3px 12px rgba(20,35,70,.05);
+}
+nav h2 { font-size:1.35rem; }
+a { color:var(--accent); text-decoration:none; }
+a:hover { text-decoration:underline; }
+pre {
+  background:var(--code);
+  color:#e5e7eb;
+  padding:18px;
+  border-radius:10px;
+  overflow-x:auto;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+code {
+  background:#eef1f6;
+  padding:2px 5px;
+  border-radius:5px;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+.formula {
+  background:var(--accent-light);
+  border-left:4px solid var(--accent);
+  padding:16px 18px;
+  margin:16px 0;
+  overflow-x:auto;
+}
+.grid {
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+  gap:14px;
+}
+.mini {
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:16px;
+  background:#fbfcff;
+}
+.mini strong { display:block; margin-bottom:5px; }
+.success {
+  border-left:4px solid var(--success);
+  background:#edf9f3;
+  padding:14px 18px;
+  border-radius:8px;
+}
+.warning {
+  border-left:4px solid #c27b00;
+  background:#fff8e8;
+  padding:14px 18px;
+  border-radius:8px;
+}
+table {
+  width:100%;
+  border-collapse:collapse;
+  margin:15px 0;
+}
+th,td {
+  text-align:left;
+  padding:10px;
+  border-bottom:1px solid var(--border);
+}
+th { background:#f1f4f9; }
+.tag {
+  display:inline-block;
+  background:#eaf0ff;
+  color:#204bb4;
+  padding:3px 9px;
+  border-radius:999px;
+  font-size:.82rem;
+  margin:3px;
+}
+footer {
+  text-align:center;
+  color:var(--muted);
+  padding:30px 20px 50px;
+}
+@media print {
+  nav { break-after:page; }
+  section { box-shadow:none; }
+}
+</style>
+</head>
+
+<body>
+<header>
+  <div class="wrap">
+    <h1>Fixed-Wing Swarm Learning</h1>
+    <div class="subtitle">
+      Part 2: <strong>Adjacency &amp; Degree Matrices</strong> —
+      converting UAV communication graphs into numerical objects that can
+      be used in distributed control algorithms.
+    </div>
+    <p>
+      <span class="tag">Adjacency Matrix</span>
+      <span class="tag">Degree Matrix</span>
+      <span class="tag">Directed Graphs</span>
+      <span class="tag">UAV Swarms</span>
+    </p>
+  </div>
+</header>
+
+<main>
+
+<nav id="index">
+<h2>Index</h2>
+<ol>
+  <li><a href="#purpose">Why Matrices?</a></li>
+  <li><a href="#adjacency">Adjacency Matrix</a></li>
+  <li><a href="#entries">Reading Matrix Entries</a></li>
+  <li><a href="#diagonal">Diagonal Entries</a></li>
+  <li><a href="#undirected">Undirected Graphs and Symmetry</a></li>
+  <li><a href="#directed">Directed Graphs / Digraphs</a></li>
+  <li><a href="#orientation">Row/Column Convention</a></li>
+  <li><a href="#weighted">Weighted Adjacency Matrix</a></li>
+  <li><a href="#degree">Degree Matrix</a></li>
+  <li><a href="#degree-from-a">Getting Degree from \(A\)</a></li>
+  <li><a href="#uav">UAV Swarm Interpretation</a></li>
+  <li><a href="#laplacian-preview">Preview: Graph Laplacian</a></li>
+  <li><a href="#summary">Key Summary</a></li>
+</ol>
+</nav>
+
+<section id="purpose">
+<h2>1. Why Do We Need Matrices?</h2>
+
+<p>
+A graph drawing is intuitive for humans, but a swarm-control algorithm
+needs a numerical representation of the communication topology.
+Matrices provide this representation.
+</p>
+
+<pre>
+UAV 1 ─── UAV 2
+  |         |
+  |         |
+UAV 3 ─── UAV 4
+</pre>
+
+<p>
+The graph tells us <strong>who interacts with whom</strong>.
+The adjacency matrix stores the same information numerically.
+</p>
+
+<div class="formula">
+\[
+A \in \mathbb{R}^{N\times N}
+\]
+</div>
+
+<p>
+For a swarm containing \(N\) UAVs, the adjacency matrix normally has
+\(N\) rows and \(N\) columns.
+</p>
+
+<div class="grid">
+  <div class="mini">
+    <strong>Graph</strong>
+    Human-friendly topology representation.
+  </div>
+  <div class="mini">
+    <strong>Adjacency matrix \(A\)</strong>
+    Stores which nodes are connected.
+  </div>
+  <div class="mini">
+    <strong>Degree matrix \(D\)</strong>
+    Stores how many connections each node has.
+  </div>
+</div>
+</section>
+
+<section id="adjacency">
+<h2>2. Adjacency Matrix</h2>
+
+<p>
+For a graph with \(N\) nodes, define the adjacency matrix as
+\(A=[a_{ij}]\).
+For the convention used throughout this course:
+</p>
+
+<div class="formula">
+\[
+a_{ij} =
+\begin{cases}
+1, & \text{if there is an edge } i\rightarrow j,\\
+0, & \text{otherwise.}
+\end{cases}
+\]
+</div>
+
+<p>
+For an unweighted graph, each matrix element is therefore either \(0\)
+or \(1\).
+</p>
+
+<h3>Example</h3>
+
+<p>Consider the undirected UAV topology:</p>
+
+<pre>
+1 ─── 2
+|     |
+|     |
+3 ─── 4
+</pre>
+
+<p>The edges are:</p>
+
+<div class="formula">
+\[
+E=\{(1,2),(1,3),(2,4),(3,4)\}
+\]
+</div>
+
+<p>The adjacency matrix is:</p>
+
+<div class="formula">
+\[
+A=
+\begin{bmatrix}
+0 & 1 & 1 & 0\\
+1 & 0 & 0 & 1\\
+1 & 0 & 0 & 1\\
+0 & 1 & 1 & 0
+\end{bmatrix}
+\]
+</div>
+</section>
+
+<section id="entries">
+<h2>3. Reading Individual Matrix Entries</h2>
+
+<p>
+The element \(a_{ij}\) describes the relationship between node \(i\)
+and node \(j\), using our source-to-destination convention.
+</p>
+
+<div class="formula">
+\[
+a_{12}=1
+\quad\Longrightarrow\quad
+1\rightarrow2
+\]
+</div>
+
+<p>
+Therefore UAV 1 has a direct edge toward UAV 2.
+</p>
+
+<div class="formula">
+\[
+a_{14}=0
+\quad\Longrightarrow\quad
+1\nrightarrow4
+\]
+</div>
+
+<p>
+Therefore there is no direct edge from UAV 1 to UAV 4.
+</p>
+
+<div class="formula">
+\[
+a_{24}=1
+\quad\Longrightarrow\quad
+2\rightarrow4
+\]
+</div>
+
+<p>
+Therefore UAV 2 has a direct edge toward UAV 4.
+</p>
+
+<div class="success">
+<strong>Core rule:</strong>
+Read \(a_{ij}\) as “does information go from node \(i\) to node \(j\)?”
+under the convention used in this course.
+</div>
+</section>
+
+<section id="diagonal">
+<h2>4. Why Is the Diagonal Usually Zero?</h2>
+
+<p>
+The diagonal entries are \(a_{11},a_{22},\ldots,a_{NN}\).
+They describe a node's relationship with itself.
+</p>
+
+<p>
+For an ordinary simple communication graph, a UAV is not considered
+its own neighbor. Therefore:
+</p>
+
+<div class="formula">
+\[
+a_{ii}=0
+\]
+</div>
+
+<p>
+For the four-UAV example:
+</p>
+
+<div class="formula">
+\[
+a_{11}=a_{22}=a_{33}=a_{44}=0
+\]
+</div>
+
+<p>
+This is the usual convention for simple graphs. More specialized
+models can use self-weights, but those are not the basic graph model
+we are using here.
+</p>
+</section>
+
+<section id="undirected">
+<h2>5. Undirected Graphs and Symmetry</h2>
+
+<p>
+For an undirected graph, if node \(i\) is connected to node \(j\),
+then node \(j\) is also connected to node \(i\).
+</p>
+
+<p>Therefore:</p>
+
+<div class="formula">
+\[
+a_{ij}=a_{ji}
+\]
+</div>
+
+<p>and consequently:</p>
+
+<div class="formula">
+\[
+\boxed{A=A^T}
+\]
+</div>
+
+<p>
+The adjacency matrix is symmetric.
+</p>
+
+<p>For example:</p>
+
+<div class="formula">
+\[
+A=
+\begin{bmatrix}
+0&1&1&0\\
+1&0&0&1\\
+1&0&0&1\\
+0&1&1&0
+\end{bmatrix}
+\]
+
+\[
+a_{12}=a_{21}=1
+\]
+
+\[
+a_{14}=a_{41}=0
+\]
+</div>
+
+<div class="success">
+<strong>Recognition rule:</strong>
+A standard unweighted undirected graph has a symmetric adjacency matrix.
+</div>
+</section>
+
+<section id="directed">
+<h2>6. Directed Graphs / Digraphs</h2>
+
+<p>Consider:</p>
+
+<pre>
+1 ───→ 2 ───→ 3
+</pre>
+
+The directed edges are:</p>
+
+<div class="formula">
+\[
+E=\{(1,2),(2,3)\}
+\]
+</div>
+
+<p>Using our convention, the adjacency matrix is:</p>
+
+<div class="formula">
+\[
+A=
+\begin{bmatrix}
+0&1&0\\
+0&0&1\\
+0&0&0
+\end{bmatrix}
+\]
+</div>
+
+<p>Notice:</p>
+
+<div class="formula">
+\[
+a_{12}=1
+\]
+
+\[
+a_{21}=0
+\]
+</div>
+
+<p>
+This is because \(1\rightarrow2\) exists, but \(2\rightarrow1\) does not.
+Therefore:
+</p>
+
+<div class="formula">
+\[
+A\neq A^T
+\]
+</div>
+
+<p>
+for this directed graph.
+</p>
+</section>
+
+<section id="orientation">
+<h2>7. Row/Column Convention — Extremely Important</h2>
+
+<p>
+There are different conventions in graph theory literature. To avoid
+confusion, this course uses:
+</p>
+
+<div class="formula">
+\[
+\boxed{a_{ij}=1\quad\text{means}\quad i\rightarrow j}
+\]
+</div>
+
+<p>Therefore:</p>
+
+<table>
+<thead>
+<tr><th>Matrix element</th><th>Meaning</th></tr>
+</thead>
+<tbody>
+<tr><td>\(a_{12}=1\)</td><td>\(1\rightarrow2\)</td></tr>
+<tr><td>\(a_{23}=1\)</td><td>\(2\rightarrow3\)</td></tr>
+<tr><td>\(a_{31}=1\)</td><td>\(3\rightarrow1\)</td></tr>
+<tr><td>\(a_{14}=0\)</td><td>No direct \(1\rightarrow4\) edge</td></tr>
+</tbody>
+</table>
+
+<div class="warning">
+<strong>Important for implementation:</strong>
+Always check the adjacency convention used by a paper, library, or
+algorithm. Some references define \(a_{ij}\) with the opposite
+orientation. We will keep one consistent convention while deriving
+the swarm-control equations.
+</div>
+</section>
+
+<section id="weighted">
+<h2>8. Weighted Adjacency Matrix</h2>
+
+<p>
+An adjacency matrix does not have to contain only \(0\) and \(1\).
+In a weighted graph, \(a_{ij}\) can represent the strength of a
+relationship.
+</p>
+
+<p>For example:</p>
+
+<div class="formula">
+\[
+A=
+\begin{bmatrix}
+0&0.8&0.3\\
+0.8&0&0.5\\
+0.3&0.5&0
+\end{bmatrix}
+\]
+</div>
+
+<p>Here:</p>
+
+<div class="formula">
+\[
+a_{12}=0.8
+\]
+</div>
+
+<p>
+could represent a communication/control weight between UAV 1 and UAV 2.
+The meaning of the weight depends on the controller design.
+</p>
+
+<p>Possible interpretations include:</p>
+
+<ul>
+<li>communication quality</li>
+<li>confidence in a measurement</li>
+<li>distance-dependent interaction strength</li>
+<li>sensor quality</li>
+<li>control coupling strength</li>
+</ul>
+
+<p>
+In later consensus equations, these weights determine how strongly one
+neighbor influences another.
+</p>
+</section>
+
+<section id="degree">
+<h2>9. Degree Matrix</h2>
+
+<p>
+The adjacency matrix tells us <strong>who is connected to whom</strong>.
+The degree matrix tells us <strong>how many connections each node has</strong>.
+</p>
+
+<p>For the graph:</p>
+
+<pre>
+1 ─── 2
+|     |
+|     |
+3 ─── 4
+</pre>
+
+<p>Each UAV has two neighbors:</p>
+
+<div class="formula">
+\[
+d_1=d_2=d_3=d_4=2
+\]
+</div>
+
+<p>The degree matrix is:</p>
+
+<div class="formula">
+\[
+D=
+\begin{bmatrix}
+2&0&0&0\\
+0&2&0&0\\
+0&0&2&0\\
+0&0&0&2
+\end{bmatrix}
+\]
+</div>
+
+<p>In general:</p>
+
+<div class="formula">
+\[
+\boxed{
+D=\operatorname{diag}(d_1,d_2,\ldots,d_N)
+}
+\]
+</div>
+
+<p>
+The degree matrix is diagonal: its off-diagonal entries are zero.
+</p>
+</section>
+
+<section id="degree-from-a">
+<h2>10. Getting Degree from the Adjacency Matrix</h2>
+
+<p>
+For an undirected unweighted graph, the degree of node \(i\) is the
+sum of row \(i\):
+</p>
+
+<div class="formula">
+\[
+\boxed{
+d_i=\sum_{j=1}^{N}a_{ij}
+}
+\]
+</div>
+
+<p>For:</p>
+
+<div class="formula">
+\[
+A=
+\begin{bmatrix}
+0&1&1&0\\
+1&0&0&1\\
+1&0&0&1\\
+0&1&1&0
+\end{bmatrix}
+\]
+</div>
+
+<p>For UAV 1:</p>
+
+<div class="formula">
+\[
+d_1=0+1+1+0=2
+\]
+</div>
+
+<p>For UAV 2:</p>
+
+<div class="formula">
+\[
+d_2=1+0+0+1=2
+\]
+</div>
+
+<p>Therefore:</p>
+
+<div class="formula">
+\[
+D=
+\begin{bmatrix}
+2&0&0&0\\
+0&2&0&0\\
+0&0&2&0\\
+0&0&0&2
+\end{bmatrix}
+\]
+</div>
+
+<h3>Weighted case</h3>
+
+<p>
+For a weighted graph, the same idea becomes a sum of the weights:
+</p>
+
+<div class="formula">
+\[
+d_i=\sum_{j=1}^{N}a_{ij}
+\]
+</div>
+
+<p>
+So the degree can be interpreted as the total interaction weight of a node.
+</p>
+</section>
+
+<section id="uav">
+<h2>11. UAV Swarm Interpretation</h2>
+
+<p>
+Suppose we have four fixed-wing UAVs:
+</p>
+
+<pre>
+UAV 1 ─── UAV 2
+  |         |
+  |         |
+UAV 3 ─── UAV 4
+</pre>
+
+<p>
+The adjacency matrix describes the communication topology:
+</p>
+
+<div class="formula">
+\[
+A=
+\begin{bmatrix}
+0&1&1&0\\
+1&0&0&1\\
+1&0&0&1\\
+0&1&1&0
+\end{bmatrix}
+\]
+</div>
+
+<p>
+The degree matrix describes how many communication relationships each
+UAV has:
+</p>
+
+<div class="formula">
+\[
+D=
+\begin{bmatrix}
+2&0&0&0\\
+0&2&0&0\\
+0&0&2&0\\
+0&0&0&2
+\end{bmatrix}
+\]
+</div>
+
+<p>
+Suppose UAV \(i\) has state \(x_i\). The graph determines which other
+states can enter a distributed controller.
+</p>
+
+<div class="formula">
+\[
+u_i=f\left(x_i,\;x_j,\;j\in\mathcal N_i\right)
+\]
+</div>
+
+<p>
+Thus the matrices are not just abstract mathematics: they encode the
+information-sharing structure that a swarm-control implementation uses.
+</p>
+</section>
+
+<section id="laplacian-preview">
+<h2>12. Preview: Graph Laplacian</h2>
+
+<p>
+The next major object is the graph Laplacian.
+For the standard undirected graph model:
+</p>
+
+<div class="formula">
+\[
+\boxed{L=D-A}
+\]
+</div>
+
+<p>
+This combines:
+</p>
+
+<ul>
+<li><strong>\(A\)</strong>: who interacts with whom</li>
+<li><strong>\(D\)</strong>: total connection strength at each node</li>
+<li><strong>\(L\)</strong>: a matrix that captures local disagreement between nodes</li>
+</ul>
+
+<p>
+For example, with the previous \(A\) and \(D\):
+</p>
+
+<div class="formula">
+\[
+L=
+\begin{bmatrix}
+2&-1&-1&0\\
+-1&2&0&-1\\
+-1&0&2&-1\\
+0&-1&-1&2
+\end{bmatrix}
+\]
+</div>
+
+<p>
+We will derive this carefully in the next topic rather than treating
+it as a formula to memorize.
+</p>
+</section>
+
+<section id="summary">
+<h2>13. Key Summary</h2>
+
+<table>
+<thead>
+<tr><th>Object</th><th>Purpose</th><th>Key equation</th></tr>
+</thead>
+<tbody>
+<tr>
+<td>Adjacency matrix \(A\)</td>
+<td>Stores graph connections</td>
+<td>\(a_{ij}=1\) if \(i\rightarrow j\)</td>
+</tr>
+<tr>
+<td>Degree \(d_i\)</td>
+<td>Number/total weight of connections at node \(i\)</td>
+<td>\(d_i=\sum_j a_{ij}\)</td>
+</tr>
+<tr>
+<td>Degree matrix \(D\)</td>
+<td>Stores all node degrees on the diagonal</td>
+<td>\(D=\operatorname{diag}(d_1,\ldots,d_N)\)</td>
+</tr>
+<tr>
+<td>Laplacian \(L\)</td>
+<td>Captures graph disagreement structure</td>
+<td>\(L=D-A\)</td>
+</tr>
+</tbody>
+</table>
+
+<div class="success">
+<strong>Core mental model:</strong><br>
+Graph drawing → adjacency matrix \(A\) → degree matrix \(D\) →
+Laplacian \(L\) → consensus and distributed control.
+</div>
+
+<h3>Important convention for this course</h3>
+
+<div class="formula">
+\[
+\boxed{
+a_{ij}=1 \iff i\rightarrow j
+}
+\]
+</div>
+
+<p>
+Keep this convention in mind when answering the upcoming questions.
+</p>
+
+<h3>Next step</h3>
+<p>
+After the 10-question quiz is completed, we will move to:
+</p>
+
+<div class="formula">
+\[
+\boxed{\text{Graph Laplacian}}
+\]
+</div>
+
+<p>
+where we will investigate why \(Lx\) measures disagreement between
+agents and why the Laplacian becomes central to consensus.
+</p>
+</section>
+
+</main>
+
+<footer>
+Fixed-Wing Swarm Learning · Part 2 · Adjacency &amp; Degree Matrices
+</footer>
+</body>
+</html>
