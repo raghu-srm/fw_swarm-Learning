@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fixed-Wing Swarm Learning — Laplacian Eigenvalues</title>
+
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['\\(', '\\)'], ['$', '$']],
+        displayMath: [['\\[', '\\]'], ['$$', '$$']]
+      },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --card: #ffffff;
+      --text: #172033;
+      --muted: #5d687a;
+      --accent: #2457d6;
+      --accent-light: #eaf0ff;
+      --border: #dce2ec;
+      --code: #111827;
+      --success: #147a4b;
+      --warning: #c27b00;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+    }
+
+    header {
+      background: linear-gradient(135deg, #172554, #2457d6);
+      color: white;
+      padding: 56px 20px 44px;
+    }
+
+    .wrap, main {
+      max-width: 1050px;
+      margin: auto;
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: clamp(2rem, 5vw, 3.2rem);
+    }
+
+    h2 {
+      margin-top: 0;
+      font-size: 1.8rem;
+    }
+
+    h3 {
+      margin-top: 1.6rem;
+    }
+
+    .subtitle {
+      max-width: 820px;
+      color: #dbe6ff;
+      font-size: 1.08rem;
+    }
+
+    main {
+      padding: 28px 20px 70px;
+    }
+
+    nav, section, .callout {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px;
+      margin: 20px 0;
+      box-shadow: 0 3px 12px rgba(20, 35, 70, .05);
+    }
+
+    nav h2 { font-size: 1.35rem; }
+
+    a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    a:hover { text-decoration: underline; }
+
+    code, pre {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    code {
+      background: #eef1f6;
+      padding: 2px 5px;
+      border-radius: 5px;
+    }
+
+    pre {
+      background: var(--code);
+      color: #e5e7eb;
+      padding: 18px;
+      border-radius: 10px;
+      overflow-x: auto;
+    }
+
+    .formula {
+      background: var(--accent-light);
+      border-left: 4px solid var(--accent);
+      padding: 16px 18px;
+      margin: 16px 0;
+      overflow-x: auto;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+    }
+
+    .mini {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      background: #fbfcff;
+    }
+
+    .mini strong { display: block; margin-bottom: 5px; }
+
+    .success {
+      border-left: 4px solid var(--success);
+      background: #edf9f3;
+      padding: 14px 18px;
+      border-radius: 8px;
+    }
+
+    .warning {
+      border-left: 4px solid var(--warning);
+      background: #fff8e8;
+      padding: 14px 18px;
+      border-radius: 8px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 15px 0;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    th { background: #f1f4f9; }
+
+    .tag {
+      display: inline-block;
+      background: #eaf0ff;
+      color: #204bb4;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: .82rem;
+      margin: 3px;
+    }
+
+    footer {
+      text-align: center;
+      color: var(--muted);
+      padding: 30px 20px 50px;
+    }
+
+    @media print {
+      nav { break-after: page; }
+      section { box-shadow: none; }
+    }
+  
+  .page-shell {
+    display: grid;
+    grid-template-columns: 280px minmax(0, 1fr);
+    gap: 24px;
+    max-width: 1320px;
+    margin: 0 auto;
+    padding: 28px 20px 70px;
+    align-items: start;
+  }
+  .sidebar {
+    grid-column: 1;
+    position: sticky;
+    top: 20px;
+  }
+  .sidebar nav {
+    position: sticky;
+    top: 20px;
+  }
+  .content {
+    grid-column: 2;
+    min-width: 0;
+  }
+  @media (max-width: 960px) {
+    .page-shell { grid-template-columns: 1fr; }
+    .sidebar, .sidebar nav { position: static; }
+    .sidebar, .content { grid-column: 1; }
+  }
+</style>
+</head>
+
+<body>
+  <header>
+    <div class="wrap">
+      <h1>Fixed-Wing Swarm Learning</h1>
+      <div class="subtitle">
+        Part 4: <strong>Laplacian Eigenvalues</strong> — how the graph spectrum reveals consensus speed,
+        connectivity, and the slowest disagreement modes in a swarm.
+      </div>
+      <p>
+        <span class="tag">Laplacian</span>
+        <span class="tag">Eigenvalues</span>
+        <span class="tag">Consensus</span>
+        <span class="tag">UAV Swarms</span>
+      </p>
+    </div>
+  </header>
+
+  <div class="page-shell" style="display:grid;grid-template-columns:280px minmax(0,1fr);gap:24px;max-width:1320px;margin:0 auto;padding:28px 20px 70px;align-items:start;">
+    <aside class="sidebar" style="grid-column:1;position:sticky;top:20px;">
+      <nav id="index" style="position:sticky;top:20px;">
+        <h2>Index</h2>
+        <ol>
+          <li><a href="#why">Why eigenvalues matter</a></li>
+          <li><a href="#intuition">Eigenvalue and eigenvector intuition</a></li>
+          <li><a href="#laplacian-eigs">Laplacian eigenvalues</a></li>
+          <li><a href="#zero-eig">The zero eigenvalue</a></li>
+          <li><a href="#lambda2">Algebraic connectivity: \(\lambda_2\)</a></li>
+          <li><a href="#examples">Worked examples</a></li>
+          <li><a href="#consensus">Consensus dynamics</a></li>
+          <li><a href="#slowest">Slowest disagreement mode</a></li>
+          <li><a href="#largest">Largest eigenvalue \(\lambda_N\)</a></li>
+          <li><a href="#spread">Eigenvalue spread</a></li>
+          <li><a href="#swarm-int">Fixed-wing interpretation</a></li>
+          <li><a href="#weighted">Weighted graphs</a></li>
+          <li><a href="#directed">Directed graphs</a></li>
+          <li><a href="#lessons">Practical design lessons</a></li>
+          <li><a href="#summary">Formula sheet</a></li>
+        </ol>
+      </nav>
+    </aside>
+
+    <main class="content" style="grid-column:2;min-width:0;">
+      <section id="why">
+      <h2>1. Why Laplacian Eigenvalues Matter</h2>
+      <p>
+        The graph Laplacian tells us how each agent differs from its neighbors. Its eigenvalues tell us how those disagreement patterns evolve under consensus dynamics.
+      </p>
+      <p>
+        For a swarm, this gives a bridge from a communication graph to a dynamical statement such as:
+      </p>
+      <div class="success">
+        <strong>How quickly can information or agreement propagate through the swarm?</strong>
+      </div>
+      <p>
+        This matters when designing a fixed-wing formation because communication topology affects how rapidly spacing, heading, velocity, or other distributed variables can synchronize.
+      </p>
+    </section>
+
+    <section id="intuition">
+      <h2>2. Eigenvalue and Eigenvector Intuition</h2>
+      <p>For a matrix \(A\), an eigenvector \(v\) and eigenvalue \(\lambda\) satisfy</p>
+      <div class="formula">
+        \[
+        Av = \lambda v
+        \]
+      </div>
+      <p>
+        An eigenvector is a direction that the matrix does not rotate into a different direction; it only scales it by \(\lambda\).
+      </p>
+      <p>
+        For a Laplacian \(L\), different eigenvectors represent different spatial disagreement patterns across the agents. Their eigenvalues quantify the strength of the Laplacian response to those patterns.
+      </p>
+    </section>
+
+    <section id="laplacian-eigs">
+      <h2>3. Laplacian Eigenvalues</h2>
+      <p>For an undirected graph with \(N\) nodes, the Laplacian is</p>
+      <div class="formula">
+        \[
+        L = D - A
+        \]
+      </div>
+      <p>The eigenvalues are obtained from</p>
+      <div class="formula">
+        \[
+        \det(L - \lambda I) = 0
+        \]
+      </div>
+      <p>For an undirected graph, the Laplacian is symmetric, so its eigenvalues are real and can be ordered as</p>
+      <div class="formula">
+        \[
+        0 = \lambda_1 \leq \lambda_2 \leq \cdots \leq \lambda_N
+        \]
+      </div>
+      <p>For an ordinary undirected graph, all Laplacian eigenvalues are non-negative.</p>
+    </section>
+
+    <section id="zero-eig">
+      <h2>4. The Zero Eigenvalue</h2>
+      <p>The all-ones vector</p>
+      <div class="formula">
+        \[
+        \mathbf{1} = [1,1,\ldots,1]^T
+        \]
+      </div>
+      <p>satisfies</p>
+      <div class="formula">
+        \[
+        L\mathbf{1}=0
+        \]
+      </div>
+      <p>Therefore \(0\) is always a Laplacian eigenvalue for a graph with at least one node.</p>
+      <p>
+        Why? Each Laplacian row contains the degree on the diagonal and negative neighbor connections off-diagonal. Multiplying by a vector whose entries are all equal makes the neighbor differences cancel.
+      </p>
+      <div class="success">
+        If every aircraft has exactly the same state value, there is no disagreement for consensus to remove. The Laplacian therefore produces zero.
+      </div>
+    </section>
+
+    <section id="lambda2">
+      <h2>5. Algebraic Connectivity: \(\lambda_2\)</h2>
+      <p>The second-smallest eigenvalue is called the <strong>algebraic connectivity</strong> for an undirected graph:</p>
+      <div class="formula">
+        \[
+        \lambda_2
+        \]
+      </div>
+      <p>It is one of the most important quantities in consensus and network analysis.</p>
+      <p>The key result is:</p>
+      <ul>
+        <li>\(\lambda_2 = 0\) if the graph is disconnected.</li>
+        <li>\(\lambda_2 > 0\) if the graph is connected.</li>
+      </ul>
+      <p>Thus \(\lambda_2\) is a mathematical indicator of whether the swarm communication network has a single connected component.</p>
+
+      <h3>Why \(\lambda_2\) is useful</h3>
+      <p>
+        A larger \(\lambda_2\) generally indicates stronger network connectivity. Informally, the swarm has fewer or weaker bottlenecks between groups of aircraft.
+      </p>
+      <p>
+        Consider two clusters of aircraft connected by only one weak communication link. The network may technically be connected, but information can propagate between the clusters slowly. Such a topology tends to have a small \(\lambda_2\).
+      </p>
+    </section>
+
+    <section id="examples">
+      <h2>6. Simple Examples</h2>
+
+      <h3>Example A: Two connected aircraft</h3>
+      <p>For two nodes connected by one edge,</p>
+      <div class="formula">
+        \[
+        L = \begin{bmatrix}1 & -1 \\ -1 & 1\end{bmatrix}
+        \]
+      </div>
+      <p>The eigenvalues are</p>
+      <div class="formula">
+        \[
+        \lambda_1 = 0, \qquad \lambda_2 = 2
+        \]
+      </div>
+      <p>There is only one disagreement mode: one aircraft is above the other in state value.</p>
+
+      <h3>Example B: Three-node path</h3>
+      <p>For the path \(1-2-3\),</p>
+      <div class="formula">
+        \[
+        L = \begin{bmatrix}1 & -1 & 0 \\ -1 & 2 & -1 \\ 0 & -1 & 1\end{bmatrix}
+        \]
+      </div>
+      <p>The eigenvalues are</p>
+      <div class="formula">
+        \[
+        \lambda_1 = 0, \qquad \lambda_2 = 1, \qquad \lambda_3 = 3
+        \]
+      </div>
+      <p>The graph is connected because \(\lambda_2>0\).</p>
+
+      <h3>Example C: Three-node complete graph</h3>
+      <p>Every aircraft communicates directly with every other aircraft. The Laplacian is</p>
+      <div class="formula">
+        \[
+        L = \begin{bmatrix}2 & -1 & -1 \\ -1 & 2 & -1 \\ -1 & -1 & 2\end{bmatrix}
+        \]
+      </div>
+      <p>The eigenvalues are</p>
+      <div class="formula">
+        \[
+        \lambda_1 = 0, \qquad \lambda_2 = 3, \qquad \lambda_3 = 3
+        \]
+      </div>
+      <p>The larger \(\lambda_2\) reflects the stronger connectivity compared with the three-node path.</p>
+    </section>
+
+    <section id="consensus">
+      <h2>7. Consensus Dynamics and Eigenvalues</h2>
+      <p>Consider continuous-time consensus:</p>
+      <div class="formula">
+        \[
+        \dot{x} = -Lx
+        \]
+      </div>
+      <p>Here \(x \in \mathbb{R}^N\) contains the state of all agents.</p>
+      <p>Suppose \(v_i\) is a Laplacian eigenvector:</p>
+      <div class="formula">
+        \[
+        Lv_i = \lambda_i v_i
+        \]
+      </div>
+      <p>If the state contains a component along \(v_i\), then under consensus its evolution is</p>
+      <div class="formula">
+        \[
+        \dot{z}_i = -\lambda_i z_i
+        \]
+      </div>
+      <p>so</p>
+      <div class="formula">
+        \[
+        z_i(t) = z_i(0)e^{-\lambda_i t}
+        \]
+      </div>
+      <div class="success">
+        <strong>Interpretation:</strong> each nonzero Laplacian eigenvalue corresponds to a disagreement mode whose amplitude decays exponentially at a rate related to that eigenvalue.
+      </div>
+    </section>
+
+    <section id="slowest">
+      <h2>8. Why \(\lambda_2\) Controls the Slowest Disagreement</h2>
+      <p>
+        The zero eigenvalue corresponds to the consensus direction \(\mathbf{1}\). The remaining eigenvalues describe disagreement modes.
+      </p>
+      <p>
+        The slowest decaying disagreement mode is associated with the smallest nonzero eigenvalue, \(\lambda_2\). Hence, in the standard connected undirected consensus model, a larger \(\lambda_2\) means a faster worst-case asymptotic decay of disagreement.
+      </p>
+      <p>A common bound is</p>
+      <div class="formula">
+        \[
+        \|x_\perp(t)\| \le e^{-\lambda_2 t}\|x_\perp(0)\|
+        \]
+      </div>
+      <p>where \(x_\perp\) denotes the component orthogonal to the consensus vector.</p>
+    </section>
+
+    <section id="largest">
+      <h2>9. Largest Eigenvalue \(\lambda_N\)</h2>
+      <p>
+        The largest Laplacian eigenvalue also matters. It characterizes a fast network mode and is relevant to numerical conditioning, convergence-rate bounds, and discrete-time consensus stability.
+      </p>
+      <p>For discrete-time consensus such as</p>
+      <div class="formula">
+        \[
+        x[k+1] = (I-\alpha L)x[k]
+        \]
+      </div>
+      <p>the eigenvalues of the update matrix are</p>
+      <div class="formula">
+        \[
+        \mu_i = 1 - \alpha\lambda_i
+        \]
+      </div>
+      <p>For convergence of all disagreement modes, a typical undirected-graph condition is</p>
+      <div class="formula">
+        \[
+        |1 - \alpha\lambda_i| < 1, \quad i=2,\ldots,N
+        \]
+      </div>
+      <p>A sufficient condition is</p>
+      <div class="formula">
+        \[
+        0 < \alpha < \frac{2}{\lambda_N}
+        \]
+      </div>
+      <p>Thus \(\lambda_N\) can impose an upper limit on the consensus step size.</p>
+    </section>
+
+    <section id="spread">
+      <h2>10. Eigenvalue Spread</h2>
+      <p>The ratio</p>
+      <div class="formula">
+        \[
+        \frac{\lambda_N}{\lambda_2}
+        \]
+      </div>
+      <p>is sometimes used as a spectral condition-number-like measure for the disagreement dynamics.</p>
+      <p>
+        A small ratio generally indicates that the nonzero modes are more tightly grouped; a large ratio indicates that some modes can be much faster than others.
+      </p>
+      <p>
+        This matters for distributed algorithms because a network may have a slow mode controlled by \(\lambda_2\), while another mode is much faster and is constrained by \(\lambda_N\).
+      </p>
+    </section>
+
+    <section id="swarm-int">
+      <h2>11. Fixed-Wing Swarm Interpretation</h2>
+      <p>
+        Imagine \(N\) fixed-wing UAVs exchanging a scalar state \(x_i\), such as a commanded speed correction or another consensus variable:
+      </p>
+      <div class="formula">
+        \[
+        \dot{x}_i = \sum_{j\in\mathcal{N}_i}(x_j-x_i)
+        \]
+      </div>
+      <p>In vector form:</p>
+      <div class="formula">
+        \[
+        \dot{x} = -Lx
+        \]
+      </div>
+      <p>If the communication graph is connected, the aircraft asymptotically agree:</p>
+      <div class="formula">
+        \[
+        x_i(t) \rightarrow x_{\mathrm{avg}}
+        \]
+      </div>
+      <p>where for the standard undirected unweighted consensus model</p>
+      <div class="formula">
+        \[
+        x_{\mathrm{avg}} = \frac{1}{N}\sum_{i=1}^N x_i(0)
+        \]
+      </div>
+      <p>The value of \(\lambda_2\) tells us how strongly the topology supports the slowest disagreement-removal process.</p>
+
+      <h3>Formation-control intuition</h3>
+      <p>
+        Suppose a formation is split into a leader-side group and a follower-side group. If the two groups have only one communication connection, that connection can become a spectral bottleneck. Increasing useful cross-group communication can increase algebraic connectivity and improve information propagation.
+      </p>
+
+      <div class="warning">
+        <strong>Important:</strong> a large \(\lambda_2\) does not automatically mean the aircraft can safely fly that formation. It says something about graph connectivity, not aerodynamic feasibility, collision avoidance, sensing range, packet loss, or controller performance.
+      </div>
+    </section>
+
+    <section id="weighted">
+      <h2>12. Weighted Graphs</h2>
+      <p>If communication links have weights \(w_{ij} \ge 0\), then</p>
+      <div class="formula">
+        \[
+        L = D - W
+        \]
+      </div>
+      <p>where</p>
+      <div class="formula">
+        \[
+        D_{ii} = \sum_j w_{ij}
+        \]
+      </div>
+      <p>
+        Now \(\lambda_2\) depends not only on who communicates with whom, but also on the strength assigned to each communication relationship.
+      </p>
+      <p>
+        For a fixed-wing swarm, a weight might represent communication quality, confidence, or a controller-selected coupling strength. The physical meaning depends on how the control law defines the weight.
+      </p>
+    </section>
+
+    <section id="directed">
+      <h2>13. Directed Graphs — Caveat</h2>
+      <p>For directed communication graphs, the Laplacian is generally not symmetric. Therefore, the clean ordering</p>
+      <div class="formula">
+        \[
+        0 = \lambda_1 \le \lambda_2 \le \cdots \le \lambda_N
+        \]
+      </div>
+      <p>with real eigenvalues is not generally guaranteed.</p>
+      <p>
+        For directed consensus, connectivity concepts such as directed spanning trees and the structure of the zero eigenvalue become important. The simple undirected \(\lambda_2\) interpretation should not be applied blindly.
+      </p>
+    </section>
+
+    <section id="lessons">
+      <h2>14. Practical Swarm Design Lessons</h2>
+      <table>
+        <tr>
+          <th>Quantity</th>
+          <th>Interpretation</th>
+          <th>Swarm relevance</th>
+        </tr>
+        <tr><td>\(\lambda_1 = 0\)</td><td>Consensus direction</td><td>All aircraft have equal state</td></tr>
+        <tr><td>\(\lambda_2\)</td><td>Algebraic connectivity</td><td>Connectivity and slowest disagreement mode</td></tr>
+        <tr><td>\(\lambda_N\)</td><td>Largest spectral mode</td><td>Discrete-time step-size/stability constraints</td></tr>
+        <tr><td>\(\lambda_N/\lambda_2\)</td><td>Spectral spread</td><td>Relative separation of fast and slow modes</td></tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>15. Worked Spectral Example</h2>
+      <p>Take</p>
+      <div class="formula">
+        \[
+        L = \begin{bmatrix}2 & -1 & -1 \\ -1 & 1 & 0 \\ -1 & 0 & 1\end{bmatrix}
+        \]
+      </div>
+      <p>
+        The graph is a three-aircraft star: aircraft 1 communicates with aircraft 2 and 3, while 2 and 3 do not directly communicate.
+      </p>
+      <p>Its eigenvalues are</p>
+      <div class="formula">
+        \[
+        \lambda = \{0, 1, 3\}
+        \]
+      </div>
+      <p>Therefore:</p>
+      <ul>
+        <li>\(\lambda_1 = 0\): the consensus direction.</li>
+        <li>\(\lambda_2 = 1 > 0\): the graph is connected.</li>
+        <li>\(\lambda_N = 3\): the fastest disagreement mode has eigenvalue 3.</li>
+      </ul>
+      <p>Under \(\dot{x}=-Lx\), the slowest disagreement decays with rate 1, while the fastest mode decays with rate 3.</p>
+    </section>
+
+    <section>
+      <h2>16. Connection to the Next Topics</h2>
+      <p>
+        Laplacian eigenvalues are the bridge from static graph structure to dynamic consensus behavior. The next conceptual step is to understand <strong>continuous-time consensus</strong> in detail, including its solution, invariants, convergence, and stability.
+      </p>
+    </section>
+
+    <section id="summary">
+      <h2>17. Formula Sheet</h2>
+      <ul>
+        <li>Laplacian: \(L = D - A\)</li>
+        <li>Eigenvalue equation: \(Lv = \lambda v\)</li>
+        <li>Consensus eigenvector: \(L\mathbf{1}=0\)</li>
+        <li>Undirected ordering: \(0 = \lambda_1 \le \lambda_2 \le \cdots \le \lambda_N\)</li>
+        <li>Connected iff \(\lambda_2 > 0\) for an undirected graph</li>
+        <li>Consensus dynamics: \(\dot{x} = -Lx\)</li>
+        <li>Mode decay: \(e^{-\lambda_i t}\)</li>
+        <li>Slowest disagreement mode: \(\lambda_2\)</li>
+        <li>Discrete update: \(x[k+1] = (I - \alpha L)x[k]\)</li>
+        <li>Typical discrete-time stability condition: \(0 < \alpha < 2/\lambda_N\)</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>18. Mental Model</h2>
+      <div class="success">
+        <strong>Remember this chain:</strong><br>
+        Graph topology → Laplacian \(L\) → eigenvalues \(\lambda_i\) → disagreement modes → decay rates → consensus performance.
+      </div>
+    </section>
+  </main>
+</div>
+<footer>
+    Fixed-Wing Swarm Learning — Part 4
+  </footer>
+</body>
+</html>

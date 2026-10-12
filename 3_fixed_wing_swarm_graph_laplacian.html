@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fixed-Wing Swarm Learning — Graph Laplacian</title>
+<script>
+window.MathJax={tex:{inlineMath:[['\\(','\\)']],displayMath:[['\\[','\\]']]},svg:{fontCache:'global'}};
+</script>
+<script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+<style>
+body{margin:0;font-family:system-ui,sans-serif;background:#f6f8fb;color:#172033;line-height:1.7}
+header{background:linear-gradient(135deg,#172554,#2457d6);color:white;padding:50px 20px}
+main,.wrap{max-width:1050px;margin:auto}main{padding:25px 20px 60px}
+nav,section{background:white;border:1px solid #dce2ec;border-radius:14px;padding:24px;margin:20px 0}
+h1{font-size:clamp(2rem,5vw,3.2rem);margin:0 0 10px}h2{font-size:1.8rem}
+a{color:#2457d6;text-decoration:none}.subtitle{color:#dbe6ff}
+pre{background:#111827;color:#e5e7eb;padding:18px;border-radius:10px;overflow:auto}
+.formula{background:#eaf0ff;border-left:4px solid #2457d6;padding:14px 18px;margin:16px 0;overflow:auto}
+.success{border-left:4px solid #147a4b;background:#edf9f3;padding:14px 18px;border-radius:8px}
+.warning{border-left:4px solid #c27b00;background:#fff8e8;padding:14px 18px;border-radius:8px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+.mini{border:1px solid #dce2ec;border-radius:10px;padding:16px;background:#fbfcff}
+.mini strong{display:block}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:10px;border-bottom:1px solid #dce2ec}th{background:#f1f4f9}
+.tag{display:inline-block;background:#eaf0ff;color:#204bb4;padding:3px 9px;border-radius:999px;font-size:.82rem;margin:3px}
+footer{text-align:center;color:#5d687a;padding:30px}
+
+  .page-shell {
+    display: grid;
+    grid-template-columns: 280px minmax(0, 1fr);
+    gap: 24px;
+    max-width: 1320px;
+    margin: 0 auto;
+    padding: 28px 20px 70px;
+    align-items: start;
+  }
+  .sidebar {
+    grid-column: 1;
+    position: sticky;
+    top: 20px;
+  }
+  .sidebar nav {
+    position: sticky;
+    top: 20px;
+  }
+  .content {
+    grid-column: 2;
+    min-width: 0;
+  }
+  @media (max-width: 960px) {
+    .page-shell { grid-template-columns: 1fr; }
+    .sidebar, .sidebar nav { position: static; }
+    .sidebar, .content { grid-column: 1; }
+  }
+</style>
+</head>
+<body>
+<header><div class="wrap">
+<h1>Fixed-Wing Swarm Learning</h1>
+<div class="subtitle">Part 3: <strong>Graph Laplacian</strong> — deriving \(L=D-A\) and understanding why the Laplacian measures disagreement between connected UAVs.</div>
+<p><span class="tag">Graph Laplacian</span><span class="tag">D − A</span><span class="tag">Consensus</span><span class="tag">UAV Swarms</span></p>
+</div></header>
+<div class="page-shell" style="display:grid;grid-template-columns:280px minmax(0,1fr);gap:24px;max-width:1320px;margin:0 auto;padding:28px 20px 70px;align-items:start;">
+  <aside class="sidebar" style="grid-column:1;position:sticky;top:20px;">
+    <nav style="position:sticky;top:20px;">
+<h2>Index</h2>
+<ol>
+<li><a href="#motivation">Why the Laplacian?</a></li>
+<li><a href="#recap">Adjacency and Degree Recap</a></li>
+<li><a href="#definition">Definition of \(L\)</a></li>
+<li><a href="#construction">Constructing \(L\)</a></li>
+<li><a href="#entries">Meaning of Laplacian Entries</a></li>
+<li><a href="#lx">What Does \(Lx\) Mean?</a></li>
+<li><a href="#disagreement">Laplacian as Disagreement</a></li>
+<li><a href="#example">Numerical UAV Example</a></li>
+<li><a href="#properties">Important Properties</a></li>
+<li><a href="#energy">Laplacian Quadratic Form</a></li>
+<li><a href="#consensus">Consensus Preview</a></li>
+<li><a href="#directed">Directed-Graph Note</a></li>
+<li><a href="#summary">Key Takeaways</a></li>
+</ol>
+</nav>
+  </aside>
+  <main class="content" style="grid-column:2;min-width:0;">
+<section id="motivation"><h2>1. Why the Laplacian?</h2>
+<p>The adjacency matrix \(A\) tells us <strong>who is connected to whom</strong>. The degree matrix \(D\) tells us <strong>how much total connection each node has</strong>. Swarm control additionally needs to know how different a UAV is from its neighbors.</p>
+<div class="formula">\[\boxed{\text{Laplacian = local disagreement structure}}\]</div>
+<p>For a standard undirected weighted graph:</p>
+<div class="formula">\[\boxed{L=D-A}\]</div>
+</section>
+
+<section id="recap"><h2>2. Adjacency and Degree Recap</h2>
+<pre>
+UAV 1 ─── UAV 2
+  |         |
+  |         |
+UAV 3 ─── UAV 4
+</pre>
+<div class="formula">
+\[
+A=\begin{bmatrix}0&1&1&0\\1&0&0&1\\1&0&0&1\\0&1&1&0\end{bmatrix},
+\qquad
+D=\begin{bmatrix}2&0&0&0\\0&2&0&0\\0&0&2&0\\0&0&0&2\end{bmatrix}
+\]
+</div>
+<p>The Laplacian is obtained by subtracting \(A\) from \(D\).</p>
+</section>
+
+<section id="definition"><h2>3. Definition of the Graph Laplacian</h2>
+<div class="formula">\[\boxed{L=D-A}\]</div>
+<p>Element by element, for the standard undirected weighted case:</p>
+<div class="formula">
+\[
+L_{ij}=
+\begin{cases}
+d_i,&i=j,\\
+-a_{ij},&i\ne j.
+\end{cases}
+\]
+</div>
+<p>The diagonal contains node degrees; connected off-diagonal entries contain negative adjacency weights.</p>
+</section>
+
+<section id="construction"><h2>4. Constructing \(L\) Step by Step</h2>
+<p>Consider:</p>
+<div class="formula">\[
+A=\begin{bmatrix}0&1&1\\1&0&0\\1&0&0\end{bmatrix}
+\]</div>
+<p>Degrees:</p>
+<div class="formula">\[
+d_1=2,\qquad d_2=1,\qquad d_3=1
+\]</div>
+<p>Thus:</p>
+<div class="formula">\[
+D=\begin{bmatrix}2&0&0\\0&1&0\\0&0&1\end{bmatrix}
+\]</div>
+<p>Therefore:</p>
+<div class="formula">\[
+L=D-A=
+\begin{bmatrix}
+2&-1&-1\\
+-1&1&0\\
+-1&0&1
+\end{bmatrix}
+\]</div>
+</section>
+
+<section id="entries"><h2>5. Meaning of Laplacian Entries</h2>
+<div class="formula">\[
+L=\begin{bmatrix}2&-1&-1\\-1&1&0\\-1&0&1\end{bmatrix}
+\]</div>
+<p>For UAV 1:</p>
+<div class="formula">\[L_{11}=2=d_1\]</div>
+<p>It has two neighbors. The entries \(L_{12}=-1\) and \(L_{13}=-1\) show coupling to those neighbors. Since \(L_{23}=0\), UAVs 2 and 3 have no direct connection.</p>
+</section>
+
+<section id="lx"><h2>6. What Does \(Lx\) Mean?</h2>
+<p>Let each UAV have a scalar state \(x_i\), such as velocity, heading error, altitude error, or a position coordinate. Stack the states:</p>
+<div class="formula">\[
+x=\begin{bmatrix}x_1\\x_2\\x_3\end{bmatrix}
+\]</div>
+<p>Then:</p>
+<div class="formula">
+\[
+Lx=
+\begin{bmatrix}
+2x_1-x_2-x_3\\
+-x_1+x_2\\
+-x_1+x_3
+\end{bmatrix}
+=
+\begin{bmatrix}
+(x_1-x_2)+(x_1-x_3)\\
+x_2-x_1\\
+x_3-x_1
+\end{bmatrix}
+\]
+</div>
+<p>Each component compares a UAV's state with the states of its neighbors.</p>
+</section>
+
+<section id="disagreement"><h2>7. Laplacian as Local Disagreement</h2>
+<p>For a general undirected weighted graph:</p>
+<div class="formula">\[
+\boxed{(Lx)_i=\sum_{j\in\mathcal N_i}a_{ij}(x_i-x_j)}
+\]</div>
+<p>This is one of the central equations in distributed swarm control.</p>
+<div class="success"><strong>Interpretation:</strong> \((Lx)_i\) is the weighted sum of the differences between UAV \(i\)'s state and its neighbors' states.</div>
+<p>If \(x_i=x_j\) for every neighbor \(j\), then:</p>
+<div class="formula">\[(Lx)_i=0\]</div>
+</section>
+
+<section id="example"><h2>8. Numerical UAV Example</h2>
+<pre>
+      UAV 2
+       /
+      /
+UAV 1
+      \
+       \
+      UAV 3
+</pre>
+<p>Let:</p>
+<div class="formula">\[
+x_1=10,\qquad x_2=14,\qquad x_3=8
+\]</div>
+<p>For UAV 1:</p>
+<div class="formula">\[
+(Lx)_1=(10-14)+(10-8)=-2
+\]</div>
+<p>For UAV 2:</p>
+<div class="formula">\[
+(Lx)_2=14-10=4
+\]</div>
+<p>For UAV 3:</p>
+<div class="formula">\[
+(Lx)_3=8-10=-2
+\]</div>
+<p>Therefore:</p>
+<div class="formula">\[
+Lx=\begin{bmatrix}-2\\4\\-2\end{bmatrix}
+\]</div>
+<p>The result is a vector of local disagreement values.</p>
+</section>
+
+<section id="properties"><h2>9. Important Properties</h2>
+<h3>Rows sum to zero</h3>
+<div class="formula">\[\boxed{L\mathbf1=0}\]</div>
+<p>where \(\mathbf1=[1,1,\ldots,1]^T\).</p>
+<h3>Perfect agreement gives zero</h3>
+<p>If \(x=c\mathbf1\), then:</p>
+<div class="formula">\[
+Lx=L(c\mathbf1)=cL\mathbf1=0
+\]</div>
+<h3>Undirected Laplacian is symmetric</h3>
+<p>If \(A=A^T\), then \(L=L^T\).</p>
+<h3>Connectivity is encoded in \(L\)</h3>
+<p>The Laplacian contains information about network connectivity. Later, its eigenvalues will reveal this more precisely.</p>
+</section>
+
+<section id="energy"><h2>10. Laplacian Quadratic Form</h2>
+<p>For an undirected weighted graph:</p>
+<div class="formula">
+\[
+\boxed{x^TLx=
+\frac12\sum_{i=1}^{N}\sum_{j=1}^{N}a_{ij}(x_i-x_j)^2}
+\]
+</div>
+<p>Because it is a sum of squared differences:</p>
+<div class="formula">\[
+\boxed{x^TLx\ge0}
+\]</div>
+<div class="success"><strong>Interpretation:</strong> \(x^TLx\) measures the total disagreement energy in the network.</div>
+<p>If all connected UAVs have the same state, every difference is zero and \(x^TLx=0\).</p>
+</section>
+
+<section id="consensus"><h2>11. Preview: Continuous-Time Consensus</h2>
+<p>A basic distributed consensus law is:</p>
+<div class="formula">\[\boxed{\dot{x}=-Lx}\]</div>
+<p>For UAV \(i\):</p>
+<div class="formula">
+\[
+\dot{x}_i
+=-\sum_{j\in\mathcal N_i}a_{ij}(x_i-x_j)
+=\sum_{j\in\mathcal N_i}a_{ij}(x_j-x_i)
+\]
+</div>
+<p>If a neighbor has a larger state, it pulls the UAV upward; if a neighbor has a smaller state, it pulls it downward.</p>
+<div class="success"><strong>This is the mathematical seed of distributed consensus.</strong></div>
+</section>
+
+<section id="directed"><h2>12. Directed-Graph Note</h2>
+<p>For directed graphs, the precise Laplacian depends on the adjacency convention and whether in-degree or out-degree is used. Since this course uses:</p>
+<div class="formula">\[
+a_{ij}>0\iff i\rightarrow j
+\]</div>
+<p>we will treat directed-graph Laplacians carefully when we reach <strong>Directed-Graph Consensus</strong>.</p>
+<div class="warning"><strong>Do not memorize a directed Laplacian blindly.</strong> First establish the edge convention and degree convention.</div>
+</section>
+
+<section id="summary"><h2>13. Key Takeaways</h2>
+<div class="grid">
+<div class="mini"><strong>Adjacency</strong>\(A\) describes who interacts with whom.</div>
+<div class="mini"><strong>Degree</strong>\(D\) describes total connection weight at each node.</div>
+<div class="mini"><strong>Laplacian</strong>\(L=D-A\).</div>
+<div class="mini"><strong>Disagreement</strong>\((Lx)_i=\sum_j a_{ij}(x_i-x_j)\).</div>
+</div>
+<div class="formula">
+\[
+\boxed{L=D-A}
+\qquad
+\boxed{(Lx)_i=\sum_{j\in\mathcal N_i}a_{ij}(x_i-x_j)}
+\qquad
+\boxed{L\mathbf1=0}
+\qquad
+\boxed{\dot{x}=-Lx}
+\]
+</div>
+<p>The learning chain is:</p>
+<div class="formula">
+\[
+\boxed{\text{Graph}\rightarrow A,D\rightarrow L\rightarrow\text{disagreement}\rightarrow\text{consensus}}
+\]</div>
+</section>
+</main>
+</div>
+<footer>Fixed-Wing Swarm Learning · Part 3 · Graph Laplacian</footer>
+</body>
+</html>

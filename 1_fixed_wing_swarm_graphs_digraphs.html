@@ -143,6 +143,34 @@
     nav { break-after: page; }
     section { box-shadow: none; }
   }
+
+  .page-shell {
+    display: grid;
+    grid-template-columns: 280px minmax(0, 1fr);
+    gap: 24px;
+    max-width: 1320px;
+    margin: 0 auto;
+    padding: 28px 20px 70px;
+    align-items: start;
+  }
+  .sidebar {
+    grid-column: 1;
+    position: sticky;
+    top: 20px;
+  }
+  .sidebar nav {
+    position: sticky;
+    top: 20px;
+  }
+  .content {
+    grid-column: 2;
+    min-width: 0;
+  }
+  @media (max-width: 960px) {
+    .page-shell { grid-template-columns: 1fr; }
+    .sidebar, .sidebar nav { position: static; }
+    .sidebar, .content { grid-column: 1; }
+  }
 </style>
 </head>
 
@@ -160,8 +188,9 @@
   </div>
 </header>
 
-<main>
-<nav id="index">
+<div class="page-shell" style="display:grid;grid-template-columns:280px minmax(0,1fr);gap:24px;max-width:1320px;margin:0 auto;padding:28px 20px 70px;align-items:start;">
+  <aside class="sidebar" style="grid-column:1;position:sticky;top:20px;">
+    <nav id="index" style="position:sticky;top:20px;">
   <h2>Index</h2>
   <ol>
     <li><a href="#big-picture">Big Picture</a></li>
@@ -177,7 +206,8 @@
     <li><a href="#next">Next Topic</a></li>
   </ol>
 </nav>
-
+  </aside>
+  <main class="content" style="grid-column:2;min-width:0;">
 <section id="big-picture">
   <h2>1. Big Picture</h2>
   <p>
@@ -517,7 +547,7 @@ UAV 3 ---- UAV 4
   </p>
 </section>
 </main>
-
+</div>
 <footer>
   Fixed-Wing Swarm Learning · Part 1 · Graphs &amp; Digraphs
 </footer>

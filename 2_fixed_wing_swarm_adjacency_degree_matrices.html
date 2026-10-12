@@ -134,6 +134,34 @@ footer {
   nav { break-after:page; }
   section { box-shadow:none; }
 }
+
+  .page-shell {
+    display: grid;
+    grid-template-columns: 280px minmax(0, 1fr);
+    gap: 24px;
+    max-width: 1320px;
+    margin: 0 auto;
+    padding: 28px 20px 70px;
+    align-items: start;
+  }
+  .sidebar {
+    grid-column: 1;
+    position: sticky;
+    top: 20px;
+  }
+  .sidebar nav {
+    position: sticky;
+    top: 20px;
+  }
+  .content {
+    grid-column: 2;
+    min-width: 0;
+  }
+  @media (max-width: 960px) {
+    .page-shell { grid-template-columns: 1fr; }
+    .sidebar, .sidebar nav { position: static; }
+    .sidebar, .content { grid-column: 1; }
+  }
 </style>
 </head>
 
@@ -155,28 +183,29 @@ footer {
   </div>
 </header>
 
-<main>
-
-<nav id="index">
-<h2>Index</h2>
-<ol>
-  <li><a href="#purpose">Why Matrices?</a></li>
-  <li><a href="#adjacency">Adjacency Matrix</a></li>
-  <li><a href="#entries">Reading Matrix Entries</a></li>
-  <li><a href="#diagonal">Diagonal Entries</a></li>
-  <li><a href="#undirected">Undirected Graphs and Symmetry</a></li>
-  <li><a href="#directed">Directed Graphs / Digraphs</a></li>
-  <li><a href="#orientation">Row/Column Convention</a></li>
-  <li><a href="#weighted">Weighted Adjacency Matrix</a></li>
-  <li><a href="#degree">Degree Matrix</a></li>
-  <li><a href="#degree-from-a">Getting Degree from \(A\)</a></li>
-  <li><a href="#uav">UAV Swarm Interpretation</a></li>
-  <li><a href="#laplacian-preview">Preview: Graph Laplacian</a></li>
-  <li><a href="#summary">Key Summary</a></li>
-</ol>
-</nav>
-
-<section id="purpose">
+<div class="page-shell" style="display:grid;grid-template-columns:280px minmax(0,1fr);gap:24px;max-width:1320px;margin:0 auto;padding:28px 20px 70px;align-items:start;">
+  <aside class="sidebar" style="grid-column:1;position:sticky;top:20px;">
+    <nav id="index" style="position:sticky;top:20px;">
+      <h2>Index</h2>
+      <ol>
+        <li><a href="#purpose">Why Matrices?</a></li>
+        <li><a href="#adjacency">Adjacency Matrix</a></li>
+        <li><a href="#entries">Reading Matrix Entries</a></li>
+        <li><a href="#diagonal">Diagonal Entries</a></li>
+        <li><a href="#undirected">Undirected Graphs and Symmetry</a></li>
+        <li><a href="#directed">Directed Graphs / Digraphs</a></li>
+        <li><a href="#orientation">Row/Column Convention</a></li>
+        <li><a href="#weighted">Weighted Adjacency Matrix</a></li>
+        <li><a href="#degree">Degree Matrix</a></li>
+        <li><a href="#degree-from-a">Getting Degree from \(A\)</a></li>
+        <li><a href="#uav">UAV Swarm Interpretation</a></li>
+        <li><a href="#laplacian-preview">Preview: Graph Laplacian</a></li>
+        <li><a href="#summary">Key Summary</a></li>
+      </ol>
+    </nav>
+  </aside>
+  <main class="content" style="grid-column:2;min-width:0;">
+    <section id="purpose">
 <h2>1. Why Do We Need Matrices?</h2>
 
 <p>
@@ -881,7 +910,7 @@ agents and why the Laplacian becomes central to consensus.
 </section>
 
 </main>
-
+</div>
 <footer>
 Fixed-Wing Swarm Learning · Part 2 · Adjacency &amp; Degree Matrices
 </footer>
