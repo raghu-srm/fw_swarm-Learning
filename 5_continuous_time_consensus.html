@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fixed-Wing Swarm Learning — Continuous-Time Consensus</title>
+
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['\\(', '\\)']],
+        displayMath: [['\\[', '\\]'], ['$$', '$$']]
+      },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --card: #ffffff;
+      --text: #172033;
+      --muted: #5d687a;
+      --accent: #2457d6;
+      --accent-light: #eaf0ff;
+      --border: #dce2ec;
+      --code: #111827;
+      --success: #147a4b;
+      --warning: #c27b00;
+      --danger: #b42318;
+      --claw: #0f766e;
+      --claw-light: #e6f6f4;
+      --def: #6d28d9;
+      --def-light: #f3eefe;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+    }
+
+    header {
+      background: linear-gradient(135deg, #172554, #2457d6);
+      color: white;
+      padding: 56px 20px 44px;
+    }
+    header .wrap { max-width: 1320px; margin: auto; }
+    .topbar { margin-bottom: 18px; font-size: .95rem; }
+    .topbar a { color: #dbe6ff; }
+    .topbar a:hover { color: #fff; }
+
+    h1 { margin: 0 0 10px; font-size: clamp(2rem, 5vw, 3.2rem); }
+    h2 { margin-top: 0; font-size: 1.8rem; }
+    h3 { margin-top: 1.6rem; }
+    h4 { margin-top: 1.2rem; margin-bottom: .4rem; }
+
+    .subtitle { max-width: 820px; color: #dbe6ff; font-size: 1.08rem; }
+
+    nav, section, .callout {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px;
+      margin: 20px 0;
+      box-shadow: 0 3px 12px rgba(20, 35, 70, .05);
+    }
+    nav h2 { font-size: 1.35rem; }
+    nav ol { margin-bottom: 0; padding-left: 22px; }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    code { background: #eef1f6; padding: 2px 5px; border-radius: 5px; font-size: .92em; }
+    pre {
+      background: var(--code);
+      color: #e5e7eb;
+      padding: 18px;
+      border-radius: 10px;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+    pre code { background: none; padding: 0; color: inherit; font-size: .9rem; }
+
+    .formula {
+      background: var(--accent-light);
+      border-left: 4px solid var(--accent);
+      padding: 16px 18px;
+      margin: 16px 0;
+      overflow-x: auto;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+    }
+    .mini {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      background: #fbfcff;
+    }
+    .mini strong { display: block; margin-bottom: 5px; }
+
+    .success { border-left: 4px solid var(--success); background: #edf9f3; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .warning { border-left: 4px solid var(--warning); background: #fff8e8; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .danger  { border-left: 4px solid var(--danger);  background: #fdecec; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .note    { border-left: 4px solid var(--muted);   background: #f3f5f8; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .definition, .theorem {
+      border-left: 4px solid var(--def);
+      background: var(--def-light);
+      padding: 14px 18px;
+      border-radius: 8px;
+      margin: 14px 0;
+    }
+    .definition > strong:first-child, .theorem > strong:first-child { color: var(--def); }
+    .claw {
+      border: 1px solid #99d6cf;
+      border-left: 6px solid var(--claw);
+      background: var(--claw-light);
+      padding: 16px 20px;
+      border-radius: 10px;
+      margin: 18px 0;
+    }
+    .claw > strong:first-child { color: var(--claw); display: block; margin-bottom: 6px; font-size: 1.05rem; }
+
+    table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+    th, td { text-align: left; padding: 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    th { background: #f1f4f9; }
+
+    .tag {
+      display: inline-block;
+      background: #eaf0ff;
+      color: #204bb4;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: .82rem;
+      margin: 3px;
+    }
+
+    figure { margin: 18px 0; }
+    figure > svg { width: 100%; height: auto; display: block; background: #fbfcff; border: 1px solid var(--border); border-radius: 10px; }
+    figcaption { color: var(--muted); font-size: .92rem; margin-top: 6px; text-align: center; }
+
+    .exercise { border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; margin: 14px 0; background: #fbfcff; }
+    .exercise summary { cursor: pointer; color: var(--accent); font-weight: 600; margin-top: 8px; }
+    .exercise details { margin-top: 6px; }
+    .exercise .solution { border-top: 1px dashed var(--border); margin-top: 8px; padding-top: 8px; }
+
+    .demo { border: 1px solid var(--border); border-radius: 12px; padding: 14px; background: #fbfcff; margin: 16px 0; }
+    .demo canvas { width: 100%; height: auto; display: block; background: #ffffff; border: 1px solid var(--border); border-radius: 8px; }
+    .controls { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; margin: 10px 0; font-size: .95rem; }
+    .controls label { display: inline-flex; align-items: center; gap: 6px; }
+    .controls input[type=range] { width: 140px; }
+    .controls button, .btn {
+      background: var(--accent); color: #fff; border: 0; padding: 7px 14px; border-radius: 8px; cursor: pointer; font-size: .92rem;
+    }
+    .controls button:hover, .btn:hover { filter: brightness(1.08); }
+    .controls button.secondary { background: #e5e9f2; color: var(--text); }
+
+    .prevnext { display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin: 26px 0 0; }
+    .prevnext a { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; flex: 1 1 260px; }
+    .prevnext a span { display: block; color: var(--muted); font-size: .82rem; }
+    .prevnext a.next { text-align: right; }
+
+    .done-box { text-align: center; margin: 24px 0 0; }
+    .done-box button { background: var(--success); color: #fff; border: 0; padding: 9px 18px; border-radius: 8px; cursor: pointer; }
+    .done-box button.undone { background: #9aa5b5; }
+
+    footer { text-align: center; color: var(--muted); padding: 30px 20px 50px; }
+
+    .page-shell {
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      gap: 24px;
+      max-width: 1320px;
+      margin: 0 auto;
+      padding: 28px 20px 70px;
+      align-items: start;
+    }
+    .sidebar { grid-column: 1; position: sticky; top: 20px; }
+    .sidebar nav { position: sticky; top: 20px; max-height: calc(100vh - 40px); overflow-y: auto; }
+    .content { grid-column: 2; min-width: 0; }
+    @media (max-width: 960px) {
+      .page-shell { grid-template-columns: 1fr; }
+      .sidebar, .sidebar nav { position: static; max-height: none; }
+      .sidebar, .content { grid-column: 1; }
+    }
+    @media print {
+      nav { break-after: page; }
+      section { box-shadow: none; }
+      .demo, .done-box, .prevnext, .topbar { display: none; }
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <div class="wrap">
+      <div class="topbar"><a href="index.html">&larr; Course home</a> &nbsp;·&nbsp; Module B: Consensus</div>
+      <h1>Fixed-Wing Swarm Learning</h1>
+      <div class="subtitle">
+        Part 5: <strong>Continuous-Time Consensus</strong> — solving \(\dot x=-kLx\) exactly, proving that a connected swarm converges to the
+        average of its initial values, and reading the convergence time off the Laplacian spectrum.
+      </div>
+      <p>
+        <span class="tag">Consensus</span>
+        <span class="tag">Matrix exponential</span>
+        <span class="tag">Algebraic connectivity</span>
+        <span class="tag">UAV Swarms</span>
+      </p>
+    </div>
+  </header>
+
+  <div class="page-shell">
+    <aside class="sidebar">
+      <nav id="index">
+        <h2>Index</h2>
+        <ol>
+          <li><a href="#why">Why this matters</a></li>
+          <li><a href="#protocol">The consensus protocol</a></li>
+          <li><a href="#solution">Solving \(\dot x=-Lx\): spectral decomposition</a></li>
+          <li><a href="#invariance">Conservation of the average</a></li>
+          <li><a href="#disagreement">Disagreement dynamics and convergence rate</a></li>
+          <li><a href="#kronecker">Vector states: the Kronecker form</a></li>
+          <li><a href="#example">Worked example: three-UAV star</a></li>
+          <li><a href="#fixed-wing">Fixed-wing interpretation</a></li>
+          <li><a href="#implementation">Implementation &amp; demo</a></li>
+          <li><a href="#pitfalls">Common pitfalls</a></li>
+          <li><a href="#exercises">Exercises</a></li>
+          <li><a href="#summary">Key takeaways &amp; formula sheet</a></li>
+          <li><a href="#references">References</a></li>
+        </ol>
+      </nav>
+    </aside>
+
+    <main class="content">
+
+<section id="why">
+<h2>1. Why This Matters</h2>
+<p>Five aircraft are launched with slightly different airspeed commands, altitude targets and clock offsets. No ground station is in the loop and each aircraft hears only the neighbours within radio range. How can the swarm <em>agree</em> on one speed, one flight level, one mission clock using nothing but local exchanges? This is the <strong>consensus problem</strong>, the first dynamical block of the pipeline:</p>
+<div class="formula">\[ \text{Graph topology} \rightarrow \underbrace{\text{consensus}}_{\text{this part}} \rightarrow \text{formation} \rightarrow \text{vehicle guidance} \rightarrow \text{autopilot} \]</div>
+<p><a href="3_fixed_wing_swarm_graph_laplacian.html">Part 3</a> built \(L=D-A\) and showed that \((Lx)_i\) is UAV \(i\)'s local disagreement with its neighbours; <a href="4_Laplacian_Eigenvalues.html">Part 4</a> showed that the eigenvalues \(0=\lambda_1\le\lambda_2\le\dots\le\lambda_N\) encode connectivity. Here we feed the disagreement back as a velocity, \(\dot x=-kLx\), solve the resulting linear system exactly, and prove where it goes and how fast.</p>
+<div class="grid">
+<div class="mini"><strong>Input</strong>\(L=D-A\) and \((Lx)_i=\sum_{j\in\mathcal N_i}a_{ij}(x_i-x_j)\) (Part 3); \(\lambda_2\gt0\iff\) connected (Part 4); eigen-decomposition, matrix exponential (<a href="A1_math_toolbox.html">A1</a>).</div>
+<div class="mini"><strong>Output</strong>Write and solve the consensus law for any undirected swarm graph, predict the final value and the time constant \(1/(k\lambda_2)\), handle vector states, implement it in NumPy.</div>
+<div class="mini"><strong>Used in</strong><a href="6_consensus_convergence_stability.html">Part 6</a> (sampling, delays, loss), <a href="7_directed_graph_consensus.html">Part 7</a> (directed links), <a href="8_leader_follower_consensus.html">Part 8</a> (pinning), Parts <a href="9_second_order_consensus.html">9</a>, <a href="12_formation_control.html">12</a>, <a href="13_virtual_structures.html">13</a>, <a href="19_coordinated_path_following.html">19</a>.</div>
+</div>
+</section>
+
+<section id="protocol">
+<h2>2. The Consensus Protocol</h2>
+<p>Throughout this part the communication graph is <strong>undirected and weighted</strong>: if UAV \(i\) hears UAV \(j\) then \(j\) hears \(i\), with the same weight \(a_{ij}=a_{ji}\ge0\). UAV \(i\) carries a scalar state \(x_i(t)\) that it broadcasts to its neighbour set \(\mathcal N_i\).</p>
+<div class="definition"><strong>Definition (consensus).</strong> The swarm reaches <em>consensus</em> if \(x_i(t)-x_j(t)\to0\) for every pair \((i,j)\), i.e. \(x(t)\to x^\ast\mathbf 1_N\) for some common value \(x^\ast\). It reaches <em>average consensus</em> if moreover \(x^\ast=\frac1N\sum_{j=1}^Nx_j(0)\).</div>
+<p>The simplest local rule is <em>move toward each neighbour at a rate proportional to the gap</em>:</p>
+<div class="formula">\[ \dot x_i=\sum_{j\in\mathcal N_i}a_{ij}\,(x_j-x_i)=-\sum_{j\in\mathcal N_i}a_{ij}\,(x_i-x_j)=-(Lx)_i . \]</div>
+<p>The last step is the Part 3 identity. Stacking the \(N\) equations and inserting a common gain \(k\) (units \(\mathrm{s^{-1}}\) when the \(a_{ij}\) are dimensionless) gives the <strong>continuous-time consensus protocol</strong>:</p>
+<div class="formula">\[ \boxed{\;\dot x=-kLx,\qquad x=\operatorname{col}(x_1,\dots,x_N),\quad k\gt0\;} \]</div>
+<div class="success"><strong>Interpretation:</strong> each UAV is pulled toward its neighbours by springs of stiffness \(ka_{ij}\) acting on the state difference. A neighbour with a larger value pulls the state up, a smaller one pulls it down; a UAV whose neighbours all agree with it does not move. UAV \(i\) uses only the \(x_j\) it actually receives.</div>
+<div class="warning"><strong>Caution (sign).</strong> The gap is <em>neighbour minus self</em>, \((x_j-x_i)\). Writing \((x_i-x_j)\) gives \(\dot x=+kLx\), whose disagreement modes grow like \(e^{+k\lambda_it}\). The error is invisible when all states start equal.</div>
+<figure>
+<svg viewBox="0 0 640 215" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="three-UAV star graph with initial values and the rate of each UAV">
+<line x1="200" y1="110" x2="420" y2="45" stroke="#2457d6" stroke-width="2.5"/>
+<line x1="200" y1="110" x2="420" y2="175" stroke="#2457d6" stroke-width="2.5"/>
+<text x="300" y="68" font-size="13" fill="#5d687a">a₁₂ = 1</text>
+<text x="300" y="163" font-size="13" fill="#5d687a">a₁₃ = 1</text>
+<circle cx="200" cy="110" r="30" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/>
+<text x="200" y="105" text-anchor="middle" font-size="13">UAV 1</text><text x="200" y="122" text-anchor="middle" font-size="13">x₁ = 10</text>
+<circle cx="420" cy="45" r="30" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/>
+<text x="420" y="40" text-anchor="middle" font-size="13">UAV 2</text><text x="420" y="57" text-anchor="middle" font-size="13">x₂ = 14</text>
+<circle cx="420" cy="175" r="30" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/>
+<text x="420" y="170" text-anchor="middle" font-size="13">UAV 3</text><text x="420" y="187" text-anchor="middle" font-size="13">x₃ = 8</text>
+<text x="20" y="62" font-size="13" fill="#147a4b">ẋ₁ = (14 − 10) + (8 − 10) = +2</text>
+<text x="470" y="25" font-size="13" fill="#b42318">ẋ₂ = 10 − 14 = −4</text>
+<text x="470" y="210" font-size="13" fill="#147a4b">ẋ₃ = 10 − 8 = +2</text>
+<text x="200" y="200" text-anchor="middle" font-size="12" fill="#5d687a">rates sum to zero: the average never moves</text>
+</svg>
+<figcaption>Figure 1. The protocol (\(k=1\)) on the three-UAV star of Part 3. Each rate is the sum of neighbour-minus-self gaps.</figcaption>
+</figure>
+<h3>2.1 Where can the swarm come to rest?</h3>
+<p>An equilibrium satisfies \(Lx=0\). For a <em>connected</em> undirected graph the kernel of \(L\) is exactly \(\operatorname{span}\{\mathbf 1\}\) (Part 4: \(\lambda_2\gt0\)), so the only equilibria are agreement states \(x=c\mathbf 1\). That fixes <em>where</em> a converging trajectory can end, not <em>which</em> \(c\) nor whether it converges. For that we solve the equation.</p>
+</section>
+
+<section id="solution">
+<h2>3. Solving \(\dot x=-Lx\): Spectral Decomposition</h2>
+<p>Take \(k=1\) (restore \(k\) at the end by replacing \(t\) with \(kt\)). The protocol is linear and time-invariant, so its unique solution is the matrix exponential (A1):</p>
+<div class="formula">\[ x(t)=e^{-Lt}x(0),\qquad e^{-Lt}\stackrel{\text{def}}{=}\sum_{m=0}^{\infty}\frac{(-t)^m}{m!}L^m . \]</div>
+<p>The series becomes transparent through the spectral theorem. Because the graph is undirected, \(L=L^T\), so \(L\) has real eigenvalues and an <strong>orthonormal</strong> set of eigenvectors (\(v_i^Tv_j=0\) for \(i\ne j\), \(\|v_i\|=1\)):</p>
+<div class="formula">\[ L=\sum_{i=1}^N\lambda_i\,v_iv_i^T,\qquad v_1=\frac{\mathbf 1}{\sqrt N},\ \lambda_1=0 . \]</div>
+<p><em>Step 1 — powers.</em> \((v_iv_i^T)(v_jv_j^T)=v_i(v_i^Tv_j)v_j^T\) is zero for \(i\ne j\) and \(v_iv_i^T\) for \(i=j\), so \(L^2=\sum_i\lambda_i^2v_iv_i^T\) and by induction \(L^m=\sum_i\lambda_i^mv_iv_i^T\) for all \(m\ge0\) (for \(m=0\), \(\sum_iv_iv_i^T=I\) because the \(v_i\) form an orthonormal basis).</p>
+<p><em>Step 2 — the exponential.</em> Insert into the series and swap the sums:</p>
+<div class="formula">\[ e^{-Lt}=\sum_{m=0}^\infty\frac{(-t)^m}{m!}\sum_{i=1}^N\lambda_i^mv_iv_i^T=\sum_{i=1}^N\Big(\sum_{m=0}^\infty\frac{(-\lambda_it)^m}{m!}\Big)v_iv_i^T=\sum_{i=1}^Ne^{-\lambda_it}\,v_iv_i^T . \]</div>
+<p><em>Step 3 — modal coordinates.</em> Apply to \(x(0)\) and set \(c_i=v_i^Tx(0)\), the component of the initial state along the \(i\)-th eigenvector:</p>
+<div class="formula">\[ \boxed{\;x(t)=\sum_{i=1}^Nc_i\,e^{-\lambda_it}\,v_i,\qquad c_i=v_i^Tx(0)\;} \]</div>
+<p>Each eigenvector is a <em>disagreement pattern</em> across the swarm and each pattern decays independently at its own rate \(\lambda_i\) — the picture Part 4 promised, \(\dot z_i=-\lambda_iz_i\) for \(z_i=v_i^Tx\).</p>
+<p><em>Step 4 — the limit.</em> For a connected graph \(\lambda_i\gt0\) for \(i\ge2\), so every term but the first vanishes; the first has \(\lambda_1=0\), \(v_1=\mathbf 1/\sqrt N\):</p>
+<div class="formula">\[ e^{-Lt}\longrightarrow v_1v_1^T=\frac1N\mathbf 1\mathbf 1^T,\qquad x(t)\longrightarrow\frac1N\mathbf 1\mathbf 1^Tx(0)=\Big(\frac1N\sum_{j=1}^Nx_j(0)\Big)\mathbf 1 . \]</div>
+<div class="theorem"><strong>Theorem (average consensus on undirected graphs; Olfati-Saber &amp; Murray 2004).</strong> If the undirected graph is connected, then under \(\dot x=-kLx\), \(k\gt0\), every state converges exponentially to the average of the initial states:
+\[ \boxed{\;x_i(t)\to\bar x(0)=\frac1N\sum_{j=1}^Nx_j(0)\ \ \text{for every }i,\qquad x(t)=\sum_{i=1}^Nc_ie^{-k\lambda_it}v_i\;} \]
+<em>Proof:</em> Steps 1–4 with \(t\) replaced by \(kt\) (\(e^{-kLt}\) has the same eigenvectors and exponents \(-k\lambda_it\)). If the graph is disconnected, \(\lambda_2=0\) and the same computation shows that each connected component converges to <em>its own</em> average.</div>
+<div class="success"><strong>Interpretation:</strong> the matrix exponential of a Laplacian is a weighted-averaging operator that becomes the exact averaging matrix \(\frac1N\mathbf 1\mathbf 1^T\) as \(t\to\infty\). The swarm computes a global average with purely local rules, and the last surviving pattern is the one belonging to \(\lambda_2\).</div>
+</section>
+
+<section id="invariance">
+<h2>4. Conservation of the Average</h2>
+<p>The final value can be found without solving anything. Differentiate the sum of the states:</p>
+<div class="formula">\[ \frac{d}{dt}\big(\mathbf 1^Tx\big)=\mathbf 1^T\dot x=-k\,\mathbf 1^TLx=-k\,(L^T\mathbf 1)^Tx=-k\,(L\mathbf 1)^Tx=0 , \]</div>
+<p>using \(L=L^T\) and \(L\mathbf 1=0\) (Part 3). So the sum, hence the average \(\bar x=\mathbf 1^Tx/N\), is an <strong>invariant</strong>. With Section 2.1 (the only possible limits are \(c\mathbf 1\)) this forces \(c=\bar x(0)\): a one-line proof of the consensus <em>value</em>, given convergence.</p>
+<div class="formula">\[ \boxed{\;\bar x(t)=\bar x(0)\ \text{ for all }t\quad(\text{undirected graphs})\;} \]</div>
+<div class="warning"><strong>Caution (assumption).</strong> Invariance needs \(\mathbf 1^TL=0\), i.e. <em>columns</em> of \(L\) summing to zero; for undirected graphs that is the same as rows because \(L\) is symmetric. For directed graphs it fails: the swarm still agrees, but on a weighted average set by the left eigenvector of \(L\) (<a href="7_directed_graph_consensus.html">Part 7</a>). Packet loss that is asymmetric in direction has the same effect (<a href="6_consensus_convergence_stability.html#switching">Part 6</a>).</div>
+</section>
+
+<section id="disagreement">
+<h2>5. Disagreement Dynamics and Convergence Rate</h2>
+<p>Split the state into the part everyone agrees on and the rest. Define the <strong>disagreement vector</strong></p>
+<div class="formula">\[ \delta=x-\bar x\mathbf 1=\Big(I-\tfrac1N\mathbf 1\mathbf 1^T\Big)x=Px,\qquad P\stackrel{\text{def}}{=}I-\tfrac1N\mathbf 1\mathbf 1^T . \]</div>
+<p>\(P\) is the orthogonal projector onto \(\mathbf 1^\perp=\{z:\mathbf 1^Tz=0\}\): \(P^2=P\), \(P^T=P\), \(P\mathbf 1=0\). Two facts make \(\delta\) easy: \(PL=L\) (because \(\mathbf 1^TL=0\)) and \(LP=L\) (because \(L\mathbf 1=0\)). Then</p>
+<div class="formula">\[ \dot\delta=P\dot x=-kPLx=-kLx=-kLPx=-kL\delta . \]</div>
+<p>The disagreement obeys the <em>same</em> equation as \(x\) but lives in \(\mathbf 1^\perp\), where the zero eigenvalue is absent. Expanding \(\delta(0)=\sum_{i\ge2}c_iv_i\) (its \(v_1\) component is zero by construction) and using orthonormality,</p>
+<div class="formula">\[ \|\delta(t)\|^2=\Big\|\sum_{i\ge2}c_ie^{-k\lambda_it}v_i\Big\|^2=\sum_{i\ge2}c_i^2e^{-2k\lambda_it}\le e^{-2k\lambda_2t}\sum_{i\ge2}c_i^2=e^{-2k\lambda_2t}\|\delta(0)\|^2 , \]</div>
+<p>since \(\lambda_i\ge\lambda_2\) for \(i\ge2\). Taking square roots:</p>
+<div class="formula">\[ \boxed{\;\|\delta(t)\|\le e^{-k\lambda_2t}\,\|\delta(0)\|,\qquad \tau_c=\frac1{k\lambda_2},\qquad t_{2\%}\approx4\tau_c=\frac{4}{k\lambda_2}\;} \]</div>
+<div class="success"><strong>Interpretation:</strong> the algebraic connectivity \(\lambda_2\) is the <em>guaranteed</em> decay rate of disagreement and the gain \(k\) scales it. \(\tau_c=1/(k\lambda_2)\) is the one number to remember when sizing a consensus loop: after \(\tau_c\) at most \(37\%\) of the initial disagreement remains, after \(4\tau_c\) at most \(2\%\) (\(e^{-4}=0.018\)).</div>
+<div class="note"><strong>Note (tightness).</strong> Equality holds only when \(\delta(0)\parallel v_2\). A generic initial condition excites all modes; the fast ones (up to \(e^{-k\lambda_Nt}\)) vanish first and the trajectory then locks on to the \(\lambda_2\) pattern. Part 6 re-derives the bound by a Lyapunov argument that survives switching graphs.</div>
+</section>
+
+<section id="kronecker">
+<h2>6. Vector States: the Kronecker Form</h2>
+<p>A 2-D velocity, a 3-D reference position or the pair \((\cos\chi,\sin\chi)\) need \(x_i\in\mathbb R^n\). Apply the scalar protocol component by component and stack \(x=\operatorname{col}(x_1,\dots,x_N)\in\mathbb R^{Nn}\):</p>
+<div class="formula">\[ \boxed{\;\dot x=-k\,(L\otimes I_n)\,x\;}\qquad L\otimes I_n=\begin{bmatrix}L_{11}I_n&\cdots&L_{1N}I_n\\ \vdots&&\vdots\\ L_{N1}I_n&\cdots&L_{NN}I_n\end{bmatrix} . \]</div>
+<p>The eigenvalues of \(L\otimes I_n\) are the \(\lambda_i\), each repeated \(n\) times, with eigenvectors \(v_i\otimes e_m\) (A1: \((A\otimes B)(C\otimes D)=AC\otimes BD\)). Nothing changes: every component converges to its own initial average at rate \(k\lambda_2\), so \(x_i(t)\to\frac1N\sum_jx_j(0)\in\mathbb R^n\). In code use <code>np.kron(L, np.eye(n))</code>, or simply keep the states as an \(N\times n\) matrix \(X\) and write \(\dot X=-kLX\): each column is an independent scalar consensus.</p>
+</section>
+
+<section id="example">
+<h2>7. Worked Example: Three-UAV Star</h2>
+<p>UAV 1 is linked to UAVs 2 and 3, which do not hear each other (Figure 1). From Parts 3–4,</p>
+<div class="formula">\[ L=\begin{bmatrix}2&-1&-1\\-1&1&0\\-1&0&1\end{bmatrix},\quad \lambda=\{0,1,3\},\quad v_1=\tfrac1{\sqrt3}\begin{bmatrix}1\\1\\1\end{bmatrix},\ v_2=\tfrac1{\sqrt2}\begin{bmatrix}0\\1\\-1\end{bmatrix},\ v_3=\tfrac1{\sqrt6}\begin{bmatrix}2\\-1\\-1\end{bmatrix}. \]</div>
+<p>Check by hand: \(L[0,1,-1]^T=[-1+1,\,1,\,-1]^T=1\cdot[0,1,-1]^T\) and \(L[2,-1,-1]^T=[6,-3,-3]^T=3\cdot[2,-1,-1]^T\); the three vectors are orthogonal and normalised. As patterns, \(v_2\) is "spoke 2 up, spoke 3 down, hub untouched" — a disagreement that must travel <em>through</em> the hub, hence slow — and \(v_3\) is "hub against both spokes", where every edge works, hence fast.</p>
+<p>Initial states \(x(0)=[10,14,8]^T\) (say airspeed commands in m/s); average \(32/3=10.667\). Modal coefficients:</p>
+<div class="formula">\[ c_1=\frac{32}{\sqrt3}=18.5,\qquad c_2=\frac{14-8}{\sqrt2}=4.24,\qquad c_3=\frac{20-14-8}{\sqrt6}=-0.816 . \]</div>
+<p>Multiplying back, \(c_1v_1=10.667\,\mathbf 1\), \(c_2v_2=3\,[0,1,-1]^T\), \(c_3v_3=-\tfrac13[2,-1,-1]^T\). Collecting per UAV:</p>
+<div class="formula">\[ \boxed{\begin{aligned} x_1(t)&=10.667-0.667\,e^{-3t},\\ x_2(t)&=10.667+3\,e^{-t}+0.333\,e^{-3t},\\ x_3(t)&=10.667-3\,e^{-t}+0.333\,e^{-3t}. \end{aligned}} \]</div>
+<p>Sanity checks: at \(t=0\) the lines give \(10,14,8\); their sum is \(32\) for every \(t\) (the \(e^{-t}\) terms cancel, so do the \(e^{-3t}\) terms) — the invariant of Section 4. <code>scipy.linalg.expm</code> reproduces the closed form to machine precision (script in Section 9):</p>
+<table>
+<tr><th>\(t\) [s]</th><th>\(x_1\)</th><th>\(x_2\)</th><th>\(x_3\)</th><th>\(\|\delta(t)\|\)</th><th>bound \(e^{-t}\|\delta(0)\|\)</th></tr>
+<tr><td>0</td><td>10.000</td><td>14.000</td><td>8.000</td><td>4.320</td><td>4.320</td></tr>
+<tr><td>0.5</td><td>10.518</td><td>12.561</td><td>8.921</td><td>—</td><td>—</td></tr>
+<tr><td>1</td><td>10.633</td><td>11.787</td><td>9.580</td><td>1.561</td><td>1.589</td></tr>
+<tr><td>2</td><td>10.665</td><td>11.073</td><td>10.261</td><td>0.574</td><td>0.585</td></tr>
+<tr><td>3</td><td>—</td><td>—</td><td>—</td><td>0.211</td><td>0.215</td></tr>
+<tr><td>5</td><td>10.667</td><td>10.687</td><td>10.646</td><td>—</td><td>—</td></tr>
+</table>
+<p>Observations. (i) The hub converges almost at once — its only disagreement is the fast \(\lambda_3=3\) mode — and sits at \(10.63\) after one second. (ii) The spokes carry the slow mode: their gap \(x_2-x_3=6e^{-t}\) shrinks with \(\tau_c=1/\lambda_2=1\) s. (iii) The bound is nearly tight because \(\delta(0)=[-0.667,3.333,-2.667]^T\) is almost parallel to \(v_2\). (iv) Disagreement reaches \(2\%\) at \(t=3.89\) s and \(1\%\) at \(4.59\) s, against the single-mode estimates \(4/\lambda_2=4\) s and \(\ln100/\lambda_2=4.61\) s. (v) With \(k=2\) every exponent doubles: \(\tau_c=0.5\) s, \(2\%\) in about \(2\) s.</p>
+</section>
+
+<section id="fixed-wing">
+<h2>8. Fixed-Wing Interpretation</h2>
+<h3>8.1 What a fixed-wing swarm runs consensus on</h3>
+<ul>
+<li><strong>Airspeed / ground-speed command</strong> \(V^c_{g,i}\): a formation must fly at one speed, and the average of the launch speeds is a sensible common choice. Must stay in \([V_{\min},V_{\max}]\) (8.3).</li>
+<li><strong>Altitude command</strong> \(h^c_i\): a common flight level; per-aircraft offsets \(\Delta h_i\) for de-confliction are added <em>outside</em> the consensus variable.</li>
+<li><strong>Mission clock / path parameter</strong> \(\zeta_i\): simultaneous arrival, time-coordinated path following (<a href="19_coordinated_path_following.html">Part 19</a>); its rate is bounded by the speed envelope.</li>
+<li><strong>Estimate of a reference</strong> \(\hat\xi_i\): every aircraft keeps a synchronised copy of the formation's virtual-structure state (Parts 8, 13); needs a leader term, plain consensus drifts.</li>
+<li><strong>Course</strong> \(\chi_i\): course alignment (Part 14) — <strong>not linear</strong>, see 8.2.</li>
+</ul>
+<p>Positions are deliberately absent: aircraft in a formation must <em>not</em> agree on position. Formation control (<a href="12_formation_control.html">Part 12</a>) runs consensus on the displacement error \(p_i-r_i\) instead, which is why this scalar machinery carries over unchanged.</p>
+<h3>8.2 Angles do not average linearly</h3>
+<p>Courses live on a circle. Two aircraft with \(\chi_1=170^\circ\) and \(\chi_2=-170^\circ\) point almost the same way (\(20^\circ\) apart through south), yet linear consensus gives \(\frac12(170-170)=0^\circ\): due north, the opposite direction. Two correct options:</p>
+<ul>
+<li><strong>Unit-vector consensus.</strong> Run the Kronecker form on \(u_i=(\cos\chi_i,\sin\chi_i)\) and recover \(\chi_i=\operatorname{atan2}(u_{i,2},u_{i,1})\). For the example the average vector is \((-0.985,\,0)\), giving \(180^\circ\). The vector shrinks toward zero when courses are spread near \(180^\circ\) apart: renormalise before use and treat \(\|u\|\approx0\) as "no consensus".</li>
+<li><strong>Wrapped differences.</strong> If all neighbours are within \(\pm90^\circ\), use \(\dot\chi_i=k\sum_ja_{ij}\operatorname{wrap}(\chi_j-\chi_i)\) with \(\operatorname{wrap}(\cdot)\in(-\pi,\pi]\) — the small-angle form of the Kuramoto-type law \(\dot\theta_i=-k_\theta\sum_jw_{ij}\sin(\theta_i-\theta_j)\) of Part 19.</li>
+</ul>
+<h3>8.3 Envelope, actuator rate and the gain</h3>
+<p>A fixed-wing aircraft cannot hover while the swarm "thinks": it keeps flying at \(V_g\ge V_{\min}\), so \(4\tau_c\) seconds of consensus is \(4\tau_cV_g\) metres of track. The protocol also demands a <em>rate</em> of change, \(|\dot x_i|=k|\sum_ja_{ij}(x_j-x_i)|\le k\,d_i\,\Delta\), with \(\Delta\) the largest neighbour gap. If \(x_i\) is a speed command the autopilot can only follow it at the airframe's acceleration limit \(a_{\max}\), which caps the usable gain, \(k\le a_{\max}/(d_i\Delta)\). With \(a_{\max}=3\ \mathrm{m/s^2}\), \(d_i=2\) and a \(5\) m/s spread this gives \(k\le0.3\ \mathrm{s^{-1}}\), far below any stability limit. Keep the consensus variable itself unsaturated (so the invariant survives) and saturate only the command handed to the autopilot.</p>
+<p><em>What each UAV broadcasts.</em> At the communication rate \(1/T_s\) (5–10 Hz) UAV \(i\) sends \((i,\,t_{\text{stamp}},\,x_i)\): the shared variable only. Receivers evaluate \(\sum_ja_{ij}(x_j-x_i)\) with the latest value from each neighbour; \(a_{ij}\) can encode link quality, and timestamps tell a stale packet from a lost one (<a href="6_consensus_convergence_stability.html">Part 6</a>, <a href="23_px4_ros2_multi_vehicle.html">Part 23</a>).</p>
+<div class="note"><strong>High-speed note.</strong> The time constant is a property of the graph and the gain, not of the aircraft, but the <em>distance</em> flown during the transient scales with speed. With \(k\lambda_2=0.5\ \mathrm{s^{-1}}\) (\(\tau_c=2\) s, \(4\tau_c=8\) s) a 25 m/s UAV flies 50 m per time constant and 200 m to settle; at 60 m/s, 120 m and 480 m; at 200 m/s, 400 m and 1.6 km. Turn radius grows as \(V_g^2\) (Part 16), so relative to \(R_{\min}\) the transient shrinks with speed, but relative to leg length, spacing or sensor range it grows. A high-speed swarm needs a larger \(k\lambda_2\) — bounded by the sampling and delay limits of Part 6 — or must start consensus well before the manoeuvre that needs it.</div>
+<div class="claw"><strong>Toward the CLAW</strong>
+This part supplies the <em>agreement block</em> of the unified control law: for every shared variable \(x_i\) (speed command, flight level, mission clock, reference estimate) UAV \(i\) computes \(\dot x_i=-k\sum_{j\in\mathcal N_i}a_{ij}(x_i-x_j)\) from the neighbour values it receives and hands the updated \(x_i\) to the layer below (formation guidance or vehicle command mapping). In the final CLAW this Laplacian term appears three times: as the distributed reference estimator (with a pinning term added in <a href="8_leader_follower_consensus.html">Part 8</a>), as the displacement-error consensus inside formation control (<a href="12_formation_control.html">Part 12</a>), and as the time-coordination law of <a href="19_coordinated_path_following.html">Part 19</a>. Part 6 turns it into a sampled, lossy, delayed implementation; Part 7 removes the symmetry assumption.</div>
+</section>
+
+<section id="implementation">
+<h2>9. Implementation &amp; Demo</h2>
+<p>The script reproduces every number of Section 7: eigen-decomposition, modal coefficients, closed form, <code>expm</code> cross-check, the \(\lambda_2\) bound and a 10 Hz Euler run. SciPy is used only for <code>expm</code>; the Euler loop is the pure-NumPy fallback.</p>
+<pre><code>import numpy as np
+from scipy.linalg import expm          # only for the cross-check
+
+A = np.array([[0, 1, 1], [1, 0, 0], [1, 0, 0]], float)   # star: 1-2, 1-3
+L = np.diag(A.sum(axis=1)) - A        # L = D - A
+x0 = np.array([10.0, 14.0, 8.0])      # airspeed commands [m/s]
+k = 1.0                               # consensus gain [1/s]
+
+lam, V = np.linalg.eigh(L)            # orthonormal eigenvectors (L symmetric)
+c = V.T @ x0                          # modal coordinates c_i = v_i^T x(0)
+print("eigenvalues:", lam.round(4), " average:", x0.mean().round(4))
+print("c1*v1 =", (c[0]*V[:, 0]).round(4))
+
+def x_closed(t):                      # x(t) = sum_i c_i e^{-k lam_i t} v_i
+    return V @ (c * np.exp(-k*lam*t))
+
+for t in [0.5, 1.0, 2.0, 5.0]:        # closed form vs matrix exponential
+    xe = expm(-k*L*t) @ x0
+    print(f"t={t}: closed {x_closed(t).round(3)} expm {xe.round(3)} sum={xe.sum():.3f}")
+
+P = np.eye(3) - np.ones((3, 3))/3     # projector onto 1-perp
+d0 = P @ x0
+for t in [1.0, 2.0, 3.0]:             # disagreement vs the lambda_2 bound
+    dn = np.linalg.norm(P @ x_closed(t))
+    print(f"t={t}: |delta|={dn:.4f} bound={np.exp(-k*lam[1]*t)*np.linalg.norm(d0):.4f}")
+
+Ts, x = 0.1, x0.copy()                # pure-NumPy 10 Hz Euler run (limits: Part 6)
+for n in range(int(5/Ts)):
+    x = x - Ts*k*(L @ x)
+print("Euler x(5):", x.round(4), " tau_c =", 1/(k*lam[1]))
+</code></pre>
+<p>Output (NumPy 1.26, SciPy 1.11), abridged:</p>
+<pre><code>eigenvalues: [-0.  1.  3.]  average: 10.6667
+c1*v1 = [10.6667 10.6667 10.6667]
+t=1.0: closed [10.633 11.787  9.58 ] expm [10.633 11.787  9.58 ] sum=32.000
+t=5.0: closed [10.667 10.687 10.646] expm [10.667 10.687 10.646] sum=32.000
+t=1.0: |delta|=1.5613 bound=1.5894
+t=3.0: |delta|=0.2112 bound=0.2151
+Euler x(5): [10.6667 10.6821 10.6512]  tau_c = 1.0
+</code></pre>
+<p><code>eigh</code> may flip eigenvector signs relative to Section 7; the products \(c_iv_i\) are sign-independent. The Euler result differs from the exact \(x(5)\) in the third decimal: the sampling error Part 6 quantifies.</p>
+<div class="demo">
+<strong>Interactive demo: five UAVs, four topologies.</strong>
+<p style="margin:6px 0 0;color:var(--muted);font-size:.93rem">Nodes are UAVs coloured by state (blue low, red high); the plot shows \(x_i(t)\) with the invariant average dashed. Change topology or gain and watch \(1/(k\lambda_2)\) change. Vanilla JavaScript, no network; the lesson is complete without it.</p>
+<div class="controls">
+<label>Topology <select id="demo-topo">
+<option value="ring">ring (λ₂ = 1.382)</option>
+<option value="path">path (λ₂ = 0.382)</option>
+<option value="star">star (λ₂ = 1.000)</option>
+<option value="complete">complete (λ₂ = 5.000)</option>
+</select></label>
+<label>Gain k <input type="range" id="demo-k" min="0.1" max="3" step="0.1" value="1"> <span id="demo-kval">1.0</span></label>
+<button id="demo-run">Play</button>
+<button class="secondary" id="demo-reset">Reset</button>
+</div>
+<canvas id="demo-canvas" width="900" height="360"></canvas>
+<div id="demo-info" style="font-size:.9rem;color:var(--muted);margin-top:6px"></div>
+</div>
+</section>
+
+<section id="pitfalls">
+<h2>10. Common Pitfalls</h2>
+<ul>
+<li><strong>Sign of the gap.</strong> \(\dot x=-kLx\) converges, \(\dot x=+kLx\) diverges. Test with unequal initial states; equal states hide the error.</li>
+<li><strong>Assuming the average without symmetry.</strong> \(\bar x\) is invariant only if \(\mathbf 1^TL=0\). Directed links, asymmetric packet loss or \(a_{ij}\ne a_{ji}\) change the final value (Parts 6, 7).</li>
+<li><strong>Averaging angles.</strong> Linear consensus on \(\chi\) fails near the \(\pm180^\circ\) wrap; use unit vectors or wrapped differences (8.2).</li>
+<li><strong>Reading \(1/(k\lambda_2)\) as the exact settling time.</strong> It is the worst case over initial conditions; the fast modes vanish earlier. Conversely a disconnected graph (\(\lambda_2=0\)) never settles: each component converges to its own average.</li>
+<li><strong>Choosing \(k\) in continuous time only.</strong> Any \(k\gt0\) works in \(\dot x=-kLx\), but a sampled implementation is unstable once \(T_sk\lambda_N\ge2\) (Part 6), and the autopilot's rate limit caps \(k\) long before that (8.3).</li>
+<li><strong>Clipping the consensus state.</strong> Saturating \(x_i\) to the envelope breaks the invariant; clip the command, not the shared variable.</li>
+<li><strong>Vector states.</strong> With \(L\otimes I_n\) each eigenvalue appears \(n\) times; check connectivity on the \((n+1)\)-th smallest eigenvalue.</li>
+</ul>
+</section>
+
+<section id="exercises">
+<h2>11. Exercises</h2>
+<div class="exercise"><strong>Exercise 1 (derivation).</strong> Show that \(\delta(t)=Px(t)\) stays orthogonal to \(\mathbf 1\) for all \(t\), and that \(\|x(t)-x(\infty)\|=\|\delta(t)\|\) for a connected undirected graph.
+<details><summary>Show solution</summary><div class="solution">\(\mathbf 1^T\delta=\mathbf 1^TPx=(\mathbf 1^T-\frac1N\mathbf 1^T\mathbf 1\mathbf 1^T)x=(\mathbf 1^T-\mathbf 1^T)x=0\) for every \(x\). Since \(x(\infty)=\bar x(0)\mathbf 1\) and \(\bar x(t)=\bar x(0)\) (Section 4), \(x(t)-x(\infty)=x(t)-\bar x(t)\mathbf 1=\delta(t)\).</div></details></div>
+<div class="exercise"><strong>Exercise 2 (numeric).</strong> Path graph \(1\!-\!2\!-\!3\), \(x(0)=[0,6,3]^T\), \(k=1\). Find the eigen-decomposition of \(L\), the closed-form trajectory, and \(x(1)\), \(x(2)\).
+<details><summary>Show solution</summary><div class="solution">\(L=\begin{bmatrix}1&-1&0\\-1&2&-1\\0&-1&1\end{bmatrix}\), \(\lambda=\{0,1,3\}\), \(v_2=\frac1{\sqrt2}[1,0,-1]^T\), \(v_3=\frac1{\sqrt6}[1,-2,1]^T\). Average \(3\); \(c_2v_2=[-1.5,0,1.5]^T\), \(c_3v_3=[-1.5,3,-1.5]^T\), so \(x_1(t)=3-1.5e^{-t}-1.5e^{-3t}\), \(x_2(t)=3+3e^{-3t}\), \(x_3(t)=3+1.5e^{-t}-1.5e^{-3t}\). Hence \(x(1)=[2.374,\,3.149,\,3.477]^T\), \(x(2)=[2.793,\,3.007,\,3.199]^T\) (checked with <code>expm</code>). The middle UAV carries only the fast mode: the hub effect again.</div></details></div>
+<div class="exercise"><strong>Exercise 3 (weights).</strong> Keep the star of Section 7 but make link 1–2 twice as strong: \(a_{12}=a_{21}=2\), \(a_{13}=a_{31}=1\). Eigenvalues, final value and time constant for \(k=1\)?
+<details><summary>Show solution</summary><div class="solution">\(L=\begin{bmatrix}3&-2&-1\\-2&2&0\\-1&0&1\end{bmatrix}\), eigenvalues \(\{0,\,1.268,\,4.732\}\). The graph is still undirected, so the final value is still the plain average \(10.667\) (simulated \(x(20)=[10.667,10.667,10.667]^T\)): weights change the <em>rate</em>, not the <em>value</em>. Time constant \(1/\lambda_2=0.789\) s instead of \(1\) s.</div></details></div>
+<div class="exercise"><strong>Exercise 4 (Kronecker).</strong> Two UAVs exchange 2-D positions \(p_1(0)=(0,0)\) m, \(p_2(0)=(100,40)\) m and run \(\dot p=-(L\otimes I_2)p\) with \(L=\begin{bmatrix}1&-1\\-1&1\end{bmatrix}\). Eigenvalues of \(L\otimes I_2\), \(p(0.5)\) and the limit?
+<details><summary>Show solution</summary><div class="solution">Eigenvalues \(\{0,0,2,2\}\). Each coordinate is a two-node consensus with \(\lambda_2=2\): \(p_1(t)=(50,20)(1-e^{-2t})\), \(p_2(t)=(50,20)(1+e^{-2t})\). At \(t=0.5\): \(p_1=(31.6,\,12.6)\), \(p_2=(68.4,\,27.4)\) m (<code>expm</code>: \([31.606,12.642,68.394,27.358]\)). Both converge to the midpoint \((50,20)\) m: a rendezvous, which is why raw-position consensus is not a formation law.</div></details></div>
+<div class="exercise"><strong>Exercise 5 (design).</strong> On the star of Section 7 the shared variable is an airspeed command. Choose \(k\) for a \(2\%\) settling time of \(2\) s, then compute the initial rate demanded of the hub. Acceptable for \(a_{\max}=3\ \mathrm{m/s^2}\)?
+<details><summary>Show solution</summary><div class="solution">\(4/(k\lambda_2)=2\Rightarrow k=2\ \mathrm{s^{-1}}\). Hub rate at \(t=0\): \(k|(14-10)+(8-10)|=2\times2=4\ \mathrm{m/s^2}\gt a_{\max}\). Either slow the loop (\(k=1.5\): \(3\ \mathrm{m/s^2}\), \(t_{2\%}=2.67\) s) or saturate the command and accept a transient that is no longer the linear one analysed here. For comparison, a 5-UAV ring has \(\lambda_2=2-2\cos(2\pi/5)=1.382\), \(\lambda_N=3.618\), \(\tau_c=0.724\) s at \(k=1\) (the demo's values).</div></details></div>
+</section>
+
+<section id="summary">
+<h2>12. Key Takeaways &amp; Formula Sheet</h2>
+<ul>
+<li>Protocol: \(\dot x_i=k\sum_{j\in\mathcal N_i}a_{ij}(x_j-x_i)\), i.e. \(\boxed{\dot x=-kLx}\); vector states \(\boxed{\dot x=-k(L\otimes I_n)x}\).</li>
+<li>Solution: \(\boxed{x(t)=e^{-kLt}x(0)=\sum_ic_ie^{-k\lambda_it}v_i,\ c_i=v_i^Tx(0)}\) with orthonormal eigenvectors of the symmetric \(L\).</li>
+<li>Limit (connected undirected graph): \(e^{-kLt}\to\frac1N\mathbf 1\mathbf 1^T\), so \(\boxed{x_i(t)\to\bar x(0)=\frac1N\sum_jx_j(0)}\): average consensus.</li>
+<li>Invariant: \(\boxed{\frac{d}{dt}\mathbf 1^Tx=0}\) because \(L=L^T\) and \(L\mathbf 1=0\).</li>
+<li>Disagreement \(\delta=Px\), \(\dot\delta=-kL\delta\), \(\boxed{\|\delta(t)\|\le e^{-k\lambda_2t}\|\delta(0)\|}\), \(\boxed{\tau_c=1/(k\lambda_2)}\), \(t_{2\%}\approx4\tau_c\).</li>
+<li>Star example: \(\lambda=\{0,1,3\}\), \(x_2-x_3=6e^{-t}\), hub settles as \(e^{-3t}\); \(2\%\) at \(3.89\) s.</li>
+<li>Fixed-wing: consensus on speed, level, clock, reference estimate — never raw position; angles via unit vectors; \(k\le a_{\max}/(d_i\Delta)\); transient distance \(4\tau_cV_g\) grows with speed.</li>
+</ul>
+</section>
+
+<section id="references">
+<h2>13. References</h2>
+<ul>
+<li>R. Olfati-Saber and R. M. Murray, "Consensus problems in networks of agents with switching topology and time-delays," <em>IEEE Transactions on Automatic Control</em>, vol. 49, no. 9, pp. 1520–1533, 2004.</li>
+<li>R. Olfati-Saber, J. A. Fax and R. M. Murray, "Consensus and cooperation in networked multi-agent systems," <em>Proceedings of the IEEE</em>, vol. 95, no. 1, pp. 215–233, 2007.</li>
+<li>W. Ren and R. W. Beard, <em>Distributed Consensus in Multi-vehicle Cooperative Control</em>, Springer, 2008, Ch. 2–3 (adjacency convention transposed relative to ours; see Part 7).</li>
+<li>M. Mesbahi and M. Egerstedt, <em>Graph Theoretic Methods in Multiagent Networks</em>, Princeton University Press, 2010, Ch. 3.</li>
+<li>F. Bullo, <em>Lectures on Network Systems</em>, 1.6 ed., Kindle Direct Publishing, 2022, Ch. 6–7, free at <a href="https://fbullo.github.io/lns/">fbullo.github.io/lns</a>.</li>
+<li>R. W. Beard and T. W. McLain, <em>Small Unmanned Aircraft: Theory and Practice</em>, Princeton University Press, 2012 (course/heading conventions of Section 8).</li>
+</ul>
+</section>
+
+<div class="prevnext">
+<a class="prev" href="4_Laplacian_Eigenvalues.html"><span>&larr; Previous</span>Part 4: Laplacian Eigenvalues</a>
+<a class="next" href="6_consensus_convergence_stability.html"><span>Next &rarr;</span>Part 6: Consensus Convergence &amp; Stability</a>
+</div>
+<div class="done-box"><button id="done-btn" data-lesson="5">Mark Part 5 as complete</button></div>
+</main>
+</div>
+
+<footer>Fixed-Wing Swarm Learning · Part 5 · Continuous-Time Consensus</footer>
+
+  <script>
+    (function () {
+      try {
+        var btn = document.getElementById('done-btn');
+        if (!btn) return;
+        var id = btn.getAttribute('data-lesson');
+        var key = 'fwswarm_done';
+        var done = JSON.parse(localStorage.getItem(key) || '[]');
+        function render() {
+          var is = done.indexOf(id) >= 0;
+          btn.textContent = is ? 'Completed ✓ (click to undo)' : 'Mark Part ' + id + ' as complete';
+          btn.className = is ? 'undone' : '';
+        }
+        btn.addEventListener('click', function () {
+          var i = done.indexOf(id);
+          if (i >= 0) done.splice(i, 1); else done.push(id);
+          localStorage.setItem(key, JSON.stringify(done));
+          render();
+        });
+        render();
+      } catch (e) { /* storage unavailable: ignore */ }
+    })();
+  </script>
+  <script>
+    // Demo: five-UAV consensus, Euler integration, vanilla JS, all inside try/catch.
+    (function () {
+      try {
+        var c = document.getElementById('demo-canvas'); if (!c) return;
+        var ctx = c.getContext('2d'), kIn = document.getElementById('demo-k'), kOut = document.getElementById('demo-kval');
+        var topo = document.getElementById('demo-topo'), info = document.getElementById('demo-info');
+        var N = 5, x0 = [12, 3, 8, 15, 6], T = 8, dt = 0.01, A, x, t, hist, timer = null;
+        var lam2 = { ring: 1.382, path: 0.382, star: 1.0, complete: 5.0 };   // from part05_star_consensus.py
+        function adjacency(kind) {
+          var M = [], i, j;
+          for (i = 0; i < N; i++) M.push([0, 0, 0, 0, 0]);
+          function link(a, b) { M[a][b] = 1; M[b][a] = 1; }
+          if (kind === 'star') { for (i = 1; i < N; i++) link(0, i); } else { for (i = 0; i < N - 1; i++) link(i, i + 1); }
+          if (kind === 'ring') link(N - 1, 0);
+          if (kind === 'complete') { for (i = 0; i < N; i++) for (j = i + 1; j < N; j++) link(i, j); }
+          return M;
+        }
+        function reset() { if (timer) { clearInterval(timer); timer = null; } A = adjacency(topo.value); x = x0.slice(); t = 0; hist = [x.slice()]; draw(); }
+        function step() {
+          var k = parseFloat(kIn.value), i, j, s, dx = [];
+          for (i = 0; i < N; i++) { s = 0; for (j = 0; j < N; j++) s += A[i][j] * (x[j] - x[i]); dx.push(k * s); }
+          for (i = 0; i < N; i++) x[i] += dt * dx[i];
+          t += dt; hist.push(x.slice());
+        }
+        function color(v) { var u = Math.max(0, Math.min(1, (v - 3) / 12)); return 'hsl(' + Math.round(220 - 200 * u) + ',70%,50%)'; }
+        function draw() {
+          var W = c.width, H = c.height, i, j, cx = 170, cy = H / 2, R = 115, pos = [], a, X, Y;
+          var px = 360, py = 30, pw = W - px - 20, ph = H - 60, ymax = 18, avg = (x0[0] + x0[1] + x0[2] + x0[3] + x0[4]) / N, ya = py + ph - avg / ymax * ph;
+          ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
+          for (i = 0; i < N; i++) { a = -Math.PI / 2 + 2 * Math.PI * i / N; pos.push([cx + R * Math.cos(a), cy + R * Math.sin(a)]); }
+          ctx.strokeStyle = '#9aa5b5'; ctx.lineWidth = 2;
+          for (i = 0; i < N; i++) for (j = i + 1; j < N; j++) if (A[i][j]) { ctx.beginPath(); ctx.moveTo(pos[i][0], pos[i][1]); ctx.lineTo(pos[j][0], pos[j][1]); ctx.stroke(); }
+          ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'center'; ctx.lineWidth = 1;
+          for (i = 0; i < N; i++) {
+            ctx.beginPath(); ctx.arc(pos[i][0], pos[i][1], 24, 0, 2 * Math.PI); ctx.fillStyle = color(x[i]); ctx.fill(); ctx.strokeStyle = '#172033'; ctx.stroke();
+            ctx.fillStyle = '#fff'; ctx.fillText((i + 1) + ': ' + x[i].toFixed(1), pos[i][0], pos[i][1] + 5);
+          }
+          ctx.strokeStyle = '#dce2ec'; ctx.strokeRect(px, py, pw, ph);
+          ctx.fillStyle = '#5d687a'; ctx.font = '12px sans-serif'; ctx.textAlign = 'left';
+          ctx.fillText('x_i(t)', px + 4, py + 14); ctx.fillText('t = ' + t.toFixed(2) + ' s   (axis 0 to ' + T + ' s)', px + 4, py + ph + 16);
+          ctx.setLineDash([4, 4]); ctx.strokeStyle = '#147a4b'; ctx.beginPath(); ctx.moveTo(px, ya); ctx.lineTo(px + pw, ya); ctx.stroke(); ctx.setLineDash([]);
+          ctx.fillStyle = '#147a4b'; ctx.fillText('average = ' + avg.toFixed(2), px + pw - 100, ya - 5);
+          for (i = 0; i < N; i++) {
+            ctx.strokeStyle = color(x0[i]); ctx.lineWidth = 2; ctx.beginPath();
+            for (j = 0; j < hist.length; j++) { X = px + (j * dt / T) * pw; Y = py + ph - hist[j][i] / ymax * ph; if (j === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y); }
+            ctx.stroke();
+          }
+          var k = parseFloat(kIn.value), l2 = lam2[topo.value];
+          info.textContent = 'lambda_2 = ' + l2.toFixed(3) + ', k = ' + k.toFixed(1) + '  ->  1/(k lambda_2) = ' + (1 / (k * l2)).toFixed(2) + ' s, 2% settling about ' + (4 / (k * l2)).toFixed(2) + ' s';
+        }
+        function play() {
+          if (timer) return;
+          timer = setInterval(function () { for (var n = 0; n < 5; n++) { if (t >= T) { clearInterval(timer); timer = null; break; } step(); } draw(); }, 25);
+        }
+        kIn.addEventListener('input', function () { kOut.textContent = parseFloat(kIn.value).toFixed(1); draw(); });
+        topo.addEventListener('change', reset);
+        document.getElementById('demo-run').addEventListener('click', play);
+        document.getElementById('demo-reset').addEventListener('click', reset);
+        reset();
+      } catch (e) { console.error('demo failed', e); }
+    })();
+  </script>
+</body>
+</html>

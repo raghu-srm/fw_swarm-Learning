@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fixed-Wing Swarm Learning — Consensus Convergence & Stability</title>
+
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['\\(', '\\)']],
+        displayMath: [['\\[', '\\]'], ['$$', '$$']]
+      },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --card: #ffffff;
+      --text: #172033;
+      --muted: #5d687a;
+      --accent: #2457d6;
+      --accent-light: #eaf0ff;
+      --border: #dce2ec;
+      --code: #111827;
+      --success: #147a4b;
+      --warning: #c27b00;
+      --danger: #b42318;
+      --claw: #0f766e;
+      --claw-light: #e6f6f4;
+      --def: #6d28d9;
+      --def-light: #f3eefe;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+    }
+
+    header {
+      background: linear-gradient(135deg, #172554, #2457d6);
+      color: white;
+      padding: 56px 20px 44px;
+    }
+    header .wrap { max-width: 1320px; margin: auto; }
+    .topbar { margin-bottom: 18px; font-size: .95rem; }
+    .topbar a { color: #dbe6ff; }
+    .topbar a:hover { color: #fff; }
+
+    h1 { margin: 0 0 10px; font-size: clamp(2rem, 5vw, 3.2rem); }
+    h2 { margin-top: 0; font-size: 1.8rem; }
+    h3 { margin-top: 1.6rem; }
+    h4 { margin-top: 1.2rem; margin-bottom: .4rem; }
+
+    .subtitle { max-width: 820px; color: #dbe6ff; font-size: 1.08rem; }
+
+    nav, section, .callout {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px;
+      margin: 20px 0;
+      box-shadow: 0 3px 12px rgba(20, 35, 70, .05);
+    }
+    nav h2 { font-size: 1.35rem; }
+    nav ol { margin-bottom: 0; padding-left: 22px; }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    code { background: #eef1f6; padding: 2px 5px; border-radius: 5px; font-size: .92em; }
+    pre {
+      background: var(--code);
+      color: #e5e7eb;
+      padding: 18px;
+      border-radius: 10px;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+    pre code { background: none; padding: 0; color: inherit; font-size: .9rem; }
+
+    .formula {
+      background: var(--accent-light);
+      border-left: 4px solid var(--accent);
+      padding: 16px 18px;
+      margin: 16px 0;
+      overflow-x: auto;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+    }
+    .mini {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      background: #fbfcff;
+    }
+    .mini strong { display: block; margin-bottom: 5px; }
+
+    .success { border-left: 4px solid var(--success); background: #edf9f3; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .warning { border-left: 4px solid var(--warning); background: #fff8e8; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .danger  { border-left: 4px solid var(--danger);  background: #fdecec; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .note    { border-left: 4px solid var(--muted);   background: #f3f5f8; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .definition, .theorem {
+      border-left: 4px solid var(--def);
+      background: var(--def-light);
+      padding: 14px 18px;
+      border-radius: 8px;
+      margin: 14px 0;
+    }
+    .definition > strong:first-child, .theorem > strong:first-child { color: var(--def); }
+    .claw {
+      border: 1px solid #99d6cf;
+      border-left: 6px solid var(--claw);
+      background: var(--claw-light);
+      padding: 16px 20px;
+      border-radius: 10px;
+      margin: 18px 0;
+    }
+    .claw > strong:first-child { color: var(--claw); display: block; margin-bottom: 6px; font-size: 1.05rem; }
+
+    table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+    th, td { text-align: left; padding: 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    th { background: #f1f4f9; }
+
+    .tag {
+      display: inline-block;
+      background: #eaf0ff;
+      color: #204bb4;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: .82rem;
+      margin: 3px;
+    }
+
+    figure { margin: 18px 0; }
+    figure > svg { width: 100%; height: auto; display: block; background: #fbfcff; border: 1px solid var(--border); border-radius: 10px; }
+    figcaption { color: var(--muted); font-size: .92rem; margin-top: 6px; text-align: center; }
+
+    .exercise { border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; margin: 14px 0; background: #fbfcff; }
+    .exercise summary { cursor: pointer; color: var(--accent); font-weight: 600; margin-top: 8px; }
+    .exercise details { margin-top: 6px; }
+    .exercise .solution { border-top: 1px dashed var(--border); margin-top: 8px; padding-top: 8px; }
+
+    .demo { border: 1px solid var(--border); border-radius: 12px; padding: 14px; background: #fbfcff; margin: 16px 0; }
+    .demo canvas { width: 100%; height: auto; display: block; background: #ffffff; border: 1px solid var(--border); border-radius: 8px; }
+    .controls { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; margin: 10px 0; font-size: .95rem; }
+    .controls label { display: inline-flex; align-items: center; gap: 6px; }
+    .controls input[type=range] { width: 140px; }
+    .controls button, .btn {
+      background: var(--accent); color: #fff; border: 0; padding: 7px 14px; border-radius: 8px; cursor: pointer; font-size: .92rem;
+    }
+    .controls button:hover, .btn:hover { filter: brightness(1.08); }
+    .controls button.secondary { background: #e5e9f2; color: var(--text); }
+
+    .prevnext { display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin: 26px 0 0; }
+    .prevnext a { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; flex: 1 1 260px; }
+    .prevnext a span { display: block; color: var(--muted); font-size: .82rem; }
+    .prevnext a.next { text-align: right; }
+
+    .done-box { text-align: center; margin: 24px 0 0; }
+    .done-box button { background: var(--success); color: #fff; border: 0; padding: 9px 18px; border-radius: 8px; cursor: pointer; }
+    .done-box button.undone { background: #9aa5b5; }
+
+    footer { text-align: center; color: var(--muted); padding: 30px 20px 50px; }
+
+    .page-shell {
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      gap: 24px;
+      max-width: 1320px;
+      margin: 0 auto;
+      padding: 28px 20px 70px;
+      align-items: start;
+    }
+    .sidebar { grid-column: 1; position: sticky; top: 20px; }
+    .sidebar nav { position: sticky; top: 20px; max-height: calc(100vh - 40px); overflow-y: auto; }
+    .content { grid-column: 2; min-width: 0; }
+    @media (max-width: 960px) {
+      .page-shell { grid-template-columns: 1fr; }
+      .sidebar, .sidebar nav { position: static; max-height: none; }
+      .sidebar, .content { grid-column: 1; }
+    }
+    @media print {
+      nav { break-after: page; }
+      section { box-shadow: none; }
+      .demo, .done-box, .prevnext, .topbar { display: none; }
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <div class="wrap">
+      <div class="topbar"><a href="index.html">&larr; Course home</a> &nbsp;·&nbsp; Module B: Consensus</div>
+      <h1>Fixed-Wing Swarm Learning</h1>
+      <div class="subtitle">
+        Part 6: <strong>Consensus Convergence &amp; Stability</strong> — proving convergence with a Lyapunov function, then keeping it
+        when the law runs on a sampled radio link with packet loss, switching topologies, latency and disturbances.
+      </div>
+      <p>
+        <span class="tag">Lyapunov</span>
+        <span class="tag">Discrete time</span>
+        <span class="tag">Switching topologies</span>
+        <span class="tag">Delays</span>
+        <span class="tag">UAV Swarms</span>
+      </p>
+    </div>
+  </header>
+
+  <div class="page-shell">
+    <aside class="sidebar">
+      <nav id="index">
+        <h2>Index</h2>
+        <ol>
+          <li><a href="#why">Why this matters</a></li>
+          <li><a href="#lyapunov">Lyapunov proof of consensus</a></li>
+          <li><a href="#rate">Convergence rate and settling time</a></li>
+          <li><a href="#discrete">Discrete-time consensus</a></li>
+          <li><a href="#sampled">Sampled implementation of \(\dot x=-kLx\)</a></li>
+          <li><a href="#switching">Switching topologies</a></li>
+          <li><a href="#delays">Communication delays</a></li>
+          <li><a href="#noise">Disturbances and noise</a></li>
+          <li><a href="#loss">Packet loss: simulation</a></li>
+          <li><a href="#fixed-wing">Fixed-wing interpretation &amp; design recipe</a></li>
+          <li><a href="#implementation">Implementation</a></li>
+          <li><a href="#pitfalls">Common pitfalls</a></li>
+          <li><a href="#exercises">Exercises</a></li>
+          <li><a href="#summary">Key takeaways &amp; formula sheet</a></li>
+          <li><a href="#references">References</a></li>
+        </ol>
+      </nav>
+    </aside>
+
+    <main class="content">
+
+      <section id="why">
+        <h2>1. Why This Matters</h2>
+        <p>
+          <a href="5_continuous_time_consensus.html">Part 5</a> solved \(\dot x=-kLx\) exactly and showed that a connected swarm reaches the
+          average of its initial values. That solution assumed four things no real swarm has: continuous time, a fixed graph, zero latency and
+          noise-free links. A radio-linked fixed-wing swarm has a 5–20 Hz packet schedule, links that drop as aircraft bank and separate,
+          100–300 ms of latency, and measurement noise on everything. This part asks, for each of those, <em>does consensus survive, how fast,
+          and to what value?</em>
+        </p>
+        <div class="formula">
+          \[ \text{ideal: } \dot x=-kLx \quad\longrightarrow\quad \text{real: } x[k+1]=\big(I-T_sk\,L_{\sigma(k)}\big)x[k]+\text{delays}+\text{noise} \]
+        </div>
+        <div class="grid">
+          <div class="mini"><strong>Input</strong>Laplacian, eigenvalues and the disagreement vector (<a href="3_fixed_wing_swarm_graph_laplacian.html">Parts 3</a>–<a href="5_continuous_time_consensus.html">5</a>); Lyapunov's direct method (<a href="A1_math_toolbox.html">Appendix A1</a>).</div>
+          <div class="mini"><strong>Output</strong>A proof technique you will reuse in every later stability argument, and a gain-selection recipe: pick \(k\) from \(\lambda_N\), the sample time and the latency.</div>
+          <div class="mini"><strong>Used in</strong>Every sampled implementation from here on: <a href="8_leader_follower_consensus.html">Part 8</a> (estimator), <a href="12_formation_control.html">Part 12</a>, <a href="19_coordinated_path_following.html">Part 19</a>, <a href="24_capstone_unified_swarm_claw.html">Part 24</a> (checks D3–D4).</div>
+        </div>
+        <p>Throughout this part the graph is undirected and weighted, with \(L=D-A\) symmetric; directed graphs follow in <a href="7_directed_graph_consensus.html">Part 7</a>.</p>
+      </section>
+
+      <section id="lyapunov">
+        <h2>2. Lyapunov Proof of Consensus</h2>
+        <p>Part 5 proved convergence by diagonalising \(L\). That works for a fixed symmetric Laplacian and for nothing else. The Lyapunov argument below needs no eigenvectors, which is why it survives switching graphs, sampling and perturbations.</p>
+
+        <div class="definition">
+          <strong>Lyapunov's direct method (statement).</strong> Let \(\dot z=f(z)\) with \(f(0)=0\). If a continuously differentiable \(V(z)\) satisfies
+          \(V(0)=0\), \(V(z)\gt0\) for \(z\ne0\), and \(\dot V(z)=\nabla V\cdot f(z)\le-cV(z)\) for some \(c\gt0\), then \(\|z(t)\|\to0\) exponentially.
+          If only \(\dot V\le0\) holds, LaSalle's invariance principle says \(z(t)\) converges to the largest invariant set inside \(\{\dot V=0\}\)
+          (<a href="A1_math_toolbox.html#lyapunov">A1 §10</a>).
+        </div>
+
+        <h3>2.1 The disagreement vector as the state</h3>
+        <p>The consensus state itself does not go to zero (it goes to \(\bar x\mathbf 1\)), so we work with the disagreement vector of Part 5:</p>
+        <div class="formula">
+          \[ \delta = x-\bar x\mathbf 1 = P x,\qquad P=I-\tfrac1N\mathbf 1\mathbf 1^T,\qquad \mathbf 1^T\delta=0,\qquad \dot\delta=P\dot x=-PLx=-L\delta . \]
+        </div>
+        <p>(\(PL=LP=L\) because \(L\mathbf 1=0\) and \(\mathbf 1^TL=0\) for symmetric \(L\).) Consensus means \(\delta\to0\).</p>
+
+        <h3>2.2 The candidate and its derivative</h3>
+        <div class="formula">
+          \[ V(\delta)=\tfrac12\delta^T\delta,\qquad \dot V=\delta^T\dot\delta=-\delta^TL\delta . \]
+        </div>
+        <p>By the quadratic-form identity of Part 3, \(\delta^TL\delta=\tfrac12\sum_{i,j}a_{ij}(\delta_i-\delta_j)^2\ge0\), so \(\dot V\le0\): the disagreement
+          energy never grows. To get a <em>rate</em> we need a lower bound on \(\delta^TL\delta\), and that is exactly what the Courant–Fischer theorem gives on the
+          subspace orthogonal to \(\mathbf 1\):</p>
+        <div class="theorem">
+          <strong>Lemma (Rayleigh bound on \(\mathbf 1^\perp\)).</strong> For symmetric \(L\) with eigenvalues \(0=\lambda_1\le\lambda_2\le\dots\le\lambda_N\) and eigenvector \(\mathbf 1\) for \(\lambda_1\),
+          \[ \delta^TL\delta\;\ge\;\lambda_2\,\|\delta\|^2\qquad\text{for all }\delta\perp\mathbf 1 . \]
+          <em>Proof.</em> Expand \(\delta=\sum_{i\ge2}c_iv_i\) in the orthonormal eigenvectors (no \(v_1\) component because \(\delta\perp\mathbf 1\)). Then
+          \(\delta^TL\delta=\sum_{i\ge2}\lambda_ic_i^2\ge\lambda_2\sum_{i\ge2}c_i^2=\lambda_2\|\delta\|^2\). \(\square\)
+        </div>
+        <p>Therefore</p>
+        <div class="formula">
+          \[ \boxed{\;\dot V\le-\lambda_2\|\delta\|^2=-2\lambda_2V\quad\Longrightarrow\quad V(t)\le e^{-2\lambda_2t}V(0),\quad \|\delta(t)\|\le e^{-\lambda_2t}\|\delta(0)\|\;} \]
+        </div>
+        <div class="success"><strong>Interpretation:</strong> if the graph is connected (\(\lambda_2\gt0\)) the swarm's disagreement decays at least as fast as \(e^{-\lambda_2t}\),
+          whatever the initial condition. With gain \(k\) replace \(\lambda_2\) by \(k\lambda_2\). This is the same bound Part 5 found, now proved without any eigenvector of the trajectory — only the smallest non-zero eigenvalue of \(L\) was used.</div>
+
+        <h3>2.3 A second Lyapunov function: the disagreement energy</h3>
+        <p>\(E(x)=\tfrac12x^TLx\) also works: \(\dot E=x^TL\dot x=-x^TL^2x=-\|Lx\|^2\le0\), and on \(\mathbf 1^\perp\), \(\|Lx\|^2\ge\lambda_2\,x^TLx\), so \(E(t)\le e^{-2\lambda_2t}E(0)\).
+          \(E\) is the quantity a swarm can actually monitor: each UAV knows its own term \(\tfrac12\sum_ja_{ij}(x_i-x_j)^2\).</p>
+        <p><strong>Check on the Part 5 star</strong> (\(x(0)=[10,14,8]^T\), \(\lambda_2=1\)): \(V(0)=9.33\), \(\dot V(0)=-20.0\le-\lambda_2\|\delta(0)\|^2=-18.7\) ✓;
+          \(E(0)=x^TLx/2=10\); at \(t=0.5\) and \(1\) s, \(x^TLx=6.72\) and \(2.44\), both under the bound \(20e^{-2t}=7.36\) and \(2.71\) ✓.</p>
+
+        <h3>2.4 Why this proof generalises</h3>
+        <p>The argument used only three facts: \(L\mathbf 1=0\), \(L=L^T\succeq0\), and \(\lambda_2\gt0\). Any family of Laplacians with these properties shares the <em>same</em> \(V\).
+          That is the key to Section 6 (switching) and the reason Lyapunov functions, not eigen-decompositions, carry the rest of the course.</p>
+      </section>
+
+      <section id="rate">
+        <h2>3. Convergence Rate and Settling Time</h2>
+        <p>The slowest disagreement mode decays as \(e^{-k\lambda_2t}\) (Part 4). In control-engineering terms:</p>
+        <div class="formula">
+          \[ \tau_c=\frac{1}{k\lambda_2},\qquad t_{2\%}\approx\frac{4}{k\lambda_2},\qquad t_{1\%}=\frac{\ln 100}{k\lambda_2}=\frac{4.61}{k\lambda_2}. \]
+        </div>
+        <p>These are worst-case figures; a particular initial condition can settle faster if it has little content in the slow mode. For the star with \(k=1\) the bound predicts \(t_{2\%}=4\) s and the exact trajectory reaches 2 % at \(3.89\) s.</p>
+        <h3>3.1 The trade-off hidden in \(\lambda_N\)</h3>
+        <p>Raising \(k\) speeds up every mode, but Sections 4–7 will show that \(k\lambda_N\) is capped by the sample time and the latency. So the <em>achievable</em> rate is governed by the spectral ratio \(\lambda_N/\lambda_2\): the stiffer the graph, the more the cap on the fastest mode throttles the slowest one.</p>
+        <table>
+          <thead><tr><th>5-UAV graph</th><th>\(\lambda_2\)</th><th>\(\lambda_N\)</th><th>\(\lambda_N/\lambda_2\)</th><th>\(\tau_c\) at \(k=1\)</th><th>Euler limit \(k\lt2/(T_s\lambda_N)\), \(T_s=0.1\)</th></tr></thead>
+          <tbody>
+            <tr><td>path</td><td>0.382</td><td>3.618</td><td>9.47</td><td>2.62 s</td><td>5.53</td></tr>
+            <tr><td>ring</td><td>1.382</td><td>3.618</td><td>2.62</td><td>0.72 s</td><td>5.53</td></tr>
+            <tr><td>complete \(K_5\)</td><td>5.000</td><td>5.000</td><td>1.00</td><td>0.20 s</td><td>4.00</td></tr>
+          </tbody>
+        </table>
+        <div class="note"><strong>Design reading.</strong> Adding links helps twice: it raises \(\lambda_2\) and it lowers \(\lambda_N/\lambda_2\). A path (each aircraft hears only its two neighbours in trail) is the worst topology for consensus speed; closing it into a ring more than triples \(\lambda_2\) at the same \(\lambda_N\).</div>
+      </section>
+
+      <section id="discrete">
+        <h2>4. Discrete-Time Consensus</h2>
+        <p>Radios deliver packets at discrete instants, so the law every UAV actually runs is an update, not a differential equation:</p>
+        <div class="formula">
+          \[ \boxed{\;x_i[k+1]=x_i[k]-\varepsilon\sum_{j\in\mathcal N_i}a_{ij}\big(x_i[k]-x_j[k]\big)\quad\Longleftrightarrow\quad x[k+1]=(I-\varepsilon L)\,x[k]=:P\,x[k]\;} \]
+        </div>
+        <p>\(P=I-\varepsilon L\) is called the <strong>Perron matrix</strong> of the graph. Its eigenvectors are those of \(L\) and its eigenvalues are</p>
+        <div class="formula">\[ \mu_i=1-\varepsilon\lambda_i,\qquad \mu_1=1 \text{ (eigenvector } \mathbf 1\text{)} . \]</div>
+        <h3>4.1 Stability condition</h3>
+        <p>Writing \(x[k]=\sum_ic_i\mu_i^kv_i\), every disagreement mode must satisfy \(|\mu_i|\lt1\):</p>
+        <div class="formula">
+          \[ |1-\varepsilon\lambda_i|\lt1\ \ (i\ge2)\iff 0\lt\varepsilon\lt\frac{2}{\lambda_i}\quad\Longrightarrow\quad \boxed{\;0\lt\varepsilon\lt\frac{2}{\lambda_N}\;} \]
+        </div>
+        <p>A UAV rarely knows \(\lambda_N\) of the whole swarm, but it knows its own degree. Gershgorin's theorem (<a href="A1_math_toolbox.html#gershgorin">A1 §6</a>) gives \(\lambda_N\le2d_{\max}\), hence the <strong>local sufficient condition</strong></p>
+        <div class="formula">\[ \boxed{\;\varepsilon\lt\frac{1}{d_{\max}}\;} \]</div>
+        <p>which also makes \(P\) entrywise non-negative (\(P_{ii}=1-\varepsilon d_i\ge0\)). Then \(P\) is <strong>doubly stochastic</strong> — rows and columns sum to one because \(L\mathbf 1=0\) and \(\mathbf 1^TL=0\) — and three things follow at once: \(x[k+1]\) is a convex combination of neighbours' values (no overshoot past the extremes), the average \(\tfrac1N\mathbf 1^Tx[k]\) is conserved, and \(P^k\to\tfrac1N\mathbf 1\mathbf 1^T\) (average consensus).</p>
+        <h3>4.2 Fastest step size</h3>
+        <p>The slowest disagreement mode has \(|\mu|=\max(|1-\varepsilon\lambda_2|,|1-\varepsilon\lambda_N|)\). Balancing the two (Xiao &amp; Boyd 2004):</p>
+        <div class="formula">
+          \[ \varepsilon^\ast=\frac{2}{\lambda_2+\lambda_N},\qquad \rho^\ast=\frac{\lambda_N-\lambda_2}{\lambda_N+\lambda_2}. \]
+        </div>
+        <p>For a graph with all non-zero eigenvalues equal (complete graph) \(\varepsilon^\ast=1/\lambda_N\) gives <em>deadbeat</em> consensus in one step.</p>
+        <h3>4.3 Worked example: four UAVs, complete graph, \(T_s=0.1\) s</h3>
+        <p>\(K_4\) has \(\lambda=\{0,4,4,4\}\), \(d_{\max}=3\). With \(\varepsilon=T_sk\): Euler limit \(k\lt2/(0.1\cdot4)=5\); Gershgorin rule \(k\lt1/(0.1\cdot3)=3.33\); deadbeat at \(k=1/(0.1\cdot4)=2.5\), where \(P=\tfrac14\mathbf 1\mathbf 1^T\) and one step maps \(x[0]=[1,-2,0.5,3]^T\) to \(0.625\,\mathbf 1\) exactly. Simulation from the same \(x[0]\):</p>
+        <table>
+          <thead><tr><th>\(k\)</th><th>\(\mu_{2..4}\)</th><th>max deviation after 20 steps</th><th>after 200 steps</th><th>average preserved</th></tr></thead>
+          <tbody>
+            <tr><td>1.0</td><td>0.6</td><td>\(9.6\times10^{-5}\)</td><td>\(2\times10^{-16}\)</td><td>yes</td></tr>
+            <tr><td>4.9</td><td>−0.96</td><td>1.16 (oscillating)</td><td>\(7.5\times10^{-4}\)</td><td>yes</td></tr>
+            <tr><td>5.1</td><td>−1.04</td><td>5.75</td><td>6696 (diverged)</td><td>yes</td></tr>
+          </tbody>
+        </table>
+        <p>Note the last column: even the divergent run preserves the average, because \(P\) is doubly stochastic for any \(\varepsilon\). Conservation and stability are separate properties.</p>
+        <h3>4.4 Metropolis weights: a distributed, always-safe choice</h3>
+        <p>Instead of one global \(\varepsilon\) each pair can use a weight that needs only the two degrees at its ends:</p>
+        <div class="formula">
+          \[ \boxed{\;w_{ij}=\frac{1}{1+\max(d_i,d_j)}\ \ (j\in\mathcal N_i),\qquad w_{ii}=1-\sum_{j\in\mathcal N_i}w_{ij}\;} \]
+        </div>
+        <p>\(W\) is symmetric, non-negative and doubly stochastic by construction (Xiao, Boyd &amp; Lall 2005), so it converges to the average on any connected graph without anyone knowing \(\lambda_N\). For the 4-UAV graph with edges 1–2, 1–3, 1–4, 2–3 (degrees \(3,2,2,1\)):</p>
+        <div class="formula">
+          \[ W=\begin{bmatrix}0.25&0.25&0.25&0.25\\0.25&0.4167&0.3333&0\\0.25&0.3333&0.4167&0\\0.25&0&0&0.75\end{bmatrix},\qquad \text{eig}(W)=\{1,\,0.75,\,0.083,\,0\}. \]
+        </div>
+        <p>Its second-largest \(|\mu|\) is 0.75, against 0.667 for the uniform \(\varepsilon=1/d_{\max}\) and 0.60 for \(\varepsilon^\ast=2/(\lambda_2+\lambda_N)=0.4\) (this graph has \(\lambda=\{0,1,3,4\}\)). From \(x[0]=[4,0,2,10]^T\) the three schemes reach 1 % of the initial deviation in 17, 12 and 10 steps. Metropolis is slower but needs no global information — the usual price of robustness.</p>
+      </section>
+
+      <section id="sampled">
+        <h2>5. Sampled Implementation of \(\dot x=-kLx\)</h2>
+        <p>Running the continuous law with a forward-Euler step at the communication period \(T_s\) <em>is</em> the discrete law with \(\varepsilon=T_sk\). The conditions of Section 4 become gain limits:</p>
+        <div class="formula">
+          \[ \boxed{\;T_s\,k\,\lambda_N\lt2\quad(\text{necessary and sufficient}),\qquad T_s\,k\,d_{\max}\lt1\quad(\text{local, sufficient})\;} \]
+        </div>
+        <p>In practice aim for \(T_sk\lambda_N\le0.5\): the discrete modes then stay within 10 % of their continuous-time rates and small timing jitter cannot push a mode past \(|\mu|=1\). For the 5-UAV ring at 10 Hz this means \(k\le1.38\); with \(k=1\), \(T_sk\lambda_N=0.362\) and the slowest mode contracts by \(|\mu_2|=0.862\) per step, an equivalent continuous rate of \(-\ln(0.862)/0.1=1.49\ \mathrm{s^{-1}}\) versus the ideal \(k\lambda_2=1.38\).</p>
+        <div class="warning"><strong>Where the limit really comes from.</strong> The autopilot loop usually runs faster than the radio (50 Hz vs 10 Hz). The consensus step must use the <em>communication</em> period, because \(x_j\) only changes when a packet arrives. Integrating at 50 Hz with 10 Hz data does not relax the bound; it just repeats the same stale correction five times, which is equivalent to a larger \(\varepsilon\).</div>
+      </section>
+
+      <section id="switching">
+        <h2>6. Switching Topologies</h2>
+        <p>Banking aircraft shadow their antennas, separation changes link budgets, and packets are lost at random, so the graph at time \(t\) is \(G_{\sigma(t)}\) drawn from a finite set:</p>
+        <div class="formula">\[ \dot x=-L_{\sigma(t)}\,x,\qquad \sigma(t)\in\{1,\dots,m\}. \]</div>
+        <h3>6.1 A common Lyapunov function</h3>
+        <p>Every \(L_\sigma\) is symmetric, positive semidefinite and annihilates \(\mathbf 1\). Hence with the <em>same</em> \(V=\tfrac12\delta^T\delta\) as before, \(\dot V=-\delta^TL_{\sigma(t)}\delta\le0\) for all \(t\), whichever graph is active, and the average is conserved. The disagreement never grows — but \(\dot V=0\) is possible whenever the active graph is disconnected and \(\delta\) is constant on its components, so convergence needs an extra condition.</p>
+        <div class="theorem">
+          <strong>Theorem (jointly connected switching — Jadbabaie, Lin &amp; Morse 2003; Olfati-Saber &amp; Murray 2004; Ren &amp; Beard 2005).</strong>
+          Suppose the switching signal has a dwell time \(\tau_d\gt0\) between switches and there is a \(T\gt0\) such that over every interval \([t,t+T)\) the <em>union</em> of the graphs that were active is connected. Then \(\dot x=-L_{\sigma(t)}x\) reaches average consensus exponentially.
+          <br><em>Proof idea.</em> On each interval of length \(T\) the map \(\delta(t)\mapsto\delta(t+T)\) is a product of contractions; because every edge of a connected union graph is active for at least \(\tau_d\), the product strictly shrinks every component of \(\delta\) that is not already constant, so \(V\) drops by a fixed fraction per interval.
+        </div>
+        <h3>6.2 Worked example: two graphs, neither connected</h3>
+        <figure>
+          <svg viewBox="0 0 760 180" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Two disconnected graphs whose union is a path">
+            <g font-family="system-ui, sans-serif" font-size="14" fill="#172033">
+              <text x="110" y="24" text-anchor="middle" font-weight="700">G₁: {1–2, 3–4}</text>
+              <circle cx="40" cy="90" r="18" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/><text x="40" y="95" text-anchor="middle">1</text>
+              <circle cx="110" cy="90" r="18" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/><text x="110" y="95" text-anchor="middle">2</text>
+              <circle cx="180" cy="90" r="18" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/><text x="180" y="95" text-anchor="middle">3</text>
+              <circle cx="250" cy="90" r="18" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/><text x="250" y="95" text-anchor="middle">4</text>
+              <line x1="58" y1="90" x2="92" y2="90" stroke="#2457d6" stroke-width="3"/>
+              <line x1="198" y1="90" x2="232" y2="90" stroke="#2457d6" stroke-width="3"/>
+              <text x="145" y="150" text-anchor="middle" fill="#5d687a">λ₂ = 0 (disconnected)</text>
+
+              <text x="400" y="24" text-anchor="middle" font-weight="700">G₂: {2–3}</text>
+              <circle cx="330" cy="90" r="18" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/><text x="330" y="95" text-anchor="middle">1</text>
+              <circle cx="400" cy="90" r="18" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/><text x="400" y="95" text-anchor="middle">2</text>
+              <circle cx="470" cy="90" r="18" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/><text x="470" y="95" text-anchor="middle">3</text>
+              <circle cx="540" cy="90" r="18" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/><text x="540" y="95" text-anchor="middle">4</text>
+              <line x1="418" y1="90" x2="452" y2="90" stroke="#2457d6" stroke-width="3"/>
+              <text x="435" y="150" text-anchor="middle" fill="#5d687a">λ₂ = 0 (disconnected)</text>
+
+              <text x="680" y="24" text-anchor="middle" font-weight="700">G₁ ∪ G₂</text>
+              <circle cx="610" cy="90" r="18" fill="#e6f6f4" stroke="#0f766e" stroke-width="2"/><text x="610" y="95" text-anchor="middle">1</text>
+              <circle cx="660" cy="90" r="18" fill="#e6f6f4" stroke="#0f766e" stroke-width="2"/><text x="660" y="95" text-anchor="middle">2</text>
+              <circle cx="710" cy="90" r="18" fill="#e6f6f4" stroke="#0f766e" stroke-width="2"/><text x="710" y="95" text-anchor="middle">3</text>
+              <circle cx="760" cy="90" r="18" fill="#e6f6f4" stroke="#0f766e" stroke-width="2" transform="translate(-20 0)"/><text x="740" y="95" text-anchor="middle">4</text>
+              <line x1="628" y1="90" x2="642" y2="90" stroke="#0f766e" stroke-width="3"/>
+              <line x1="678" y1="90" x2="692" y2="90" stroke="#0f766e" stroke-width="3"/>
+              <line x1="728" y1="90" x2="722" y2="90" stroke="#0f766e" stroke-width="3"/>
+              <text x="680" y="150" text-anchor="middle" fill="#5d687a">path: λ₂ = 0.586</text>
+            </g>
+          </svg>
+          <figcaption>Figure 1. Neither active graph is connected, but their union is a path, so alternating between them still yields consensus.</figcaption>
+        </figure>
+        <p>Alternate \(G_1\) and \(G_2\) every \(0.5\) s from \(x(0)=[1,5,2,8]^T\) (average 4):</p>
+        <table>
+          <thead><tr><th>time</th><th>\(x\)</th><th>\(V=\tfrac12\|\delta\|^2\)</th></tr></thead>
+          <tbody>
+            <tr><td>0.5 s (after \(G_1\))</td><td>[2.264, 3.736, 3.896, 6.104]</td><td>3.759</td></tr>
+            <tr><td>1.0 s (after \(G_2\))</td><td>[2.264, 3.787, 3.846, 6.104]</td><td>3.754</td></tr>
+            <tr><td>4 s</td><td>[3.274, 3.824, 4.158, 4.745]</td><td>0.569</td></tr>
+            <tr><td>10 s</td><td>[3.862, 3.968, 4.032, 4.138]</td><td>0.020</td></tr>
+            <tr><td>20 s</td><td>[3.992, 3.998, 4.002, 4.009]</td><td>\(7.6\times10^{-5}\)</td></tr>
+          </tbody>
+        </table>
+        <p>\(V\) is non-increasing at every switch, the average is preserved, and the swarm converges — at an effective rate of \(0.279\ \mathrm{s^{-1}}\) (from the eigenvalues of the one-period map \(e^{-L_2T_d}e^{-L_1T_d}\)), slower than the \(\lambda_2=0.586\) the union graph would give if all its links were active simultaneously, and close to \(\lambda_2\big(\tfrac12(L_1+L_2)\big)=0.293\), the <em>time-averaged</em> Laplacian. Fast switching averages the Laplacians (Exercise 4).</p>
+        <div class="success"><strong>Interpretation for radios:</strong> a packet that is lost removes an edge for one period. As long as every link works often enough that the union over a few periods is connected, consensus survives; the price is a convergence rate set by the time-averaged graph. Section 9 quantifies this by simulation.</div>
+      </section>
+
+      <section id="delays">
+        <h2>7. Communication Delays</h2>
+        <p>A neighbour's value arrives \(\tau\) seconds old. There are two different ways to write the resulting law, and they behave very differently.</p>
+        <h3>7.1 Model (i): everything delayed</h3>
+        <div class="formula">\[ \dot x_i(t)=\sum_{j\in\mathcal N_i}a_{ij}\big[x_j(t-\tau)-x_i(t-\tau)\big]\quad\Longleftrightarrow\quad \dot x(t)=-Lx(t-\tau). \]</div>
+        <p>This is the form that arises when each UAV acts on a <em>relative</em> measurement (a time-stamped difference) that is itself delayed. Projecting on eigenvector \(v_i\) gives the scalar delay equation \(\dot z_i=-\lambda_iz_i(t-\tau)\), whose characteristic equation \(s+\lambda_ie^{-s\tau}=0\) first crosses the imaginary axis at \(s=\mathrm j\omega\) with \(\omega=\lambda_i\) and \(\omega\tau=\pi/2\). The most fragile mode is the fastest one:</p>
+        <div class="theorem">
+          <strong>Theorem (Olfati-Saber &amp; Murray 2004, Thm. 10).</strong> For a connected undirected graph, \(\dot x=-Lx(t-\tau)\) reaches average consensus if and only if
+          \[ \boxed{\;0\le\tau\lt\tau^\ast=\frac{\pi}{2\lambda_N}\;} \]
+          and with gain \(k\), \(\tau\lt\pi/(2k\lambda_N)\).
+        </div>
+        <p>For the 3-UAV star (\(\lambda_N=3\)) \(\tau^\ast=0.524\) s. Simulating with a constant initial history:</p>
+        <table>
+          <thead><tr><th>\(\tau\) [s]</th><th>max deviation at 10 s</th><th>at 40 s</th><th>at 70 s</th><th>behaviour</th></tr></thead>
+          <tbody>
+            <tr><td>0.30</td><td>0.000</td><td>0.000</td><td>0.000</td><td>converges (fast)</td></tr>
+            <tr><td>0.50</td><td>0.371</td><td>0.018</td><td>0.008</td><td>converges, lightly damped oscillation</td></tr>
+            <tr><td>0.53</td><td>0.376</td><td>1.447</td><td>2.035</td><td>diverges slowly</td></tr>
+            <tr><td>0.55</td><td>0.414</td><td>9.649</td><td>3.955 → 35.9</td><td>diverges</td></tr>
+          </tbody>
+        </table>
+        <p>The average is still conserved in every case (\(\mathbf 1^T\dot x=0\) because \(\mathbf 1^TL=0\)); what is lost is stability of the disagreement.</p>
+        <h3>7.2 Model (ii): only received data delayed</h3>
+        <div class="formula">\[ \dot x_i(t)=\sum_{j\in\mathcal N_i}a_{ij}\big[x_j(t-\tau)-x_i(t)\big] . \]</div>
+        <p>This is what a UAV does when it compares a neighbour's <em>stale packet</em> with its <em>own current</em> state — the natural implementation. Each UAV then has an undelayed, strictly stabilising self-term \(-d_ix_i(t)\), and the result is far more robust:</p>
+        <div class="theorem">
+          <strong>Theorem (delay-independent consensus — Moreau 2004; Münz, Papachristodoulou &amp; Allgöwer 2010).</strong> For a connected undirected graph, model (ii) reaches consensus for <em>every</em> constant delay \(\tau\ge0\) (and for bounded heterogeneous delays \(\tau_{ij}\)). The consensus value, however, depends on the delay.
+        </div>
+        <p><em>Why the value moves.</em> Define \(Q(t)=\sum_ix_i(t)+\sum_id_i\int_{t-\tau}^{t}x_i(s)\,ds\). Differentiating and using \(\sum_i\sum_ja_{ij}x_j(t-\tau)=\sum_jd_jx_j(t-\tau)\) (undirected: column sums are degrees) gives \(\dot Q=0\). Evaluating the conserved \(Q\) at \(t=0\) (constant history) and at consensus \(x=c\mathbf 1\):</p>
+        <div class="formula">
+          \[ \boxed{\;c=\frac{\mathbf 1^Tx(0)+\tau\,d^Tx(0)}{N+\tau\,\mathbf 1^Td}\;} \]
+        </div>
+        <p>a blend of the plain average (\(\tau\to0\)) and the <em>degree-weighted</em> average (\(\tau\to\infty\)). Star, \(x(0)=[10,14,8]^T\): \(c=10.667,\ 10.600,\ 10.571,\ 10.546,\ 10.522\) for \(\tau=0,\ 0.5,\ 1,\ 2,\ 5\) s; simulation at \(t=60\) s matches to four digits for \(\tau\le2\) and the \(\tau=5\) s run reaches \(10.52\) after 350 s. For regular graphs (all degrees equal) \(c\) is the average for every \(\tau\).</p>
+        <div class="warning"><strong>Implementation rule.</strong> Always compare the neighbour's stale value with your own <em>current</em> value (model ii), never with your own value from the same stale time (model i). Model (i) buys exact average consensus at the cost of a hard delay limit \(\pi/(2k\lambda_N)\); model (ii) tolerates any delay and loses only a small, computable shift of the final value.</div>
+      </section>
+
+      <section id="noise">
+        <h2>8. Disturbances and Noise</h2>
+        <p>Let each UAV's update be corrupted by a bounded disturbance \(w_i(t)\) (sensor bias, quantisation, an un-modelled control input):</p>
+        <div class="formula">\[ \dot x=-kLx+w\quad\Longrightarrow\quad \dot\delta=-kL\delta+Pw,\qquad \dot{\bar x}=\tfrac1N\mathbf 1^Tw . \]</div>
+        <p>Two separate effects. The <strong>average drifts</strong> at the mean disturbance — consensus cannot prevent it, since \(\mathbf 1^T\) sees no coupling. The <strong>disagreement stays bounded</strong>: with \(V=\tfrac12\delta^T\delta\), \(\dot V\le-k\lambda_2\|\delta\|^2+\|\delta\|\|Pw\|\), which is negative whenever \(\|\delta\|\gt\|Pw\|/(k\lambda_2)\). Hence</p>
+        <div class="formula">
+          \[ \boxed{\;\|\delta(t)\|\le e^{-k\lambda_2t}\|\delta(0)\|+\frac{\sup_s\|Pw(s)\|}{k\lambda_2}\;} \]
+        </div>
+        <p>— an input-to-state stability (ISS) bound (<a href="A1_math_toolbox.html#lyapunov">A1 §10</a>). For a <em>constant</em> \(w\) the exact steady state is \(\delta_{ss}=(kL)^{+}Pw\) (pseudo-inverse). Star, \(k=1\), \(w=[0.5,-0.3,0.1]^T\): \(Pw=[0.4,-0.4,0]^T\), \(\|Pw\|=0.566\), \(\delta_{ss}=[0.133,-0.267,0.133]^T\), \(\|\delta_{ss}\|=0.327\le0.566\) ✓, while the average climbs at \(0.1\) per second. Doubling \(k\) halves the residual disagreement (\(k=4\): \(0.082\le0.141\)) — one more reason to want the largest \(k\) the sampling and delay limits allow.</p>
+        <p>Zero-mean measurement noise behaves the same way in expectation; its variance accumulates in the drifting average (a random walk) while the disagreement variance stays bounded by the same \(1/(k\lambda_2)\) factor.</p>
+      </section>
+
+      <section id="loss">
+        <h2>9. Packet Loss: Simulation</h2>
+        <p>Five fixed-wing UAVs on a ring share an airspeed command at 10 Hz with \(k=1\) (\(T_sk\lambda_N=0.362\), \(4/(k\lambda_2)=2.89\) s). Initial commands \(x(0)=[62,55,60,66,57]\) m/s, average \(60\). Each packet is lost independently with probability \(p\); a lost packet removes that link for the step (switching topology, Section 6). Two hundred random seeds per case:</p>
+        <table>
+          <thead><tr><th>loss model</th><th>\(p\)</th><th>2 % settling time, mean</th><th>max over seeds</th><th>final value</th></tr></thead>
+          <tbody>
+            <tr><td>symmetric (link outage)</td><td>0.0</td><td>2.20 s</td><td>2.20 s</td><td>60.000 (average)</td></tr>
+            <tr><td>symmetric</td><td>0.3</td><td>3.22 s</td><td>3.90 s</td><td>60.000 (average)</td></tr>
+            <tr><td>symmetric</td><td>0.6</td><td>5.70 s</td><td>7.10 s</td><td>60.000 (average)</td></tr>
+            <tr><td>asymmetric (per direction)</td><td>0.3</td><td>—</td><td>—</td><td>\(60\pm0.31\) m/s (std), worst \(0.88\) m/s off</td></tr>
+          </tbody>
+        </table>
+        <p>Three observations, each tying back to a theorem:</p>
+        <ul>
+          <li><strong>Loss slows, it does not destabilise</strong> (Section 6): with 60 % loss the swarm still converges, roughly 2.6× slower, consistent with a time-averaged Laplacian \((1-p)L\).</li>
+          <li><strong>Symmetric loss preserves the average</strong>, because every instantaneous graph is undirected and the Perron matrix stays doubly stochastic.</li>
+          <li><strong>Asymmetric loss shifts the final value</strong>: when UAV \(i\) hears \(j\) but not vice versa the instantaneous graph is directed, the instantaneous \(P\) is only row-stochastic, and the consensus value becomes a random weighted average — the subject of <a href="7_directed_graph_consensus.html">Part 7</a>.</li>
+        </ul>
+        <p>Straddling the Euler limit with no loss confirms Section 5: \(k=5.4\) still converges (\(3\times10^{-4}\) m/s deviation after 20 s), \(k=5.6\) diverges to 762 m/s.</p>
+      </section>
+
+      <section id="fixed-wing">
+        <h2>10. Fixed-Wing Interpretation and Design Recipe</h2>
+        <h3>10.1 What the shared variable is</h3>
+        <p>In a fixed-wing swarm the consensus state is rarely a position — aircraft cannot park at an agreed point. It is an airspeed or Mach command, a flight level, a mission clock or path parameter (<a href="19_coordinated_path_following.html">Part 19</a>), or the estimate of a shared reference (<a href="8_leader_follower_consensus.html">Part 8</a>). The disturbance of Section 8 is then a gust-induced speed error or an autopilot bias, and the drift of the average is harmless as long as a leader or a mission reference anchors it (Part 8).</p>
+        <h3>10.2 The recipe: 5-UAV ring, 10 Hz radio, 100 ms latency</h3>
+        <ol>
+          <li><strong>Graph:</strong> \(\lambda_2=1.382\), \(\lambda_N=3.618\), \(d_{\max}=2\).</li>
+          <li><strong>Sampling limit:</strong> \(k\lt2/(T_s\lambda_N)=5.53\); local Gershgorin \(k\lt1/(T_sd_{\max})=5.0\); margin rule \(k\le0.5/(T_s\lambda_N)=1.38\).</li>
+          <li><strong>Delay limit</strong> (model i, worst case): \(k\lt\pi/(2\tau\lambda_N)=4.34\); margin rule \(k\le\pi/(8\tau\lambda_N)=1.09\). With model (ii) this limit disappears but the value shift of Section 7.2 should be checked.</li>
+          <li><strong>Choose</strong> \(k=1\): \(T_sk\lambda_N=0.362\), \(\tau k\lambda_N=0.362\ll\pi/2\), \(\tau_c=0.72\) s, \(4\tau_c=2.9\) s.</li>
+          <li><strong>Verify</strong> by the packet-loss simulation of Section 9 (settles in 2.2 s clean, 3.2 s at 30 % loss).</li>
+        </ol>
+        <h3>10.3 Latency as distance</h3>
+        <table>
+          <thead><tr><th>\(V_g\)</th><th>100 ms latency</th><th>latency + one period (0.2 s)</th><th>\(4\tau_c=2.9\) s transient</th></tr></thead>
+          <tbody>
+            <tr><td>25 m/s</td><td>2.5 m</td><td>5.0 m</td><td>72 m</td></tr>
+            <tr><td>60 m/s</td><td>6.0 m</td><td>12.0 m</td><td>174 m</td></tr>
+            <tr><td>200 m/s</td><td>20.0 m</td><td>40.0 m</td><td>579 m</td></tr>
+          </tbody>
+        </table>
+        <div class="note"><strong>High-speed note.</strong> None of the stability limits in this part contain the airspeed: \(T_sk\lambda_N\lt2\) and \(\tau k\lambda_N\lt\pi/2\) are properties of the graph, the gain and the radio. What speed changes is the <em>cost</em> of the transient and of the delay in metres. At 200 m/s a consensus transient of 2.9 s is 579 m of flight and a 100 ms packet is 20 m stale, so (a) the shared variables must be agreed well before the manoeuvre that needs them, (b) positions carried in packets must be dead-reckoned by \(V_g\tau\) before use (Part 24 §4.4), and (c) the gain should sit as close to the margin rule as the radio jitter allows, because every factor of two in \(k\) halves both the transient distance and the disturbance-induced disagreement.</div>
+        <div class="claw"><strong>Toward the CLAW</strong>
+          This part fixes the <em>timing and gain rules</em> of every consensus-type block in the unified law. The capstone's check D3 is Section 5 verbatim (\(T_s(k_p+k_c\lambda_{\max})\lt0.5\), \(T_{\mathrm{comm}}k_\xi\lambda_{\max}(H)\lt0.5\)); its handling of stale packets — compare the neighbour's dead-reckoned value with your own current state, drop links whose packets are older than \(T_{\mathrm{stale}}\), and rely on the union graph staying connected — is Sections 6 and 7.2; and its ISS-style convergence statement (Part 24 §11) is Section 8 applied layer by layer. The packet-loss simulator of Section 11 is the seed of the course's reference simulator's <code>comms.py</code>.</div>
+      </section>
+
+      <section id="implementation">
+        <h2>11. Implementation</h2>
+        <p>The script reproduces Section 9 and the Euler-limit check of Section 5. Pure NumPy; the switching topology is built from the packets that actually arrive in each slot.</p>
+<pre><code>import numpy as np
+
+def ring(N):
+    A = np.zeros((N, N))
+    for i in range(N):
+        A[i, (i+1) % N] = A[(i+1) % N, i] = 1.0
+    return A
+
+def simulate(A, x0, k, Ts, p_loss, T=20.0, symmetric=True, seed=1, tol=0.02):
+    """Euler consensus x &lt;- x - Ts*k*L_k x, where L_k is built from the packets
+    that actually arrived in this comm slot (packet loss = switching topology)."""
+    rng = np.random.default_rng(seed)
+    N = len(x0); x = x0.copy(); xbar = x0.mean()
+    e0 = np.abs(x0 - xbar).max(); t_settle = None
+    for n in range(int(T/Ts)):
+        if symmetric:                       # link outage: both directions lost
+            keep = np.triu(rng.random((N, N)) &gt;= p_loss, 1)
+            keep = keep | keep.T
+        else:                               # each direction lost independently
+            keep = rng.random((N, N)) &gt;= p_loss
+        Ak = A * keep                       # Ak[i,j] = 1: UAV i heard UAV j now
+        Lk = np.diag(Ak.sum(1)) - Ak
+        x = x - Ts*k*(Lk @ x)
+        if t_settle is None and np.abs(x - xbar).max() &lt; tol*e0:
+            t_settle = (n+1)*Ts
+    return x, t_settle
+
+N, Ts, k = 5, 0.1, 1.0                      # 5 UAVs, 10 Hz comms, gain 1/s
+A = ring(N)
+lam = np.linalg.eigvalsh(np.diag(A.sum(1)) - A)
+print(f"lam2={lam[1]:.3f} lamN={lam[-1]:.3f}  Euler limit k&lt;{2/(Ts*lam[-1]):.2f}  "
+      f"Ts*k*lamN={Ts*k*lam[-1]:.3f}  4/(k*lam2)={4/(k*lam[1]):.2f} s")
+x0 = np.array([62.0, 55.0, 60.0, 66.0, 57.0])   # airspeed commands [m/s], mean 60
+for p in [0.0, 0.3, 0.6]:
+    ts = [simulate(A, x0, k, Ts, p, seed=s)[1] for s in range(200)]
+    print(f"symmetric loss p={p}: 2%-settling mean={np.mean(ts):.2f} s  max={np.max(ts):.2f} s")
+devs = [simulate(A, x0, k, Ts, 0.3, symmetric=False, seed=s)[0].mean() - 60.0
+        for s in range(200)]
+print(f"asymmetric loss p=0.3: final value - 60: std={np.std(devs):.3f}  "
+      f"max|.|={np.abs(devs).max():.3f} m/s")
+for kk in [5.4, 5.6]:                        # straddle the Euler limit 5.53
+    xf, _ = simulate(A, x0, kk, Ts, 0.0)
+    print(f"k={kk}: max deviation after 20 s = {np.abs(xf-60).max():.3g}")
+</code></pre>
+<pre><code>lam2=1.382 lamN=3.618  Euler limit k&lt;5.53  Ts*k*lamN=0.362  4/(k*lam2)=2.89 s
+symmetric loss p=0.0: 2%-settling mean=2.20 s  max=2.20 s
+symmetric loss p=0.3: 2%-settling mean=3.22 s  max=3.90 s
+symmetric loss p=0.6: 2%-settling mean=5.70 s  max=7.10 s
+asymmetric loss p=0.3: final value - 60: std=0.307  max|.|=0.879 m/s
+k=5.4: max deviation after 20 s = 0.000339
+k=5.6: max deviation after 20 s = 762
+</code></pre>
+        <p>To reproduce the delay experiments of Section 7, keep a ring buffer of past states of length \(\tau/\Delta t\) and integrate with \(\Delta t=1\) ms; model (i) uses the buffered value for both \(x_j\) and \(x_i\), model (ii) only for \(x_j\).</p>
+      </section>
+
+      <section id="pitfalls">
+        <h2>12. Common Pitfalls</h2>
+        <ul>
+          <li><strong>Integrating at the autopilot rate with radio-rate data.</strong> The effective step is still the communication period; see the warning in Section 5.</li>
+          <li><strong>Using \(d_i\) instead of \(d_{\max}\) in the local rule.</strong> \(\varepsilon\lt1/d_i\) only guarantees that <em>your own</em> row of \(P\) is non-negative; stability needs the bound at the busiest node, or Metropolis weights.</li>
+          <li><strong>Reading "consensus survives 60 % loss" as "loss is harmless".</strong> The rate drops with \((1-p)\), and asymmetric loss moves the agreed value (Section 9).</li>
+          <li><strong>Applying the delay limit \(\pi/(2k\lambda_N)\) to the wrong model.</strong> It is for model (i). If you implement model (ii) you have no hard limit but a delay-dependent consensus value.</li>
+          <li><strong>Forgetting the drift of the average.</strong> Consensus bounds disagreement, not the common value; a biased disturbance walks the whole swarm away (Section 8). Anchor the average with a leader (Part 8).</li>
+          <li><strong>Choosing \(k\) at the Euler limit.</strong> At \(k=4.9\) on \(K_4\) the modes alternate sign (\(\mu=-0.96\)); the aircraft receive a chattering command and any jitter in \(T_s\) tips it over. Keep \(T_sk\lambda_N\le0.5\).</li>
+          <li><strong>Mixing up dwell time and union period.</strong> The jointly-connected theorem needs both: links must stay up long enough to act (\(\tau_d\)) and the union over \(T\) must be connected.</li>
+        </ul>
+      </section>
+
+      <section id="exercises">
+        <h2>13. Exercises</h2>
+        <div class="exercise">
+          <strong>Exercise 1 (step size).</strong> Five UAVs in trail form a path graph; \(T_s=0.1\) s. Give the Euler and Gershgorin gain limits, the optimal step \(\varepsilon^\ast\), the corresponding spectral radius, and the number of steps to reach 1 % of the initial disagreement at \(\varepsilon^\ast\) and at \(k=1\).
+          <details><summary>Show solution</summary><div class="solution">Path-5: \(\lambda=\{0,0.382,1.382,2.618,3.618\}\), \(d_{\max}=2\). Euler: \(k\lt2/(0.1\cdot3.618)=5.53\); Gershgorin: \(k\lt1/(0.1\cdot2)=5\). \(\varepsilon^\ast=2/(0.382+3.618)=0.5\Rightarrow k=5\), \(\rho^\ast=(3.618-0.382)/4=0.809\), steps to 1 %: \(\ln0.01/\ln0.809=21.7\) (2.2 s). At \(k=1\): \(\rho=\max|1-0.1\lambda_i|=0.962\), 118 steps (11.8 s). The path's poor \(\lambda_2\) is what makes it slow; the optimal step merely balances the two extreme modes.</div></details>
+        </div>
+        <div class="exercise">
+          <strong>Exercise 2 (delays).</strong> For \(K_4\) with gains \(k=1\) and \(k=2\), compute the model-(i) delay limit. Then show that under model (ii) the consensus value of \(K_4\) is the plain average for every \(\tau\), and explain why.
+          <details><summary>Show solution</summary><div class="solution">\(\lambda_N=4\): \(\tau^\ast=\pi/8=0.393\) s for \(k=1\) and \(\pi/16=0.196\) s for \(k=2\). Model (ii): \(c=(\mathbf 1^Tx(0)+\tau d^Tx(0))/(N+\tau\mathbf 1^Td)\); in \(K_4\) all \(d_i=3\), so \(d^Tx(0)=3\,\mathbf 1^Tx(0)\) and \(\mathbf 1^Td=3N\), giving \(c=\mathbf 1^Tx(0)/N\) — the degree-weighted and plain averages coincide for any regular graph. Check: \(x(0)=[1,-2,0.5,3]\Rightarrow c=0.625\) for \(\tau=0.2\) and \(1.0\).</div></details>
+        </div>
+        <div class="exercise">
+          <strong>Exercise 3 (Metropolis).</strong> Compute the Metropolis weight matrix of the 3-UAV star and show it equals \(I-L/3\). What are its eigenvalues, and which uniform \(\varepsilon\) would it correspond to?
+          <details><summary>Show solution</summary><div class="solution">Degrees \((2,1,1)\): \(w_{12}=w_{13}=1/(1+2)=1/3\), \(w_{11}=1/3\), \(w_{22}=w_{33}=2/3\). So \(W=\begin{bmatrix}1/3&1/3&1/3\\1/3&2/3&0\\1/3&0&2/3\end{bmatrix}=I-L/3\), eigenvalues \(\{1,\,0.667,\,0\}\): the uniform step \(\varepsilon=1/3=1/(1+d_{\max})\). On a star the hub's degree sets every weight, so Metropolis reduces to the conservative uniform rule.</div></details>
+        </div>
+        <div class="exercise">
+          <strong>Exercise 4 (fast switching).</strong> Repeat the Section 6 example with dwell times \(0.5\), \(0.1\) and \(0.01\) s and compute the effective convergence rate from the one-period map. What does it converge to as the dwell time shrinks?
+          <details><summary>Show solution</summary><div class="solution">Rates \(0.279\), \(0.292\), \(0.293\ \mathrm{s^{-1}}\). They approach \(\lambda_2\big(\tfrac12(L_1+L_2)\big)=0.293\), the algebraic connectivity of the <em>time-averaged</em> Laplacian — not \(\lambda_2(L_1+L_2)=0.586\) of the union, because each link is only active half the time. Fast switching (averaging theory) lets you design with the average graph; slow switching costs a little extra.</div></details>
+        </div>
+        <div class="exercise">
+          <strong>Exercise 5 (ISS bound).</strong> Prove \(\|\delta(t)\|\le e^{-k\lambda_2t}\|\delta(0)\|+\|Pw\|_\infty/(k\lambda_2)\) for \(\dot x=-kLx+w\), and evaluate the steady-state disagreement of the star example with \(k=4\).
+          <details><summary>Show solution</summary><div class="solution">With \(V=\tfrac12\|\delta\|^2\): \(\dot V=-k\delta^TL\delta+\delta^TPw\le-k\lambda_2\|\delta\|^2+\|\delta\|\,\|Pw\|\). Let \(r=\|\delta\|\); then \(\dot r\le-k\lambda_2r+\|Pw\|\) wherever \(r\gt0\), and the comparison lemma gives \(r(t)\le e^{-k\lambda_2t}r(0)+(1-e^{-k\lambda_2t})\|Pw\|_\infty/(k\lambda_2)\), which implies the claim. Star, \(k=4\), \(w=[0.5,-0.3,0.1]^T\): bound \(0.566/4=0.141\); exact \(\delta_{ss}=(4L)^+Pw\) has norm \(0.082\).</div></details>
+        </div>
+      </section>
+
+      <section id="summary">
+        <h2>14. Key Takeaways &amp; Formula Sheet</h2>
+        <ul>
+          <li>Lyapunov function \(V=\tfrac12\delta^T\delta\): \(\dot V=-\delta^TL\delta\le-\lambda_2\|\delta\|^2\Rightarrow\|\delta(t)\|\le e^{-k\lambda_2t}\|\delta(0)\|\). Needs only \(L\mathbf 1=0\), \(L=L^T\succeq0\), \(\lambda_2\gt0\).</li>
+          <li>Settling: \(\tau_c=1/(k\lambda_2)\), \(t_{2\%}\approx4/(k\lambda_2)\); achievable speed limited by \(\lambda_N/\lambda_2\).</li>
+          <li>Discrete time \(x[k+1]=(I-\varepsilon L)x[k]\): stable iff \(0\lt\varepsilon\lt2/\lambda_N\); local rule \(\varepsilon\lt1/d_{\max}\) (doubly stochastic \(P\), average preserved); optimal \(\varepsilon^\ast=2/(\lambda_2+\lambda_N)\); Metropolis \(w_{ij}=1/(1+\max(d_i,d_j))\).</li>
+          <li>Sampled CT law: \(T_sk\lambda_N\lt2\) (aim \(\le0.5\)); use the communication period.</li>
+          <li>Switching graphs: common \(V\); consensus if the union over bounded windows is connected (with dwell time); rate ≈ \(\lambda_2\) of the time-averaged Laplacian.</li>
+          <li>Delays: model (i) \(\dot x=-Lx(t-\tau)\) stable iff \(\tau\lt\pi/(2k\lambda_N)\); model (ii) (stale neighbour, current self) stable for all \(\tau\), value \(c=(\mathbf 1^Tx_0+\tau d^Tx_0)/(N+\tau\mathbf 1^Td)\).</li>
+          <li>Disturbances: \(\|\delta\|_{ss}\le\|Pw\|/(k\lambda_2)\); the average drifts at \(\mathbf 1^Tw/N\).</li>
+          <li>Packet loss slows convergence (\(\approx(1-p)\) factor) and, if asymmetric, shifts the consensus value.</li>
+        </ul>
+      </section>
+
+      <section id="references">
+        <h2>15. References</h2>
+        <ul>
+          <li>R. Olfati-Saber and R. M. Murray, "Consensus problems in networks of agents with switching topology and time-delays," <em>IEEE Trans. Automatic Control</em> 49(9), 2004 — delay bound \(\pi/(2\lambda_N)\), switching with a common Lyapunov function.</li>
+          <li>A. Jadbabaie, J. Lin and A. S. Morse, "Coordination of groups of mobile autonomous agents using nearest neighbor rules," <em>IEEE Trans. Automatic Control</em> 48(6), 2003 — jointly connected switching (discrete time).</li>
+          <li>W. Ren and R. W. Beard, "Consensus seeking in multiagent systems under dynamically changing interaction topologies," <em>IEEE Trans. Automatic Control</em> 50(5), 2005.</li>
+          <li>L. Moreau, "Stability of multiagent systems with time-dependent communication links," <em>IEEE Trans. Automatic Control</em> 50(2), 2005 — set-contraction view of switching and delays.</li>
+          <li>U. Münz, A. Papachristodoulou and F. Allgöwer, "Delay robustness in consensus problems," <em>Automatica</em> 46(8), 2010 — delay-independent consensus for the stale-neighbour / current-self protocol.</li>
+          <li>L. Xiao and S. Boyd, "Fast linear iterations for distributed averaging," <em>Systems &amp; Control Letters</em> 53(1), 2004 — optimal step size and weight design.</li>
+          <li>L. Xiao, S. Boyd and S. Lall, "A scheme for robust distributed sensor fusion based on average consensus," <em>IPSN</em>, 2005 — Metropolis weights.</li>
+          <li>M. Mesbahi and M. Egerstedt, <em>Graph Theoretic Methods in Multiagent Networks</em>, Princeton, 2010, Ch. 3–4.</li>
+          <li>H. K. Khalil, <em>Nonlinear Systems</em>, 3rd ed., Prentice Hall, 2002, Ch. 4 — Lyapunov, LaSalle, ISS, comparison lemma.</li>
+        </ul>
+      </section>
+
+      <div class="prevnext">
+        <a class="prev" href="5_continuous_time_consensus.html"><span>&larr; Previous</span>Part 5: Continuous-Time Consensus</a>
+        <a class="next" href="7_directed_graph_consensus.html"><span>Next &rarr;</span>Part 7: Directed-Graph Consensus</a>
+      </div>
+      <div class="done-box"><button id="done-btn" data-lesson="6">Mark Part 6 as complete</button></div>
+    </main>
+  </div>
+
+  <footer>Fixed-Wing Swarm Learning · Part 6 · Consensus Convergence &amp; Stability</footer>
+
+  <script>
+    (function () {
+      try {
+        var btn = document.getElementById('done-btn');
+        if (!btn) return;
+        var id = btn.getAttribute('data-lesson');
+        var key = 'fwswarm_done';
+        var done = JSON.parse(localStorage.getItem(key) || '[]');
+        function render() {
+          var is = done.indexOf(id) >= 0;
+          btn.textContent = is ? 'Completed ✓ (click to undo)' : 'Mark Part ' + id + ' as complete';
+          btn.className = is ? 'undone' : '';
+        }
+        btn.addEventListener('click', function () {
+          var i = done.indexOf(id);
+          if (i >= 0) done.splice(i, 1); else done.push(id);
+          localStorage.setItem(key, JSON.stringify(done));
+          render();
+        });
+        render();
+      } catch (e) { /* storage unavailable: ignore */ }
+    })();
+  </script>
+</body>
+</html>

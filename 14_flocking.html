@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fixed-Wing Swarm Learning — Flocking</title>
+
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['\\(', '\\)']],
+        displayMath: [['\\[', '\\]'], ['$$', '$$']]
+      },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --card: #ffffff;
+      --text: #172033;
+      --muted: #5d687a;
+      --accent: #2457d6;
+      --accent-light: #eaf0ff;
+      --border: #dce2ec;
+      --code: #111827;
+      --success: #147a4b;
+      --warning: #c27b00;
+      --danger: #b42318;
+      --claw: #0f766e;
+      --claw-light: #e6f6f4;
+      --def: #6d28d9;
+      --def-light: #f3eefe;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+    }
+
+    header {
+      background: linear-gradient(135deg, #172554, #2457d6);
+      color: white;
+      padding: 56px 20px 44px;
+    }
+    header .wrap { max-width: 1320px; margin: auto; }
+    .topbar { margin-bottom: 18px; font-size: .95rem; }
+    .topbar a { color: #dbe6ff; }
+    .topbar a:hover { color: #fff; }
+
+    h1 { margin: 0 0 10px; font-size: clamp(2rem, 5vw, 3.2rem); }
+    h2 { margin-top: 0; font-size: 1.8rem; }
+    h3 { margin-top: 1.6rem; }
+    h4 { margin-top: 1.2rem; margin-bottom: .4rem; }
+
+    .subtitle { max-width: 820px; color: #dbe6ff; font-size: 1.08rem; }
+
+    nav, section, .callout {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px;
+      margin: 20px 0;
+      box-shadow: 0 3px 12px rgba(20, 35, 70, .05);
+    }
+    nav h2 { font-size: 1.35rem; }
+    nav ol { margin-bottom: 0; padding-left: 22px; }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    code { background: #eef1f6; padding: 2px 5px; border-radius: 5px; font-size: .92em; }
+    pre {
+      background: var(--code);
+      color: #e5e7eb;
+      padding: 18px;
+      border-radius: 10px;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+    pre code { background: none; padding: 0; color: inherit; font-size: .9rem; }
+
+    .formula {
+      background: var(--accent-light);
+      border-left: 4px solid var(--accent);
+      padding: 16px 18px;
+      margin: 16px 0;
+      overflow-x: auto;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+    }
+    .mini {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      background: #fbfcff;
+    }
+    .mini strong { display: block; margin-bottom: 5px; }
+
+    .success { border-left: 4px solid var(--success); background: #edf9f3; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .warning { border-left: 4px solid var(--warning); background: #fff8e8; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .danger  { border-left: 4px solid var(--danger);  background: #fdecec; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .note    { border-left: 4px solid var(--muted);   background: #f3f5f8; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .definition, .theorem {
+      border-left: 4px solid var(--def);
+      background: var(--def-light);
+      padding: 14px 18px;
+      border-radius: 8px;
+      margin: 14px 0;
+    }
+    .definition > strong:first-child, .theorem > strong:first-child { color: var(--def); }
+    .claw {
+      border: 1px solid #99d6cf;
+      border-left: 6px solid var(--claw);
+      background: var(--claw-light);
+      padding: 16px 20px;
+      border-radius: 10px;
+      margin: 18px 0;
+    }
+    .claw > strong:first-child { color: var(--claw); display: block; margin-bottom: 6px; font-size: 1.05rem; }
+
+    table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+    th, td { text-align: left; padding: 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    th { background: #f1f4f9; }
+
+    .tag {
+      display: inline-block;
+      background: #eaf0ff;
+      color: #204bb4;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: .82rem;
+      margin: 3px;
+    }
+
+    figure { margin: 18px 0; }
+    figure > svg { width: 100%; height: auto; display: block; background: #fbfcff; border: 1px solid var(--border); border-radius: 10px; }
+    figcaption { color: var(--muted); font-size: .92rem; margin-top: 6px; text-align: center; }
+
+    .exercise { border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; margin: 14px 0; background: #fbfcff; }
+    .exercise summary { cursor: pointer; color: var(--accent); font-weight: 600; margin-top: 8px; }
+    .exercise details { margin-top: 6px; }
+    .exercise .solution { border-top: 1px dashed var(--border); margin-top: 8px; padding-top: 8px; }
+
+    .demo { border: 1px solid var(--border); border-radius: 12px; padding: 14px; background: #fbfcff; margin: 16px 0; }
+    .demo canvas { width: 100%; height: auto; display: block; background: #ffffff; border: 1px solid var(--border); border-radius: 8px; }
+    .controls { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; margin: 10px 0; font-size: .95rem; }
+    .controls label { display: inline-flex; align-items: center; gap: 6px; }
+    .controls input[type=range] { width: 140px; }
+    .controls button, .btn {
+      background: var(--accent); color: #fff; border: 0; padding: 7px 14px; border-radius: 8px; cursor: pointer; font-size: .92rem;
+    }
+    .controls button:hover, .btn:hover { filter: brightness(1.08); }
+    .controls button.secondary { background: #e5e9f2; color: var(--text); }
+
+    .prevnext { display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin: 26px 0 0; }
+    .prevnext a { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; flex: 1 1 260px; }
+    .prevnext a span { display: block; color: var(--muted); font-size: .82rem; }
+    .prevnext a.next { text-align: right; }
+
+    .done-box { text-align: center; margin: 24px 0 0; }
+    .done-box button { background: var(--success); color: #fff; border: 0; padding: 9px 18px; border-radius: 8px; cursor: pointer; }
+    .done-box button.undone { background: #9aa5b5; }
+
+    footer { text-align: center; color: var(--muted); padding: 30px 20px 50px; }
+
+    .page-shell {
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      gap: 24px;
+      max-width: 1320px;
+      margin: 0 auto;
+      padding: 28px 20px 70px;
+      align-items: start;
+    }
+    .sidebar { grid-column: 1; position: sticky; top: 20px; }
+    .sidebar nav { position: sticky; top: 20px; max-height: calc(100vh - 40px); overflow-y: auto; }
+    .content { grid-column: 2; min-width: 0; }
+    @media (max-width: 960px) {
+      .page-shell { grid-template-columns: 1fr; }
+      .sidebar, .sidebar nav { position: static; max-height: none; }
+      .sidebar, .content { grid-column: 1; }
+    }
+    @media print {
+      nav { break-after: page; }
+      section { box-shadow: none; }
+      .demo, .done-box, .prevnext, .topbar { display: none; }
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <div class="wrap">
+      <div class="topbar"><a href="index.html">&larr; Course home</a> &nbsp;·&nbsp; Module C: Formation &amp; Flocking</div>
+      <h1>Fixed-Wing Swarm Learning</h1>
+      <div class="subtitle">
+        Part 14: <strong>Flocking</strong> — Reynolds' rules made rigorous: Olfati-Saber's \(\sigma\)-norm, bump and action functions,
+        Algorithm 2 with a navigation agent, the Hamiltonian that proves cohesion and no collisions, and the adaptation to aircraft
+        that cannot stop or turn sharply.
+      </div>
+      <p>
+        <span class="tag">Reynolds rules</span>
+        <span class="tag">Olfati-Saber</span>
+        <span class="tag">α-lattice</span>
+        <span class="tag">Velocity alignment</span>
+        <span class="tag">UAV Swarms</span>
+      </p>
+    </div>
+  </header>
+
+  <div class="page-shell">
+    <aside class="sidebar">
+      <nav id="index">
+        <h2>Index</h2>
+        <ol>
+          <li><a href="#why">Why this matters</a></li>
+          <li><a href="#reynolds">From Reynolds' rules to a control law</a></li>
+          <li><a href="#toolkit">The toolkit: σ-norm, bump, action function</a></li>
+          <li><a href="#algorithms">Algorithms 1 and 2</a></li>
+          <li><a href="#analysis">Why it works: Hamiltonian, centre of mass, collisions</a></li>
+          <li><a href="#example">Worked simulation</a></li>
+          <li><a href="#fixed-wing">Fixed-wing adaptation</a></li>
+          <li><a href="#demo">Interactive demo</a></li>
+          <li><a href="#implementation">Implementation</a></li>
+          <li><a href="#pitfalls">Common pitfalls</a></li>
+          <li><a href="#exercises">Exercises</a></li>
+          <li><a href="#summary">Key takeaways &amp; formula sheet</a></li>
+          <li><a href="#references">References</a></li>
+        </ol>
+      </nav>
+    </aside>
+
+    <main class="content">
+
+      <section id="why">
+        <h2>1. Why This Matters</h2>
+        <p>
+          Formation control (Parts 10–13) holds a prescribed shape. Many missions do not need one: a transit through unknown airspace,
+          a search over an area, a loose escort. What they need is <em>cohesion</em> (stay together), <em>separation</em> (never too close)
+          and <em>alignment</em> (fly the same way) — the three rules Reynolds (1987) used to animate bird flocks. For twenty years those
+          rules were heuristics. Olfati-Saber (2006) turned them into a control law with a Lyapunov function: a flock is second-order
+          consensus (<a href="9_second_order_consensus.html">Part 9</a>) on velocity plus a gradient of a carefully shaped potential on
+          position, and a navigation term that keeps the group from splitting.
+        </p>
+        <div class="formula">
+          \[ u_i=\underbrace{\sum_j\phi_\alpha(\|q_j-q_i\|_\sigma)\,n_{ij}}_{\text{separation + cohesion}}+\underbrace{\sum_ja_{ij}(q)\,(p_j-p_i)}_{\text{alignment (consensus)}}+\underbrace{(-c_1(q_i-q_r)-c_2(p_i-p_r))}_{\text{navigation}} \]
+        </div>
+        <div class="grid">
+          <div class="mini"><strong>Input</strong>Second-order consensus and the acceleration projection (<a href="9_second_order_consensus.html">Part 9</a>), switching graphs (<a href="6_consensus_convergence_stability.html">Part 6</a>), the turn-rate envelope (<a href="16_coordinated_turn_high_speed.html">Part 16</a>), gradients (<a href="A1_math_toolbox.html#gradients">A1 §13</a>).</div>
+          <div class="mini"><strong>Output</strong>Implement Algorithm 2 from its definitions, explain each design choice, read the Hamiltonian argument, and size a flock's lattice for a given aircraft envelope.</div>
+          <div class="mini"><strong>Used in</strong><a href="20_collision_avoidance_cbf.html">Part 20</a> (hard separation versus soft potentials), Part 24 §17 (flocking as an alternative formation layer).</div>
+        </div>
+        <div class="note"><strong>Notation.</strong> This part uses Olfati-Saber's symbols so that the formulas match the paper: \(q_i\) is position and \(p_i\) is velocity. Elsewhere in the course they are \(p_i\) and \(v_i\). The navigation target (the "\(\gamma\)-agent") has state \((q_r,p_r)\).</div>
+      </section>
+
+      <section id="reynolds">
+        <h2>2. From Reynolds' Rules to a Control Law</h2>
+        <table>
+          <thead><tr><th>Reynolds rule</th><th>Olfati-Saber term</th><th>Mechanism</th></tr></thead>
+          <tbody>
+            <tr><td>Separation: avoid crowding neighbours</td><td rowspan="2">gradient term \(\sum_j\phi_\alpha(\|q_j-q_i\|_\sigma)n_{ij}\)</td><td>repulsive when closer than \(d\), attractive when farther, zero at \(d\) and beyond the range \(r\)</td></tr>
+            <tr><td>Cohesion: steer toward the local centre</td><td>(same potential, attractive side)</td></tr>
+            <tr><td>Alignment: match neighbours' velocity</td><td>consensus term \(\sum_ja_{ij}(q)(p_j-p_i)\)</td><td>velocity consensus over the proximity graph (Parts 5, 9)</td></tr>
+            <tr><td>— (not in Reynolds)</td><td>navigation term \(-c_1(q_i-q_r)-c_2(p_i-p_r)\)</td><td>a virtual target every agent tracks; prevents fragmentation</td></tr>
+          </tbody>
+        </table>
+        <p>Three kinds of agents appear: <strong>α-agents</strong> are the flock members; the <strong>γ-agent</strong> is the navigation target (a virtual leader in the sense of Part 13); <strong>β-agents</strong> are virtual agents projected onto obstacles, used for obstacle avoidance (Algorithm 3, not treated here — Part 20 handles collisions with guarantees).</p>
+        <p>The whole construction is a <strong>gradient-plus-damping</strong> system: \(u=-\nabla V(q)-\text{(velocity damping to neighbours and target)}\), which is why a Lyapunov function exists (Section 5). The engineering is in the shape of \(V\).</p>
+      </section>
+
+      <section id="toolkit">
+        <h2>3. The Toolkit: σ-Norm, Bump, Action Function</h2>
+        <p>Parameters used throughout (Olfati-Saber's example values): \(\varepsilon=0.1\), desired spacing \(d=7\), interaction range \(r=\kappa d=8.4\) (\(\kappa=1.2\)), \(a=b=5\), \(h=0.2\).</p>
+        <h3>3.1 The σ-norm</h3>
+        <div class="formula">
+          \[ \|z\|_\sigma=\frac1\varepsilon\Big[\sqrt{1+\varepsilon\|z\|^2}-1\Big],\qquad \nabla_z\|z\|_\sigma=\frac{z}{\sqrt{1+\varepsilon\|z\|^2}}=\frac{z}{1+\varepsilon\|z\|_\sigma}=:\sigma_\varepsilon(z). \]
+        </div>
+        <p>It is not a norm (no homogeneity) but it is <em>differentiable everywhere, including at \(z=0\)</em>, unlike \(\|z\|\) — which is what lets the potential be smooth when two agents coincide. Its gradient \(\sigma_\varepsilon(z)\) is bounded by \(1/\sqrt\varepsilon=3.16\), so forces never blow up. Numerically: \(\|z\|_\sigma=8.71,\ 11.45,\ 14.29,\ 17.20\) for \(\|z\|=5,6,7,8\); \(d_\alpha=\|d\|_\sigma=14.29\), \(r_\alpha=\|r\|_\sigma=18.38\). The gradient identity checks to \(10^{-9}\) by finite differences.</p>
+        <h3>3.2 The bump function and the proximity graph</h3>
+        <div class="formula">
+          \[ \rho_h(z)=\begin{cases}1,&0\le z\lt h\\ \tfrac12\big[1+\cos\big(\pi\tfrac{z-h}{1-h}\big)\big],&h\le z\le1\\ 0,&z\gt1\end{cases},\qquad
+          a_{ij}(q)=\rho_h\!\Big(\frac{\|q_j-q_i\|_\sigma}{r_\alpha}\Big)\in[0,1]. \]
+        </div>
+        <p>\(\rho_h\) is 1 up to a fraction \(h\) of the range, then falls smoothly to 0 at the range. With \(h=0.2\): \(\rho_h(0.5)=0.691\), \(\rho_h(0.6)=0.5\), \(\rho_h(0.9)=0.038\), \(\rho_h(1)=0\). The spatial adjacency \(a_{ij}(q)\) defines a <strong>proximity graph</strong> that changes continuously with the positions — a smoothly switching topology (Part 6) with weights that vanish as agents separate, so no term in \(u_i\) jumps when a neighbour leaves range.</p>
+        <h3>3.3 The action function</h3>
+        <div class="formula">
+          \[ \sigma_1(z)=\frac{z}{\sqrt{1+z^2}},\qquad \phi(z)=\tfrac12\big[(a+b)\,\sigma_1(z+c)+(a-b)\big],\quad c=\frac{|a-b|}{\sqrt{4ab}},\qquad
+          \boxed{\;\phi_\alpha(z)=\rho_h\!\Big(\frac z{r_\alpha}\Big)\,\phi(z-d_\alpha)\;} \]
+        </div>
+        <p>\(\phi\) is an uneven sigmoid (parameters \(0\lt a\le b\)) with \(\phi(0)=0\) — the constant \(c\) is chosen for exactly that — and limits \(-b\) and \(+a\) (here \(\mp5\), \(c=0\) since \(a=b\)); shifted by \(d_\alpha\) it is negative (repulsive) for \(z\lt d_\alpha\) and positive (attractive) beyond; multiplied by the bump it vanishes beyond \(r_\alpha\). Its integral is the pairwise potential \(\psi_\alpha(z)=\int_{d_\alpha}^z\phi_\alpha(s)\,ds\), minimised at \(z=d_\alpha\). The force on agent \(i\) from \(j\) is \(\phi_\alpha(\|q_j-q_i\|_\sigma)\,n_{ij}\) with \(n_{ij}=\sigma_\varepsilon(q_j-q_i)\):</p>
+        <table>
+          <thead><tr><th>\(\|q_j-q_i\|\)</th><th>\(\|\cdot\|_\sigma\)</th><th>\(\rho_h(z/r_\alpha)\)</th><th>\(\phi(z-d_\alpha)\)</th><th>\(\phi_\alpha\)</th><th>\(\|n_{ij}\|\)</th><th>force magnitude</th></tr></thead>
+          <tbody>
+            <tr><td>5</td><td>8.71</td><td>0.738</td><td>−4.92</td><td>−3.63</td><td>2.67</td><td>−9.71 (repel)</td></tr>
+            <tr><td>6</td><td>11.45</td><td>0.455</td><td>−4.72</td><td>−2.15</td><td>2.80</td><td>−6.01 (repel)</td></tr>
+            <tr><td>7 = \(d\)</td><td>14.29</td><td>0.179</td><td>0</td><td>0</td><td>2.88</td><td>0</td></tr>
+            <tr><td>8</td><td>17.20</td><td>0.016</td><td>+4.73</td><td>+0.07</td><td>2.94</td><td>+0.22 (attract)</td></tr>
+            <tr><td>8.4 = \(r\)</td><td>18.38</td><td>0</td><td>+4.86</td><td>0</td><td>2.96</td><td>0</td></tr>
+          </tbody>
+        </table>
+        <p>Note the asymmetry produced by the bump: repulsion is strong, attraction is weak and short-lived (between \(d\) and \(r\)). Cohesion over longer distances is <em>not</em> the potential's job — it is the navigation term's.</p>
+      </section>
+
+      <section id="algorithms">
+        <h2>4. Algorithms 1 and 2</h2>
+        <div class="formula">
+          \[ \textbf{Algorithm 1:}\quad u_i=\sum_{j\in\mathcal N_i}\phi_\alpha(\|q_j-q_i\|_\sigma)\,n_{ij}+\sum_{j\in\mathcal N_i}a_{ij}(q)\,(p_j-p_i) \]
+          \[ \boxed{\;\textbf{Algorithm 2:}\quad u_i=\sum_{j\in\mathcal N_i}\phi_\alpha(\|q_j-q_i\|_\sigma)\,n_{ij}+\sum_{j\in\mathcal N_i}a_{ij}(q)\,(p_j-p_i)-c_1\,(q_i-q_r)-c_2\,(p_i-p_r)\;} \]
+        </div>
+        <p>with \(\mathcal N_i=\{j:\|q_j-q_i\|\lt r\}\), double-integrator agents \(\dot q_i=p_i\), \(\dot p_i=u_i\), and \(c_1,c_2\gt0\) (here \(0.4\) and \(1.2\)). The γ-agent follows its own trajectory \((q_r(t),p_r(t))\) — a waypoint path, a loiter, or the virtual structure of Part 13.</p>
+        <div class="definition">
+          <strong>α-lattice and quasi-lattice.</strong> A configuration is an α-lattice if \(\|q_j-q_i\|=d\) for every edge of the proximity graph; a quasi-α-lattice if \(|\|q_j-q_i\|-d|\le\delta\) for a small \(\delta\). The <em>deviation energy</em> \(E(q)=\frac{1}{|E|+1}\sum_{(i,j)\in E}(\|q_j-q_i\|-d)^2\) measures the distance from a lattice.
+        </div>
+        <p><strong>Why Algorithm 1 is not enough.</strong> Without the navigation term, agents only interact within range \(r\). A group that starts spread out, or is split by a disturbance, has no force pulling the pieces together: it <em>fragments</em> into sub-flocks that each flock perfectly and drift apart. Olfati-Saber's paper identified this as the central failure of naive Reynolds implementations. Section 6 reproduces it.</p>
+      </section>
+
+      <section id="analysis">
+        <h2>5. Why It Works: Hamiltonian, Centre of Mass, Collisions</h2>
+        <h3>5.1 The moving frame and the Hamiltonian</h3>
+        <p>Write \(x_i=q_i-q_r\), \(v_i=p_i-p_r\) (positions and velocities relative to the γ-agent, which here moves at constant velocity). Algorithm 2 becomes \(\dot v_i=-\nabla_{x_i}U(x)-\sum_ja_{ij}(v_i-v_j)-c_2v_i\) with the collective potential</p>
+        <div class="formula">
+          \[ U(x)=\tfrac12\sum_i\sum_{j\ne i}\psi_\alpha(\|x_j-x_i\|_\sigma)+\tfrac{c_1}2\sum_i\|x_i\|^2,\qquad
+          H(x,v)=U(x)+\tfrac12\sum_i\|v_i\|^2 . \]
+        </div>
+        <div class="theorem">
+          <strong>Theorem (Olfati-Saber 2006, Thm. 2 and Lemma 3, adapted).</strong> Along Algorithm 2 with a constant-velocity γ-agent,
+          \[ \dot H=-v^T\big(\hat L(q)\otimes I_2+c_2I\big)v\le0, \]
+          where \(\hat L(q)\) is the Laplacian of the proximity graph. Hence \(H(t)\le H(0)\): the flock is <strong>cohesive</strong> (positions stay in a ball around \(q_r\) of radius \(\sqrt{2H(0)/c_1}\)), the velocities match the γ-agent asymptotically (LaSalle on \(v=0\)), and the configuration converges to a local minimum of \(U\) — an α-lattice or quasi-lattice.
+          <br><em>Proof sketch.</em> \(\dot H=\sum_i\nabla_{x_i}U\cdot v_i+\sum_iv_i\cdot\dot v_i\); the potential terms cancel (gradient system), leaving the damping terms, which are the negative of the Laplacian quadratic form of Part 3 plus \(c_2\|v\|^2\). \(\square\)
+        </div>
+        <p>Simulation check (Section 6): \(H=545.3\) at \(t=0\), \(217.8\) at 10 s, \(217.5\) at 30 s and thereafter; the largest increase between samples is \(6\times10^{-14}\) (round-off).</p>
+        <h3>5.2 The centre of mass follows a damped second-order system</h3>
+        <p>Summing Algorithm 2 over \(i\): the potential forces cancel pairwise (\(\phi_\alpha\) is odd under \(i\leftrightarrow j\), \(n_{ji}=-n_{ij}\)) and so does the consensus term (symmetric \(a_{ij}\)), leaving</p>
+        <div class="formula">
+          \[ \ddot q_c=-c_1(q_c-q_r)-c_2(\dot q_c-p_r),\qquad \omega_n=\sqrt{c_1}=0.632,\quad \zeta=\frac{c_2}{2\sqrt{c_1}}=0.949 . \]
+        </div>
+        <p>The flock's centre tracks the γ-agent exactly like a mass on a spring-damper, <em>independently of all interactions</em>. The simulation reproduces this to \(10^{-13}\) over 60 s. Choosing \(c_1,c_2\) is therefore ordinary second-order tuning (Part 9), and the centre's settling time is \(\approx4/(\zeta\omega_n)=6.7\) time units.</p>
+        <h3>5.3 No collisions from benign starts</h3>
+        <p>Let \(c_{\text{coll}}=\psi_\alpha(0)=\int_{d_\alpha}^0\phi_\alpha(s)\,ds\) be the energy of one pair at zero distance (here \(52.4\)). Since \(H\) never increases and each colliding pair costs at least \(c_{\text{coll}}\), <strong>if \(H(0)\lt c_{\text{coll}}\) no two agents ever collide</strong>, and in general at most \(\lfloor H(0)/c_{\text{coll}}\rfloor\) pairs can (here \(10\)). This is a soft guarantee — it bounds energy, not distance — and it depends on the initial condition, which is why the capstone backs it with the hard barrier of Part 20.</p>
+      </section>
+
+      <section id="example">
+        <h2>6. Worked Simulation</h2>
+        <p>Twelve agents start uniformly in a \(30\times30\) box with small random velocities; the γ-agent moves at \(p_r=(1.5,0)\). Semi-implicit Euler, \(\Delta t=0.01\).</p>
+        <table>
+          <thead><tr><th>run</th><th>components</th><th>edges</th><th>min distance</th><th>max \(|\,\|q_j-q_i\|-d\,|\) over edges</th><th>deviation energy</th><th>max \(\|p_i-p_r\|\)</th></tr></thead>
+          <tbody>
+            <tr><td>Algorithm 2, 60 s</td><td>1</td><td>23</td><td>6.45</td><td>0.549</td><td>0.106</td><td>\(5.6\times10^{-13}\)</td></tr>
+            <tr><td>Algorithm 2, 150 s</td><td>1</td><td>23</td><td>6.45</td><td>0.549</td><td>0.106</td><td>0</td></tr>
+            <tr><td>Algorithm 1, 150 s, seeds 1–3</td><td>9, 8, 8</td><td>3, 5, 4</td><td>—</td><td>—</td><td>—</td><td>4.3–5.4 (relative to the mean)</td></tr>
+            <tr><td>Box \(\pm30\): Algorithm 1 / 2, seeds 1–3</td><td>11, 9, 9 / 1, 1, 1</td><td>1, 3, 3 / 23, 23, 22</td><td colspan="4">Algorithm 2: max deviation 0.55–0.95, velocity mismatch ≤ \(4\times10^{-8}\)</td></tr>
+          </tbody>
+        </table>
+        <p>Algorithm 2 produces one connected quasi-lattice (edge lengths within 0.55 of \(d=7\), all velocities equal to the target's) and the centre of mass sits exactly on \(q_r\). Algorithm 1 from the same starts fragments into 8–11 pieces with one to five edges in total — the agents never found each other. Fragmentation is not a tuning problem; it is the absence of the navigation term.</p>
+      </section>
+
+      <section id="fixed-wing">
+        <h2>7. Fixed-Wing Adaptation</h2>
+        <h3>7.1 Projecting the acceleration</h3>
+        <p>As in Part 9, the aircraft realises \(u_i\) through its speed and course loops: \(\dot V_i=u_i\cdot\hat t_i\), \(\dot\chi_i=\operatorname{clip}\big((u_i\cdot\hat n_i)/V_i,\pm\omega_{\max}\big)\), \(V_i\in[V_{\min},V_{\max}]\). Repeating the simulation with this unicycle model (dimensionless \(V\in[1,2.5]\), \(\omega_{\max}=0.5\), target speed 1.5) gives, for two seeds, one component with 23–24 edges, minimum distance 6.3–6.6, maximum edge deviation 0.37–0.71 and zero velocity mismatch at 150 s. The flock forms despite the constraints because the γ-agent's speed sits inside the envelope and the lattice scale is large compared with the turn radius \(V/\omega_{\max}=3\) — the two conditions that matter.</p>
+        <h3>7.2 Alignment is course synchronisation</h3>
+        <p>For equal speeds \(V\), the consensus term's components along and across agent \(i\)'s course are</p>
+        <div class="formula">
+          \[ (p_j-p_i)\cdot\hat n_i=V\sin(\chi_j-\chi_i),\qquad (p_j-p_i)\cdot\hat t_i=V\big(\cos(\chi_j-\chi_i)-1\big)\le0 . \]
+        </div>
+        <p>So the cross-track part is a sine-coupled heading consensus — the Kuramoto form of Part 19 — which turns the aircraft toward its neighbours' courses, while the along-track part always <em>slows</em> an aircraft whose course differs from its neighbours'. Alignment of fixed-wing flocks therefore happens through turning; speed only adjusts spacing.</p>
+        <h3>7.3 Sizing the lattice from the envelope</h3>
+        <p>A potential can only separate two aircraft that have time to turn. Two aircraft closing head-on at \(2V\) must generate a lateral offset \(d_s\) before they meet; at lateral acceleration \(a_{\mathrm{lat}}=g\tan\phi_{\max}\) that takes \(t_s=\sqrt{2d_s/a_{\mathrm{lat}}}\) (small-angle; the exact offset at 25 m/s is 27.7 m against a 30 m target). Adding the communication latency \(\tau\), the interaction range must satisfy</p>
+        <div class="formula">\[ \boxed{\;r\ \ge\ 2V\,(\tau+t_s),\qquad d=r/\kappa\;} \]</div>
+        <table>
+          <thead><tr><th>\(V\)</th><th>\(\phi_{\max}\)</th><th>\(\omega_{\max}\)</th><th>\(R_{\min}\)</th><th>\(d_s\)</th><th>\(t_s\)</th><th>\(r\ge\)</th><th>\(d=r/1.2\)</th><th>\(r/R_{\min}\)</th></tr></thead>
+          <tbody>
+            <tr><td>25 m/s</td><td>45°</td><td>22.5°/s</td><td>64 m</td><td>30 m</td><td>2.47 s</td><td>129 m</td><td>107 m</td><td>2.0</td></tr>
+            <tr><td>60 m/s</td><td>45°</td><td>9.4°/s</td><td>367 m</td><td>60 m</td><td>3.50 s</td><td>432 m</td><td>360 m</td><td>1.2</td></tr>
+            <tr><td>150 m/s</td><td>60°</td><td>6.5°/s</td><td>1324 m</td><td>150 m</td><td>4.20 s</td><td>1306 m</td><td>1088 m</td><td>0.99</td></tr>
+            <tr><td>250 m/s</td><td>60°</td><td>3.9°/s</td><td>3678 m</td><td>250 m</td><td>5.42 s</td><td>2787 m</td><td>2323 m</td><td>0.76</td></tr>
+          </tbody>
+        </table>
+        <p>Two further adaptations follow from the envelope: <strong>anisotropic spacing</strong> — along-track conflicts are resolved by speed changes, which are slow and weak at high speed (Part 16), so the along-track spacing should be larger than the cross-track one (stretch the σ-norm's metric along \(\hat t\)); and <strong>a hard barrier underneath</strong> — the potential's no-collision bound is energetic and initial-condition dependent, so the safety filter of Part 20 runs after the flocking law in the capstone.</p>
+        <div class="note"><strong>High-speed note.</strong> The lattice spacing grows faster than linearly with speed (\(t_s\) is fixed by \(d_s\) and \(g\tan\phi_{\max}\), so \(r\approx2Vt_s\)): a kilometre at 150 m/s, over two kilometres at 250 m/s — and the ratio \(r/R_{\min}\) drops below one. The flock is then "stiffer" than the aircraft: an agent inside its neighbour's interaction range cannot complete a turn before leaving it, and the potential forces act over a time comparable with the turn itself. Flocking at high speed is a loose, slowly-reacting transit mode; formation slots (Part 13) or along-path spacing (Part 19) are the precise modes.</div>
+        <div class="claw"><strong>Toward the CLAW</strong>
+          Flocking is the capstone's <em>alternative formation layer</em> (Part 24 §17): Algorithm 2 replaces L2 with the synchronised reference \(\hat\xi_i\) of Part 13 acting as the γ-agent, the proximity graph replacing the fixed formation graph, and L3 (the CBF filter) and L4 (projection and envelope clipping, Section 7.1) unchanged. The sizing rule of Section 7.3 sets \(d\) and \(r\) from \(V\), \(\phi_{\max}\), \(\tau\) and \(d_s\); the centre-of-mass result of Section 5.2 is what guarantees the flock follows the reference with ordinary second-order tuning of \(c_1,c_2\).</div>
+      </section>
+
+      <section id="demo">
+        <h2>8. Interactive Demo</h2>
+        <p>Sixteen agents run Algorithm 2 around a γ-agent (red) that circles at constant speed. Toggle <em>fixed-wing constraints</em> to replace the point-mass agents by unicycles with a speed envelope and a turn-rate limit; the lattice still forms, but assembly is slower and agents cannot reverse. Light lines are proximity-graph edges.</p>
+        <div class="demo">
+          <div class="controls">
+            <button id="flock-run">Pause</button>
+            <button class="secondary" id="flock-reset">Reset</button>
+            <label><input type="checkbox" id="flock-fw"> fixed-wing constraints</label>
+            <label>spacing \(d\) <input type="range" id="flock-d" min="4" max="10" step="0.5" value="7"> <span id="flock-dval">7</span></label>
+            <span id="flock-stats" style="color:var(--muted)"></span>
+          </div>
+          <canvas id="flock-canvas" width="900" height="440"></canvas>
+        </div>
+      </section>
+
+      <section id="implementation">
+        <h2>9. Implementation</h2>
+        <p>Algorithm 2 in vectorised NumPy (the Section 6 numbers come from this script). Olfati-Saber's symbols: \(q\) positions, \(p\) velocities.</p>
+<pre><code>import numpy as np
+
+# ---- parameters (dimensionless, as in Olfati-Saber 2006) ----
+N, d, kappa, eps, a, b, h = 12, 7.0, 1.2, 0.1, 5.0, 5.0, 0.2
+c1, c2 = 0.4, 1.2                    # gamma-agent (navigation) gains
+r = kappa*d                          # interaction range
+
+def sigma_norm(z):                   # ||z||_sigma, z: (..., 2)
+    return (np.sqrt(1 + eps*np.sum(z**2, axis=-1)) - 1)/eps
+def rho_h(z):                        # bump function
+    return np.where(z &lt; h, 1.0, np.where(z &lt;= 1.0, 0.5*(1 + np.cos(np.pi*(z - h)/(1 - h))), 0.0))
+def sigma_1(z):
+    return z/np.sqrt(1 + z**2)
+def phi(z):                          # uneven sigmoid, phi(0) = 0
+    c = abs(a - b)/np.sqrt(4*a*b)
+    return 0.5*((a + b)*sigma_1(z + c) + (a - b))
+d_alpha, r_alpha = sigma_norm(np.array([d, 0.0])), sigma_norm(np.array([r, 0.0]))
+def phi_alpha(z):                    # action function
+    return rho_h(z/r_alpha)*phi(z - d_alpha)
+
+def algorithm2(q, p, q_r, p_r):
+    """u_i = sum_j phi_alpha(||q_j-q_i||_sigma) n_ij + sum_j a_ij (p_j-p_i) - c1 (q_i-q_r) - c2 (p_i-p_r)."""
+    dq = q[None, :, :] - q[:, None, :]           # dq[i,j] = q_j - q_i
+    dist2 = np.sum(dq**2, axis=-1)
+    z = (np.sqrt(1 + eps*dist2) - 1)/eps         # sigma-norms
+    n_ij = dq/np.sqrt(1 + eps*dist2)[..., None]  # sigma-gradient
+    A = rho_h(z/r_alpha); np.fill_diagonal(A, 0.0)
+    f = phi_alpha(z); np.fill_diagonal(f, 0.0)
+    u_grad = np.sum(f[..., None]*n_ij, axis=1)
+    u_cons = np.sum(A[..., None]*(p[None, :, :] - p[:, None, :]), axis=1)
+    u_nav = -c1*(q - q_r) - c2*(p - p_r)
+    return u_grad + u_cons + u_nav, A
+
+def simulate(T=60.0, dt=0.01, seed=1, nav=True):
+    rng = np.random.default_rng(seed)
+    q = rng.uniform(-15, 15, size=(N, 2)); p = rng.normal(0, 0.5, size=(N, 2))
+    q_r, p_r = np.array([0.0, 0.0]), np.array([1.5, 0.0])   # gamma-agent: constant velocity
+    for k in range(int(round(T/dt))):
+        u, A = algorithm2(q, p, q_r, p_r)
+        if not nav: u += c1*(q - q_r) + c2*(p - p_r)         # Algorithm 1: drop the gamma term
+        p = p + dt*u; q = q + dt*p; q_r = q_r + dt*p_r       # semi-implicit Euler
+    return q, p, q_r, p_r, A
+
+if __name__ == "__main__":
+    q, p, q_r, p_r, A = simulate()
+    dist = np.linalg.norm(q[:, None, :] - q[None, :, :], axis=-1)
+    edges = (A &gt; 0) &amp; ~np.eye(N, dtype=bool)
+    print("edges in proximity graph:", edges.sum()//2)
+    print("min pairwise distance: %.3f  (d = %.1f)" % (dist[~np.eye(N, dtype=bool)].min(), d))
+    print("max |dist - d| over edges: %.4f" % np.abs(dist[edges] - d).max())
+    print("max velocity mismatch |p_i - p_r|: %.2e" % np.linalg.norm(p - p_r, axis=1).max())
+    print("centre of mass - q_r:", (q.mean(axis=0) - q_r).round(4))
+</code></pre>
+<pre><code>edges in proximity graph: 23
+min pairwise distance: 6.451  (d = 7.0)
+max |dist - d| over edges: 0.5493
+max velocity mismatch |p_i - p_r|: 5.64e-13
+centre of mass - q_r: [ 0. -0.]
+</code></pre>
+      </section>
+
+      <section id="pitfalls">
+        <h2>10. Common Pitfalls</h2>
+        <ul>
+          <li><strong>Omitting the navigation term</strong> (Algorithm 1) and blaming the gains for fragmentation.</li>
+          <li><strong>Using \(\|z\|\) instead of \(\|z\|_\sigma\).</strong> The potential is then non-smooth at zero distance and forces are unbounded; two coinciding agents get an undefined direction.</li>
+          <li><strong>Hard-cutting the neighbourhood</strong> (\(a_{ij}\in\{0,1\}\)) instead of the bump: the control input jumps whenever an agent crosses \(r\), which the autopilot turns into chatter.</li>
+          <li><strong>Dimensional confusion.</strong> Olfati-Saber's example is dimensionless; scale \(d,r\) to metres by Section 7.3 and \(c_1,c_2\) by the centre-of-mass tuning (\(\omega_n=\sqrt{c_1}\) in rad/s).</li>
+          <li><strong>Treating the no-collision bound as a safety guarantee.</strong> It is an energy bound; sharp initial conditions or external disturbances can violate it. Use the CBF filter (Part 20).</li>
+          <li><strong>A γ-agent outside the envelope.</strong> If \(\|p_r\|\lt V_{\min}\) or the γ-agent turns tighter than \(R_{\min}\), fixed-wing flocks orbit and oscillate around it; make the γ-agent a flyable virtual structure (Part 13).</li>
+          <li><strong>Isotropic spacing at high speed.</strong> Along-track closure is resolved by weak speed control; give it more room than the cross-track direction.</li>
+        </ul>
+      </section>
+
+      <section id="exercises">
+        <h2>11. Exercises</h2>
+        <div class="exercise">
+          <strong>Exercise 1 (action function).</strong> Show that \(\phi(0)=0\) for \(0\lt a\le b\) with \(c=|a-b|/\sqrt{4ab}\), hence that \(\phi_\alpha(z)=0\) exactly at \(z=d_\alpha\) and for all \(z\ge r_\alpha\), and that the pairwise potential \(\psi_\alpha\) has its minimum at \(d_\alpha\).
+          <details><summary>Show solution</summary><div class="solution">\(\sigma_1(c)=c/\sqrt{1+c^2}\) with \(c^2=(a-b)^2/(4ab)\), so \(1+c^2=(a+b)^2/(4ab)\) and \(\sigma_1(c)=\dfrac{|a-b|}{a+b}=\dfrac{b-a}{a+b}\) for \(a\le b\). Then \(\phi(0)=\tfrac12[(a+b)\sigma_1(c)+(a-b)]=\tfrac12[(b-a)+(a-b)]=0\). (For \(a=b\), \(c=0\) and \(\phi(0)=0\) trivially; the paper assumes \(0\lt a\le b\).) Hence \(\phi_\alpha(d_\alpha)=\rho_h(d_\alpha/r_\alpha)\,\phi(0)=0\), and \(\rho_h(z/r_\alpha)=0\) for \(z\ge r_\alpha\) kills \(\phi_\alpha\) beyond the range. Since \(\psi_\alpha'=\phi_\alpha\) is negative for \(z\lt d_\alpha\) and positive for \(d_\alpha\lt z\lt r_\alpha\), \(d_\alpha\) is the minimum of \(\psi_\alpha\).</div></details>
+        </div>
+        <div class="exercise">
+          <strong>Exercise 2 (σ-norm).</strong> With \(\varepsilon=0.1\), compute \(\|z\|_\sigma\) and \(\|\sigma_\varepsilon(z)\|\) for \(\|z\|=10\), and compare the latter with its asymptote.
+          <details><summary>Show solution</summary><div class="solution">\(\|z\|_\sigma=(\sqrt{1+10}-1)/0.1=23.17\); \(\|\sigma_\varepsilon(z)\|=10/\sqrt{11}=3.015\), against the bound \(1/\sqrt{0.1}=3.162\). Forces saturate: a far-away neighbour pulls no harder than a moderately far one.</div></details>
+        </div>
+        <div class="exercise">
+          <strong>Exercise 3 (bump).</strong> Evaluate \(\rho_{0.2}(0.75)\) and explain what it means for a neighbour at \(0.75\,r_\alpha\) in σ-distance.
+          <details><summary>Show solution</summary><div class="solution">\(\rho_h(0.75)=\tfrac12[1+\cos(\pi\cdot0.55/0.8)]=0.222\): that neighbour contributes 22 % of a full-weight edge to the alignment term and its action force is scaled by 0.222.</div></details>
+        </div>
+        <div class="exercise">
+          <strong>Exercise 4 (centre of mass).</strong> For \(c_1=0.4\), \(c_2=1.2\), give the natural frequency, damping ratio and approximate settling time of the flock's centre, and choose \(c_1,c_2\) for a 60 m/s swarm whose centre should settle in 20 s with \(\zeta=0.9\).
+          <details><summary>Show solution</summary><div class="solution">\(\omega_n=0.632\), \(\zeta=0.949\), \(t_s\approx4/(\zeta\omega_n)=6.7\). For \(t_s=20\) s: \(\zeta\omega_n=0.2\Rightarrow\omega_n=0.222\) rad/s, \(c_1=\omega_n^2=0.049\ \mathrm{s^{-2}}\), \(c_2=2\zeta\omega_n=0.4\ \mathrm{s^{-1}}\). (A 100 m offset then demands \(c_1\cdot100=4.9\) m/s² — check against Part 9's envelope table.)</div></details>
+        </div>
+        <div class="exercise">
+          <strong>Exercise 5 (lattice sizing).</strong> A 60 m/s swarm with \(\phi_{\max}=45^\circ\), \(d_s=60\) m and \(\tau=0.1\) s. Size \(r\) and \(d\), and compare \(r\) with the minimum turn radius.
+          <details><summary>Show solution</summary><div class="solution">\(a_{\mathrm{lat}}=9.81\) m/s², \(t_s=\sqrt{120/9.81}=3.50\) s, \(r\ge2\cdot60\cdot3.6=432\) m, \(d=360\) m; \(R_{\min}=367\) m, so \(r/R_{\min}=1.2\): an agent can just about complete a turn inside its interaction range.</div></details>
+        </div>
+        <div class="exercise">
+          <strong>Exercise 6 (alignment as heading consensus).</strong> Verify numerically that for \(V=20\), \(\chi_i=0.3\), \(\chi_j=0.9\): \((p_j-p_i)\cdot\hat n_i=V\sin(\chi_j-\chi_i)\) and \((p_j-p_i)\cdot\hat t_i=V(\cos(\chi_j-\chi_i)-1)\).
+          <details><summary>Show solution</summary><div class="solution">Both sides give \(11.29\) (cross) and \(-3.49\) (along). Derivation: \(p_j-p_i=V(\cos\chi_j-\cos\chi_i,\ \sin\chi_j-\sin\chi_i)\); dot with \(\hat n_i=(-\sin\chi_i,\cos\chi_i)\) gives \(V\sin(\chi_j-\chi_i)\) by the angle-difference identity, and with \(\hat t_i\) gives \(V(\cos(\chi_j-\chi_i)-1)\).</div></details>
+        </div>
+      </section>
+
+      <section id="summary">
+        <h2>12. Key Takeaways &amp; Formula Sheet</h2>
+        <ul>
+          <li>σ-norm \(\|z\|_\sigma=(\sqrt{1+\varepsilon\|z\|^2}-1)/\varepsilon\), gradient \(\sigma_\varepsilon(z)=z/\sqrt{1+\varepsilon\|z\|^2}\) bounded by \(1/\sqrt\varepsilon\).</li>
+          <li>Bump \(\rho_h\); proximity weights \(a_{ij}(q)=\rho_h(\|q_j-q_i\|_\sigma/r_\alpha)\); action \(\phi_\alpha(z)=\rho_h(z/r_\alpha)\phi(z-d_\alpha)\), \(\phi(z)=\tfrac12[(a+b)\sigma_1(z+c)+(a-b)]\).</li>
+          <li>Algorithm 2: \(u_i=\sum_j\phi_\alpha n_{ij}+\sum_ja_{ij}(p_j-p_i)-c_1(q_i-q_r)-c_2(p_i-p_r)\); Algorithm 1 (no γ-term) fragments.</li>
+          <li>Hamiltonian \(H=U+\tfrac12\|v\|^2\) non-increasing ⇒ cohesion, velocity matching, quasi-lattice; centre of mass: \(\ddot q_c=-c_1(q_c-q_r)-c_2(\dot q_c-p_r)\); at most \(\lfloor H(0)/\psi_\alpha(0)\rfloor\) colliding pairs.</li>
+          <li>Fixed-wing: project \(u_i\) to \(\dot V,\dot\chi\) with envelope clipping; alignment = \(V\sin(\chi_j-\chi_i)\) heading consensus; lattice \(r\ge2V(\tau+\sqrt{2d_s/(g\tan\phi_{\max})})\); anisotropic spacing; CBF underneath.</li>
+        </ul>
+      </section>
+
+      <section id="references">
+        <h2>13. References</h2>
+        <ul>
+          <li>C. W. Reynolds, "Flocks, herds and schools: a distributed behavioral model," <em>ACM SIGGRAPH Computer Graphics</em> 21(4), 1987.</li>
+          <li>R. Olfati-Saber, "Flocking for multi-agent dynamic systems: algorithms and theory," <em>IEEE Trans. Automatic Control</em> 51(3), 2006 — the framework, Algorithms 1–3, Hamiltonian analysis, fragmentation.</li>
+          <li>H. G. Tanner, A. Jadbabaie and G. J. Pappas, "Flocking in fixed and switching networks," <em>IEEE Trans. Automatic Control</em> 52(5), 2007.</li>
+          <li>T. Vicsek, A. Czirók, E. Ben-Jacob, I. Cohen and O. Shochet, "Novel type of phase transition in a system of self-driven particles," <em>Physical Review Letters</em> 75(6), 1995 — heading alignment model.</li>
+          <li>A. Jadbabaie, J. Lin and A. S. Morse, "Coordination of groups of mobile autonomous agents using nearest neighbor rules," <em>IEEE Trans. Automatic Control</em> 48(6), 2003 — proof of Vicsek-type alignment.</li>
+          <li>F. Cucker and S. Smale, "Emergent behavior in flocks," <em>IEEE Trans. Automatic Control</em> 52(5), 2007.</li>
+          <li>N. E. Leonard and E. Fiorelli, "Virtual leaders, artificial potentials and coordinated control of groups," <em>Proc. IEEE CDC</em>, 2001.</li>
+          <li>R. W. Beard and T. W. McLain, <em>Small Unmanned Aircraft: Theory and Practice</em>, Princeton, 2012, Ch. 9 — the unicycle/coordinated-turn model used for the projection.</li>
+        </ul>
+      </section>
+
+      <div class="prevnext">
+        <a class="prev" href="13_virtual_structures.html"><span>&larr; Previous</span>Part 13: Virtual Structures</a>
+        <a class="next" href="15_fixed_wing_kinematics.html"><span>Next &rarr;</span>Part 15: Fixed-Wing Kinematics</a>
+      </div>
+      <div class="done-box"><button id="done-btn" data-lesson="14">Mark Part 14 as complete</button></div>
+    </main>
+  </div>
+
+  <footer>Fixed-Wing Swarm Learning · Part 14 · Flocking</footer>
+
+  <script>
+    (function () {
+      try {
+        var btn = document.getElementById('done-btn');
+        if (!btn) return;
+        var id = btn.getAttribute('data-lesson');
+        var key = 'fwswarm_done';
+        var done = JSON.parse(localStorage.getItem(key) || '[]');
+        function render() {
+          var is = done.indexOf(id) >= 0;
+          btn.textContent = is ? 'Completed ✓ (click to undo)' : 'Mark Part ' + id + ' as complete';
+          btn.className = is ? 'undone' : '';
+        }
+        btn.addEventListener('click', function () {
+          var i = done.indexOf(id);
+          if (i >= 0) done.splice(i, 1); else done.push(id);
+          localStorage.setItem(key, JSON.stringify(done));
+          render();
+        });
+        render();
+      } catch (e) { /* storage unavailable: ignore */ }
+    })();
+  </script>
+  <script>
+    // Flocking demo: Olfati-Saber Algorithm 2 with an optional unicycle (fixed-wing) projection.
+    (function () {
+      try {
+        var canvas = document.getElementById('flock-canvas'); if (!canvas) return;
+        var ctx = canvas.getContext('2d');
+        var N = 16, kappa = 1.2, eps = 0.1, a = 5, b = 5, h = 0.2, c1 = 0.4, c2 = 1.2;
+        var d = 7, r, dAlpha, rAlpha;
+        var Vmin = 1.0, Vmax = 2.5, wmax = 0.5, Vgamma = 1.5, Rgamma = 40, scale = 4.2;
+        var fw = false, running = true, q, p, chi, V, qr, pr, t;
+        function sigNorm(x, y) { return (Math.sqrt(1 + eps * (x * x + y * y)) - 1) / eps; }
+        function setD(val) { d = val; r = kappa * d; dAlpha = sigNorm(d, 0); rAlpha = sigNorm(r, 0); }
+        function rho(z) { if (z < h) return 1; if (z <= 1) return 0.5 * (1 + Math.cos(Math.PI * (z - h) / (1 - h))); return 0; }
+        function sig1(z) { return z / Math.sqrt(1 + z * z); }
+        var cc = Math.abs(a - b) / Math.sqrt(4 * a * b);
+        function phi(z) { return 0.5 * ((a + b) * sig1(z + cc) + (a - b)); }
+        function phiAlpha(z) { return rho(z / rAlpha) * phi(z - dAlpha); }
+        function reset() {
+          q = []; p = []; chi = []; V = []; t = 0;
+          for (var i = 0; i < N; i++) {
+            q.push([Rgamma + (Math.random() - 0.5) * 36, (Math.random() - 0.5) * 36]);
+            var ang = Math.random() * 2 * Math.PI;
+            chi.push(ang); V.push(Vgamma);
+            p.push([Vgamma * Math.cos(ang) * 0.3, Vgamma * Math.sin(ang) * 0.3]);
+          }
+          gamma(0);
+        }
+        function gamma(dt) {
+          t += dt; var w = Vgamma / Rgamma;
+          qr = [Rgamma * Math.cos(w * t), Rgamma * Math.sin(w * t)];
+          pr = [-Vgamma * Math.sin(w * t), Vgamma * Math.cos(w * t)];
+        }
+        function step(dt) {
+          var u = [], i, j;
+          for (i = 0; i < N; i++) {
+            var ux = 0, uy = 0;
+            for (j = 0; j < N; j++) {
+              if (i === j) continue;
+              var dx = q[j][0] - q[i][0], dy = q[j][1] - q[i][1], d2 = dx * dx + dy * dy;
+              var z = (Math.sqrt(1 + eps * d2) - 1) / eps, aij = rho(z / rAlpha);
+              if (aij <= 0) continue;
+              var f = phiAlpha(z), s = Math.sqrt(1 + eps * d2);
+              ux += f * dx / s + aij * (p[j][0] - p[i][0]);
+              uy += f * dy / s + aij * (p[j][1] - p[i][1]);
+            }
+            ux += -c1 * (q[i][0] - qr[0]) - c2 * (p[i][0] - pr[0]);
+            uy += -c1 * (q[i][1] - qr[1]) - c2 * (p[i][1] - pr[1]);
+            u.push([ux, uy]);
+          }
+          for (i = 0; i < N; i++) {
+            if (fw) {
+              var ct = Math.cos(chi[i]), st = Math.sin(chi[i]);
+              var Vdot = u[i][0] * ct + u[i][1] * st;
+              var chidot = (-u[i][0] * st + u[i][1] * ct) / V[i];
+              chidot = Math.max(-wmax, Math.min(wmax, chidot));
+              V[i] = Math.max(Vmin, Math.min(Vmax, V[i] + dt * Vdot));
+              chi[i] += dt * chidot;
+              p[i] = [V[i] * Math.cos(chi[i]), V[i] * Math.sin(chi[i])];
+            } else {
+              p[i][0] += dt * u[i][0]; p[i][1] += dt * u[i][1];
+              var sp = Math.hypot(p[i][0], p[i][1]);
+              if (sp > 1e-9) { chi[i] = Math.atan2(p[i][1], p[i][0]); V[i] = Math.max(Vmin, Math.min(Vmax, sp)); }
+            }
+            q[i][0] += dt * p[i][0]; q[i][1] += dt * p[i][1];
+          }
+          gamma(dt);
+        }
+        function X(x) { return canvas.width / 2 + x * scale; }
+        function Y(y) { return canvas.height / 2 - y * scale; }
+        function draw() {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.strokeStyle = '#dce2ec'; ctx.lineWidth = 1; ctx.setLineDash([5, 5]);
+          ctx.beginPath(); ctx.arc(X(0), Y(0), Rgamma * scale, 0, 2 * Math.PI); ctx.stroke(); ctx.setLineDash([]);
+          var i, j, edges = 0, minD = 1e9, mis = 0;
+          ctx.strokeStyle = 'rgba(36,87,214,0.25)';
+          for (i = 0; i < N; i++) for (j = i + 1; j < N; j++) {
+            var dd = Math.hypot(q[j][0] - q[i][0], q[j][1] - q[i][1]);
+            if (dd < minD) minD = dd;
+            if (dd < r) { edges++; ctx.beginPath(); ctx.moveTo(X(q[i][0]), Y(q[i][1])); ctx.lineTo(X(q[j][0]), Y(q[j][1])); ctx.stroke(); }
+          }
+          for (i = 0; i < N; i++) {
+            mis = Math.max(mis, Math.hypot(p[i][0] - pr[0], p[i][1] - pr[1]));
+            var cx = X(q[i][0]), cy = Y(q[i][1]), an = -chi[i];
+            ctx.save(); ctx.translate(cx, cy); ctx.rotate(an);
+            ctx.fillStyle = fw ? '#0f766e' : '#2457d6';
+            ctx.beginPath(); ctx.moveTo(9, 0); ctx.lineTo(-6, 5); ctx.lineTo(-3, 0); ctx.lineTo(-6, -5); ctx.closePath(); ctx.fill();
+            ctx.restore();
+          }
+          ctx.fillStyle = '#b42318'; ctx.beginPath(); ctx.arc(X(qr[0]), Y(qr[1]), 6, 0, 2 * Math.PI); ctx.fill();
+          ctx.fillStyle = '#172033'; ctx.font = '13px system-ui, sans-serif';
+          ctx.fillText((fw ? 'unicycle agents (V in [' + Vmin + ',' + Vmax + '], omega_max = ' + wmax + ')' : 'double-integrator agents') + ' - gamma-agent circling at speed ' + Vgamma, 12, 20);
+          var st = document.getElementById('flock-stats');
+          if (st) st.textContent = 'edges ' + edges + ' | min distance ' + minD.toFixed(2) + ' (d = ' + d + ') | max |p_i - p_r| ' + mis.toFixed(2) + ' | t = ' + t.toFixed(0);
+        }
+        function frame() { if (running) { for (var k = 0; k < 3; k++) step(0.02); } draw(); window.requestAnimationFrame(frame); }
+        var runBtn = document.getElementById('flock-run'), resetBtn = document.getElementById('flock-reset');
+        var fwBox = document.getElementById('flock-fw'), dSl = document.getElementById('flock-d'), dVal = document.getElementById('flock-dval');
+        if (runBtn) runBtn.addEventListener('click', function () { running = !running; runBtn.textContent = running ? 'Pause' : 'Run'; });
+        if (resetBtn) resetBtn.addEventListener('click', reset);
+        if (fwBox) fwBox.addEventListener('change', function () { fw = fwBox.checked; });
+        if (dSl) dSl.addEventListener('input', function () { setD(parseFloat(dSl.value)); if (dVal) dVal.textContent = dSl.value; });
+        setD(7); reset(); frame();
+      } catch (e) { console.error('flock demo failed', e); }
+    })();
+  </script>
+</body>
+</html>

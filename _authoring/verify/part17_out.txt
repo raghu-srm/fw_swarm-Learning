@@ -1,0 +1,73 @@
+
+=== sanity straight line: R=100, start (0, 0) chi=0 deg, goal (500, 0) chi=0 deg
+  RSR: L=  500.0000   segs [R:0.000 + S:500.000 + R:0.000]   endpoint err pos=0.00e+00 m, course=0.00e+00 rad
+  LSL: L=  500.0000   segs [L:0.000 + S:500.000 + L:0.000]   endpoint err pos=0.00e+00 m, course=0.00e+00 rad
+  RSL: L=  500.0000   segs [R:0.000 + S:500.000 + L:0.000]   endpoint err pos=0.00e+00 m, course=0.00e+00 rad
+  LSR: L=  500.0000   segs [L:0.000 + S:500.000 + R:0.000]   endpoint err pos=0.00e+00 m, course=0.00e+00 rad
+  RLR: infeasible
+  LRL: infeasible
+  BEST = RSR, L = 500.0000  (L/R = 5.0000)
+  brute-force shooting: {'RSR': 500.0, 'LSL': 500.0, 'RSL': 500.0, 'LSR': 500.0}
+  brute-force BEST = RSL, L = 500.0000; |diff| = 3.30e-12
+
+=== case A: R=100, start (0, 0) chi=0 deg, goal (300, 400) chi=90 deg
+  RSR: L=  517.6348   segs [R:98.279 + S:360.555 + R:58.800]   endpoint err pos=0.00e+00 m, course=0.00e+00 rad
+  LSL: L= 1739.8699   segs [L:538.713 + S:640.312 + L:560.844]   endpoint err pos=2.54e-13 m, course=4.90e-16 rad
+  RSL: L= 1140.5001   segs [R:105.502 + S:458.258 + L:576.741]   endpoint err pos=8.04e-14 m, course=2.45e-16 rad
+  LSR: L= 1123.4414   segs [L:547.340 + S:500.000 + R:76.101]   endpoint err pos=5.68e-14 m, course=2.45e-16 rad
+  RLR: L=  606.2652   segs [R:210.576 + L:224.593 + R:171.097]   endpoint err pos=5.68e-14 m, course=0.00e+00 rad
+  LRL: infeasible
+  BEST = RSR, L = 517.6348  (L/R = 5.1763)
+  brute-force shooting: {'RSR': 517.6348, 'LSL': 1739.8699, 'RSL': 1140.5001, 'LSR': 1123.4414, 'RLR': 606.2652}
+  brute-force BEST = RSR, L = 517.6348; |diff| = 4.21e-12
+
+=== case B (CCC): R=100, start (0, 0) chi=0 deg, goal (80, 120) chi=180 deg
+  RSR: L= 1055.6149   segs [R:549.779 + S:113.137 + R:392.699]   endpoint err pos=1.54e-13 m, course=2.02e-15 rad
+  LSL: L= 1272.3262   segs [L:495.737 + S:329.848 + L:446.741]   endpoint err pos=3.18e-14 m, course=4.90e-16 rad
+  RSL: infeasible
+  LSR: infeasible
+  RLR: L=  827.7752   segs [R:206.944 + L:570.967 + R:49.864]   endpoint err pos=8.53e-14 m, course=2.45e-16 rad
+  LRL: L=  554.6650   segs [L:84.624 + R:434.412 + L:35.629]   endpoint err pos=3.18e-14 m, course=0.00e+00 rad
+  BEST = LRL, L = 554.6650  (L/R = 5.5466)
+  brute-force shooting: {'RSR': 1055.6149, 'LSL': 1272.3262, 'RLR': 827.7752, 'LRL': 554.665}
+  brute-force BEST = LRL, L = 554.6650; |diff| = 9.09e-12
+
+=== case C (sidestep): R=100, start (0, 0) chi=0 deg, goal (0, 150) chi=0 deg
+  RSR: L=  778.3185   segs [R:157.080 + S:150.000 + R:471.239]   endpoint err pos=1.03e-14 m, course=2.45e-16 rad
+  LSL: L=  778.3185   segs [L:471.239 + S:150.000 + L:157.080]   endpoint err pos=5.29e-14 m, course=2.45e-16 rad
+  RSL: infeasible
+  LSR: L= 1351.3550   segs [L:532.063 + S:287.228 + R:532.063]   endpoint err pos=4.02e-14 m, course=0.00e+00 rad
+  RLR: L=  782.0772   segs [R:195.519 + L:76.879 + R:509.679]   endpoint err pos=5.70e-14 m, course=2.45e-16 rad
+  LRL: L=  782.0772   segs [L:509.679 + R:76.879 + L:195.519]   endpoint err pos=7.77e-14 m, course=2.45e-16 rad
+  BEST = RSR, L = 778.3185  (L/R = 7.7832)
+  brute-force shooting: {'RSR': 778.3185, 'LSL': 778.3185, 'LSR': 1351.355, 'RLR': 782.0772, 'LRL': 782.0772}
+  brute-force BEST = LSL, L = 778.3185; |diff| = 1.71e-12
+
+=== R_min = V^2/(g tan phi) ===
+  V=  25 m/s phi=30 deg: R=    110.3 m
+  V=  25 m/s phi=45 deg: R=     63.7 m
+  V=  25 m/s phi=60 deg: R=     36.8 m
+  V=  60 m/s phi=30 deg: R=    635.6 m
+  V=  60 m/s phi=45 deg: R=    367.0 m
+  V=  60 m/s phi=60 deg: R=    211.9 m
+  V= 150 m/s phi=30 deg: R=   3972.6 m
+  V= 150 m/s phi=45 deg: R=   2293.6 m
+  V= 150 m/s phi=60 deg: R=   1324.2 m
+  V= 250 m/s phi=30 deg: R=  11035.0 m
+  V= 250 m/s phi=45 deg: R=   6371.0 m
+  V= 250 m/s phi=60 deg: R=   3678.3 m
+  180-deg reversal pi*R: V=25,45deg: 200.15243715531304  V=150,45deg: 7205.48773759127
+
+=== rendezvous, R_min at V_max=28 m/s, phi_max=45: R=79.92 m
+  UAV1: start (0, 0) chi=0: RSR, L=913.6 m, T window [32.6, 50.8] s at V in [18,28]
+  UAV2: start (-200, 600) chi=90: LSR, L=1166.9 m, T window [41.7, 64.8] s at V in [18,28]
+  UAV3: start (400, 900) chi=180: RSR, L=904.7 m, T window [32.3, 50.3] s at V in [18,28]
+  common arrival window: [41.7, 50.3] s -> feasible
+  choose T*=41.7 s: speeds [21.92, 28.0, 21.71]
+  path-lengthening alternative at V=23 m/s: T=max L/23 = 50.7 s, added length for others: [253.3, 0.0, 262.2]
+
+=== Dubins airplane: L2D=500.0, dh=600.0, gamma_max=15 deg: needed length 2239.2 m
+  low-altitude test: L2D*tan(gmax) = 134.0 m < dh -> not low altitude
+  medium test: (L2D+2 pi Rmin) tan = 302.3 m < dh -> high altitude
+  k = floor((2239.2-500.0)/(2 pi 100.0)) = 2; R* = 138.4 m; check 2239.2
+  low-altitude example: dh=50 m -> gamma = atan(50/500) = 5.71 deg

@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fixed-Wing Swarm Learning — Formation Specification</title>
+
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['\\(', '\\)']],
+        displayMath: [['\\[', '\\]'], ['$$', '$$']]
+      },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --card: #ffffff;
+      --text: #172033;
+      --muted: #5d687a;
+      --accent: #2457d6;
+      --accent-light: #eaf0ff;
+      --border: #dce2ec;
+      --code: #111827;
+      --success: #147a4b;
+      --warning: #c27b00;
+      --danger: #b42318;
+      --claw: #0f766e;
+      --claw-light: #e6f6f4;
+      --def: #6d28d9;
+      --def-light: #f3eefe;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+    }
+
+    header {
+      background: linear-gradient(135deg, #172554, #2457d6);
+      color: white;
+      padding: 56px 20px 44px;
+    }
+    header .wrap { max-width: 1320px; margin: auto; }
+    .topbar { margin-bottom: 18px; font-size: .95rem; }
+    .topbar a { color: #dbe6ff; }
+    .topbar a:hover { color: #fff; }
+
+    h1 { margin: 0 0 10px; font-size: clamp(2rem, 5vw, 3.2rem); }
+    h2 { margin-top: 0; font-size: 1.8rem; }
+    h3 { margin-top: 1.6rem; }
+    h4 { margin-top: 1.2rem; margin-bottom: .4rem; }
+
+    .subtitle { max-width: 820px; color: #dbe6ff; font-size: 1.08rem; }
+
+    nav, section, .callout {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px;
+      margin: 20px 0;
+      box-shadow: 0 3px 12px rgba(20, 35, 70, .05);
+    }
+    nav h2 { font-size: 1.35rem; }
+    nav ol { margin-bottom: 0; padding-left: 22px; }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    code { background: #eef1f6; padding: 2px 5px; border-radius: 5px; font-size: .92em; }
+    pre {
+      background: var(--code);
+      color: #e5e7eb;
+      padding: 18px;
+      border-radius: 10px;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+    pre code { background: none; padding: 0; color: inherit; font-size: .9rem; }
+
+    .formula {
+      background: var(--accent-light);
+      border-left: 4px solid var(--accent);
+      padding: 16px 18px;
+      margin: 16px 0;
+      overflow-x: auto;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+    }
+    .mini {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      background: #fbfcff;
+    }
+    .mini strong { display: block; margin-bottom: 5px; }
+
+    .success { border-left: 4px solid var(--success); background: #edf9f3; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .warning { border-left: 4px solid var(--warning); background: #fff8e8; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .danger  { border-left: 4px solid var(--danger);  background: #fdecec; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .note    { border-left: 4px solid var(--muted);   background: #f3f5f8; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .definition, .theorem {
+      border-left: 4px solid var(--def);
+      background: var(--def-light);
+      padding: 14px 18px;
+      border-radius: 8px;
+      margin: 14px 0;
+    }
+    .definition > strong:first-child, .theorem > strong:first-child { color: var(--def); }
+    .claw {
+      border: 1px solid #99d6cf;
+      border-left: 6px solid var(--claw);
+      background: var(--claw-light);
+      padding: 16px 20px;
+      border-radius: 10px;
+      margin: 18px 0;
+    }
+    .claw > strong:first-child { color: var(--claw); display: block; margin-bottom: 6px; font-size: 1.05rem; }
+
+    table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+    th, td { text-align: left; padding: 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    th { background: #f1f4f9; }
+
+    .tag {
+      display: inline-block;
+      background: #eaf0ff;
+      color: #204bb4;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: .82rem;
+      margin: 3px;
+    }
+
+    figure { margin: 18px 0; }
+    figure > svg { width: 100%; height: auto; display: block; background: #fbfcff; border: 1px solid var(--border); border-radius: 10px; }
+    figcaption { color: var(--muted); font-size: .92rem; margin-top: 6px; text-align: center; }
+
+    .exercise { border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; margin: 14px 0; background: #fbfcff; }
+    .exercise summary { cursor: pointer; color: var(--accent); font-weight: 600; margin-top: 8px; }
+    .exercise details { margin-top: 6px; }
+    .exercise .solution { border-top: 1px dashed var(--border); margin-top: 8px; padding-top: 8px; }
+
+    .demo { border: 1px solid var(--border); border-radius: 12px; padding: 14px; background: #fbfcff; margin: 16px 0; }
+    .demo canvas { width: 100%; height: auto; display: block; background: #ffffff; border: 1px solid var(--border); border-radius: 8px; }
+    .controls { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; margin: 10px 0; font-size: .95rem; }
+    .controls label { display: inline-flex; align-items: center; gap: 6px; }
+    .controls input[type=range] { width: 140px; }
+    .controls button, .btn {
+      background: var(--accent); color: #fff; border: 0; padding: 7px 14px; border-radius: 8px; cursor: pointer; font-size: .92rem;
+    }
+    .controls button:hover, .btn:hover { filter: brightness(1.08); }
+    .controls button.secondary { background: #e5e9f2; color: var(--text); }
+
+    .prevnext { display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin: 26px 0 0; }
+    .prevnext a { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; flex: 1 1 260px; }
+    .prevnext a span { display: block; color: var(--muted); font-size: .82rem; }
+    .prevnext a.next { text-align: right; }
+
+    .done-box { text-align: center; margin: 24px 0 0; }
+    .done-box button { background: var(--success); color: #fff; border: 0; padding: 9px 18px; border-radius: 8px; cursor: pointer; }
+    .done-box button.undone { background: #9aa5b5; }
+
+    footer { text-align: center; color: var(--muted); padding: 30px 20px 50px; }
+
+    .page-shell {
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      gap: 24px;
+      max-width: 1320px;
+      margin: 0 auto;
+      padding: 28px 20px 70px;
+      align-items: start;
+    }
+    .sidebar { grid-column: 1; position: sticky; top: 20px; }
+    .sidebar nav { position: sticky; top: 20px; max-height: calc(100vh - 40px); overflow-y: auto; }
+    .content { grid-column: 2; min-width: 0; }
+    @media (max-width: 960px) {
+      .page-shell { grid-template-columns: 1fr; }
+      .sidebar, .sidebar nav { position: static; max-height: none; }
+      .sidebar, .content { grid-column: 1; }
+    }
+    @media print {
+      nav { break-after: page; }
+      section { box-shadow: none; }
+      .demo, .done-box, .prevnext, .topbar { display: none; }
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <div class="wrap">
+      <div class="topbar"><a href="index.html">&larr; Course home</a> &nbsp;·&nbsp; Module C: Formation &amp; Flocking</div>
+      <h1>Fixed-Wing Swarm Learning</h1>
+      <div class="subtitle">
+        Part 10: <strong>Formation Specification</strong> — how to write down a formation so that a control law can hold it: slot vectors,
+        consistent displacement constraints, the three specification types, and whether a formation of aircraft can survive a coordinated turn.
+      </div>
+      <p>
+        <span class="tag">Formation</span>
+        <span class="tag">Slot vectors</span>
+        <span class="tag">Coordinated turn</span>
+        <span class="tag">UAV Swarms</span>
+      </p>
+    </div>
+  </header>
+
+  <div class="page-shell">
+    <aside class="sidebar">
+      <nav id="index">
+        <h2>Index</h2>
+        <ol>
+          <li><a href="#why">Why this matters</a></li>
+          <li><a href="#shape">A formation is a shape modulo a group</a></li>
+          <li><a href="#slots">Slot vectors and displacement consistency</a></li>
+          <li><a href="#catalogue">Catalogue of formations</a></li>
+          <li><a href="#turns">Formation feasibility in coordinated turns</a></li>
+          <li><a href="#timevarying">Time-varying formations, reconfiguration, spacing</a></li>
+          <li><a href="#example">Worked example: a 5-ship vee</a></li>
+          <li><a href="#fixed-wing">Fixed-wing interpretation</a></li>
+          <li><a href="#implementation">Implementation</a></li>
+          <li><a href="#pitfalls">Common pitfalls</a></li>
+          <li><a href="#exercises">Exercises</a></li>
+          <li><a href="#summary">Key takeaways &amp; formula sheet</a></li>
+          <li><a href="#references">References</a></li>
+        </ol>
+      </nav>
+    </aside>
+
+    <main class="content">
+
+      <section id="why">
+        <h2>1. Why This Matters</h2>
+        <p>
+          Parts 5–9 taught the swarm to <em>agree</em>: states converge to a common value. A formation is the opposite request —
+          the aircraft must hold <em>prescribed differences</em>. Before any formation control law (Part 12) can be written, the
+          formation itself must be specified in a form the law can consume: which quantity each aircraft should hold with respect to
+          which neighbour, in which frame, and whether the resulting set of constraints is even self-consistent. This lesson is that specification step.
+        </p>
+        <div class="formula">
+          \[ \text{Graph topology} \rightarrow \text{consensus} \rightarrow \textbf{formation specification} \rightarrow \text{formation control} \rightarrow \text{vehicle guidance} \rightarrow \text{autopilot} \]
+        </div>
+        <div class="grid">
+          <div class="mini"><strong>Input</strong>Consensus on vector states and the Kronecker form (<a href="5_continuous_time_consensus.html">Part 5</a>),
+            leader–follower structure (<a href="8_leader_follower_consensus.html">Part 8</a>), second-order dynamics (<a href="9_second_order_consensus.html">Part 9</a>),
+            the planar rotation \(R(\psi)\) and \(J\) (<a href="A1_math_toolbox.html">A1</a>).</div>
+          <div class="mini"><strong>Output</strong>You can write any formation as slot vectors \(r_i\), derive consistent displacements \(d_{ij}\),
+            choose between displacement / distance / bearing specifications, and compute whether a formation of fixed-wing aircraft can be held through a turn.</div>
+          <div class="mini"><strong>Used in</strong><a href="11_graph_framework_rigidity.html">Part 11</a> (distance specifications need rigidity),
+            <a href="12_formation_control.html">Part 12</a> (control laws consume \(d_{ij}\)), <a href="13_virtual_structures.html">Part 13</a> (the moving formation frame),
+            <a href="19_coordinated_path_following.html">Part 19</a> (path-based formations), <a href="22_task_allocation_cbba.html">Part 22</a> (slot assignment).</div>
+        </div>
+        <p>
+          The engineering problem is concrete. Five aircraft are to fly a vee at 25 m/s and later the same vee at 150 m/s. The lead turns.
+          Every aircraft on the outside of the turn must fly faster than the lead, every aircraft on the inside slower, and each has its own bank angle.
+          Whether the formation survives the turn is decided by arithmetic on the speed envelope and the turn radius — arithmetic we derive in Section 5 — not by the control law.
+        </p>
+      </section>
+
+      <section id="shape">
+        <h2>2. A Formation Is a Shape Modulo a Group</h2>
+        <div class="definition">
+          <strong>Definition (configuration, formation).</strong>
+          The <em>configuration</em> of \(N\) aircraft is the stacked vector \(p=\operatorname{col}(p_1,\dots,p_N)\in\mathbb R^{nN}\), \(n=2\) or \(3\).
+          A <em>formation specification</em> is a target configuration \(p^\ast\) together with a group \(\mathcal G\) of transformations that the designer
+          regards as irrelevant. The <em>formation</em> is the set
+          \[ \mathcal F=\{\,(\mathrm g(p_1^\ast),\dots,\mathrm g(p_N^\ast)) : \mathrm g\in\mathcal G\,\}, \]
+          and "achieving the formation" means driving \(p\) into \(\mathcal F\), not to \(p^\ast\) itself.
+        </div>
+        <p>
+          The choice of \(\mathcal G\) is a sensing decision as much as a geometric one. Three choices cover almost all of the literature
+          (the survey by Oh, Park &amp; Ahn 2015 is organised around exactly this trichotomy):
+        </p>
+        <ol>
+          <li><strong>Displacement-based.</strong> \(\mathcal G\) = translations. The invariants are the relative positions \(p_i-p_j\) <em>expressed in a common frame</em>.
+            Constraint: \(p_i-p_j\to d_{ij}\). Each aircraft must know where its neighbour is in a frame whose orientation both share — GPS positions plus a common north, or a shared heading reference.</li>
+          <li><strong>Distance-based.</strong> \(\mathcal G\) = translations + rotations (+ reflections). The invariants are inter-aircraft distances.
+            Constraint: \(\|p_i-p_j\|\to d_{ij}\) (here \(d_{ij}\) is a scalar). Only ranges are needed, or relative positions in each aircraft's <em>own</em> body frame, which makes this the natural choice when there is no common heading reference. The price is that the constraints must be <em>rigid</em> — Part 11.</li>
+          <li><strong>Bearing-based.</strong> \(\mathcal G\) = translations + uniform scaling. The invariants are the unit vectors \((p_j-p_i)/\|p_j-p_i\|\) in a common frame.
+            Constraint: bearings to neighbours. Needs a direction sensor (camera, radar) and a common orientation; the overall size of the formation is left free and must be fixed by one measured distance.</li>
+        </ol>
+        <figure>
+          <svg viewBox="0 0 720 230" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="three formation specifications and their invariance groups">
+            <text x="120" y="24" text-anchor="middle" font-size="14" font-weight="600" fill="#172033">displacement: translations</text>
+            <polygon points="60,160 150,160 90,80" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/>
+            <polygon points="110,195 200,195 140,115" fill="none" stroke="#2457d6" stroke-width="2" stroke-dasharray="6 4"/>
+            <line x1="100" y1="133" x2="140" y2="160" stroke="#5d687a" stroke-width="1.5" marker-end="url(#arrowf1)"/>
+            <text x="120" y="215" text-anchor="middle" font-size="12" fill="#5d687a">p_i − p_j unchanged</text>
+            <text x="360" y="24" text-anchor="middle" font-size="14" font-weight="600" fill="#172033">distance: translations + rotations</text>
+            <polygon points="300,160 390,160 330,80" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/>
+            <polygon points="392,118 436,197 342,185" fill="none" stroke="#2457d6" stroke-width="2" stroke-dasharray="6 4"/>
+            <path d="M 395 95 A 60 60 0 0 1 430 125" fill="none" stroke="#5d687a" stroke-width="1.5" marker-end="url(#arrowf1)"/>
+            <text x="360" y="215" text-anchor="middle" font-size="12" fill="#5d687a">‖p_i − p_j‖ unchanged</text>
+            <text x="600" y="24" text-anchor="middle" font-size="14" font-weight="600" fill="#172033">bearing: translations + scale</text>
+            <polygon points="540,160 630,160 570,80" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/>
+            <polygon points="525,200 660,200 570,80" fill="none" stroke="#2457d6" stroke-width="2" stroke-dasharray="6 4"/>
+            <line x1="630" y1="160" x2="656" y2="196" stroke="#5d687a" stroke-width="1.5" marker-end="url(#arrowf1)"/>
+            <text x="600" y="222" text-anchor="middle" font-size="12" fill="#5d687a">directions unchanged</text>
+            <defs><marker id="arrowf1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#5d687a"/></marker></defs>
+          </svg>
+          <figcaption>Figure 1. The same triangle of aircraft (solid) and a configuration that each specification regards as "the same formation" (dashed).</figcaption>
+        </figure>
+        <h3>Counting constraints</h3>
+        <p>
+          In the plane the configuration space has \(2N\) dimensions and the group removes \(\dim\mathcal G\) of them, so a specification needs
+          \(2N-\dim\mathcal G\) <em>independent</em> scalar constraints to pin the shape down:
+        </p>
+        <div class="formula">
+          \[ \text{displacement: } 2N-2,\qquad \text{distance: } 2N-3,\qquad \text{bearing: } 2N-3 . \]
+        </div>
+        <p>
+          Each displacement constraint \(p_i-p_j=d_{ij}\) is a 2-vector, so \(N-1\) of them suffice — exactly the edges of a spanning tree (Section 3).
+          Each distance or planar bearing is one scalar, so \(2N-3\) are needed, and "independent" is the hard part: that is the rigidity question of Part 11.
+        </p>
+        <table>
+          <tr><th>Specification</th><th>Measured quantity</th><th>Sensing need</th><th>Invariant to (dim, plane)</th><th>Independent constraints</th><th>Residual freedom fixed by</th><th>Theory</th></tr>
+          <tr><td>Displacement</td><td>\(p_i-p_j\)</td><td>relative position in a common frame (GPS + shared north)</td><td>translation (2)</td><td>\(2N-2\): any spanning tree</td><td>a leader or pinned reference \(p_c\)</td><td>consensus, Parts 5, 8, 12</td></tr>
+          <tr><td>Distance</td><td>\(\|p_i-p_j\|\)</td><td>ranges, or relative position in own body frame; no common heading</td><td>translation + rotation + reflection (3)</td><td>\(2N-3\) independent: infinitesimal rigidity</td><td>leader position and structure heading; flip ambiguity must be excluded</td><td>rigidity, Parts 11, 12</td></tr>
+          <tr><td>Bearing</td><td>\((p_j-p_i)/\|p_j-p_i\|\)</td><td>direction sensor + common heading</td><td>translation + scale (3)</td><td>\(2N-3\): bearing rigidity</td><td>leader position and one distance</td><td>Zhao &amp; Zelazo 2016; note in Part 12</td></tr>
+        </table>
+        <div class="success">
+          <strong>Interpretation:</strong> the specification type is chosen by what the aircraft can measure. With GPS and a shared heading,
+          displacement is simplest and needs the fewest constraints. Without a common heading (GPS-denied, magnetometer-free), distances are the honest
+          choice, and then the graph must be rigid.
+        </div>
+        <div class="warning">
+          <strong>Caution:</strong> "distance-based" also has a sign ambiguity. A reflected formation satisfies every distance constraint, so a wingman that starts on the
+          wrong side can converge to the mirror slot (Part 11, Section 5). Displacement specifications have no such ambiguity.
+        </div>
+      </section>
+
+      <section id="slots">
+        <h2>3. Slot Vectors and Displacement Consistency</h2>
+        <div class="definition">
+          <strong>Definition (formation frame, slot vectors).</strong>
+          The <em>formation frame</em> \(\mathcal F_c\) has origin \(p_c\in\mathbb R^2\), \(x\)-axis along the structure heading \(\psi_c\) (clockwise from north)
+          and \(y\)-axis to starboard. The <em>slot vector</em> \(r_i=(x_i,y_i)^T\) is the constant position of slot \(i\) in \(\mathcal F_c\). The desired inertial position of UAV \(i\) is
+          \[ \boxed{\,p_i^d=p_c+R(\psi_c)\,r_i\,},\qquad R(\psi)=\begin{bmatrix}\cos\psi&-\sin\psi\\ \sin\psi&\cos\psi\end{bmatrix}, \]
+          acting on (north, east) components. Check: \(R(\psi)e_1=(\cos\psi,\sin\psi)^T\) is the unit vector along the heading and
+          \(R(\psi)e_2=(-\sin\psi,\cos\psi)^T\) points to starboard (for \(\psi=0\) it is east, i.e. the right of north).
+        </div>
+        <p>The desired displacement between two aircraft follows by subtraction and is independent of \(p_c\):</p>
+        <div class="formula">
+          \[ \boxed{\,d_{ij}=p_i^d-p_j^d=R(\psi_c)\,(r_i-r_j)\,}\qquad\text{(in the formation frame: } d^{\mathcal F}_{ij}=r_i-r_j\text{)}. \]
+        </div>
+        <p>
+          Because the \(d_{ij}\) are differences of a single table of \(r_i\), they automatically satisfy two identities:
+          <em>antisymmetry</em> \(d_{ij}=-d_{ji}\) and the <em>cycle (triangle) identity</em> \(d_{ij}+d_{jk}=d_{ik}\). The converse is the useful statement.
+        </p>
+        <div class="theorem">
+          <strong>Theorem (consistency of a displacement specification).</strong>
+          Let \(G\) be a connected undirected graph on \(N\) nodes and let vectors \(d_{ij}\), \((i,j)\in E\), with \(d_{ji}=-d_{ij}\) be given.
+          There exist slot vectors \(r_1,\dots,r_N\) with \(r_i-r_j=d_{ij}\) on every edge <em>if and only if</em> the sum of the \(d\)'s around every cycle of \(G\) is zero.
+          The \(r_i\) are then unique up to a common translation, and the values of \(d_{ij}\) on any spanning tree of \(G\) determine all the others.
+          <br><em>Proof.</em> (Only if) Along a cycle \(i_1\to i_2\to\cdots\to i_m\to i_1\) the sum \(\sum_k (r_{i_k}-r_{i_{k+1}})\) telescopes to zero.
+          (If) Fix \(r_1=0\). For any node \(i\) take a path \(1=i_0,i_1,\dots,i_m=i\) and set \(r_{i_{k+1}}=r_{i_k}-d_{i_ki_{k+1}}\). Two paths to the same node differ by a cycle,
+          whose sum vanishes, so \(r_i\) is well defined; by the same argument every non-tree edge is satisfied. If \(r\) and \(r'\) both work, \(r_i-r'_i=r_j-r'_j\) on every edge,
+          hence constant over the connected graph: a translation. \(\square\)
+        </div>
+        <p>
+          In matrix form, with the incidence matrix \(B\in\mathbb R^{|E|\times N}\) (row \(e=(i,j)\) has \(+1\) in column \(i\), \(-1\) in column \(j\)),
+          the specification reads \((B\otimes I_2)\,r=d\) and consistency is \(d\in\operatorname{range}(B\otimes I_2)\). When a specification is <em>not</em> consistent
+          — typically because pairwise offsets were tuned independently — no configuration satisfies it, and the best one can do is least squares:
+        </p>
+        <div class="formula">
+          \[ \min_r\ \sum_{(i,j)\in E}\|(r_i-r_j)-d_{ij}\|^2 \;\Longrightarrow\; (B^TB\otimes I_2)\,r=(B^T\otimes I_2)\,d,\qquad B^TB=L . \]
+        </div>
+        <p>
+          The Laplacian appears, and the minimiser is unique up to translation exactly when \(G\) is connected (\(\lambda_2\gt0\), <a href="4_Laplacian_Eigenvalues.html">Part 4</a>).
+          Part 12 shows that the displacement-based controller is the gradient flow of this very cost, so an inconsistent specification does not make the swarm unstable —
+          it quietly converges to the least-squares compromise, which is rarely what the designer drew. Exercise 3 works a numeric instance.
+        </p>
+        <figure>
+          <svg viewBox="0 0 720 230" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="spanning tree of displacements in a vee">
+            <defs><marker id="arrowt" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2457d6"/></marker></defs>
+            <line x1="360" y1="40" x2="430" y2="100" stroke="#2457d6" stroke-width="2.5" marker-end="url(#arrowt)"/>
+            <line x1="360" y1="40" x2="290" y2="100" stroke="#2457d6" stroke-width="2.5" marker-end="url(#arrowt)"/>
+            <line x1="430" y1="100" x2="500" y2="160" stroke="#2457d6" stroke-width="2.5" marker-end="url(#arrowt)"/>
+            <line x1="290" y1="100" x2="220" y2="160" stroke="#2457d6" stroke-width="2.5" marker-end="url(#arrowt)"/>
+            <line x1="290" y1="100" x2="430" y2="100" stroke="#9aa5b5" stroke-width="1.5" stroke-dasharray="6 4"/>
+            <line x1="220" y1="160" x2="500" y2="160" stroke="#9aa5b5" stroke-width="1.5" stroke-dasharray="6 4"/>
+            <line x1="360" y1="40" x2="500" y2="160" stroke="#9aa5b5" stroke-width="1.5" stroke-dasharray="6 4"/>
+            <line x1="360" y1="40" x2="220" y2="160" stroke="#9aa5b5" stroke-width="1.5" stroke-dasharray="6 4"/>
+            <circle cx="360" cy="40" r="16" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/><text x="360" y="45" text-anchor="middle" font-size="13" fill="#172033">1</text>
+            <circle cx="430" cy="100" r="16" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/><text x="430" y="105" text-anchor="middle" font-size="13" fill="#172033">2</text>
+            <circle cx="290" cy="100" r="16" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/><text x="290" y="105" text-anchor="middle" font-size="13" fill="#172033">3</text>
+            <circle cx="500" cy="160" r="16" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/><text x="500" y="165" text-anchor="middle" font-size="13" fill="#172033">4</text>
+            <circle cx="220" cy="160" r="16" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/><text x="220" y="165" text-anchor="middle" font-size="13" fill="#172033">5</text>
+            <text x="410" y="62" font-size="12" fill="#2457d6">d₁₂ = (60, −40)</text>
+            <text x="232" y="62" font-size="12" fill="#2457d6">d₁₃ = (60, 40)</text>
+            <text x="480" y="124" font-size="12" fill="#2457d6">d₂₄ = (60, −40)</text>
+            <text x="160" y="124" font-size="12" fill="#2457d6">d₃₅ = (60, 40)</text>
+            <text x="360" y="185" text-anchor="middle" font-size="12" fill="#5d687a">d₅₄ = d₅₃ + d₃₁ + d₁₂ + d₂₄ = (0, 160)</text>
+            <text x="360" y="212" text-anchor="middle" font-size="12" fill="#5d687a">flight direction ↑ ; solid = spanning tree (stored), dashed = implied</text>
+          </svg>
+          <figcaption>Figure 2. The four tree displacements of a 5-ship vee (metres, formation frame) determine every other pair; the dashed pairs are implied by the cycle identity.</figcaption>
+        </figure>
+        <h3>Who stores what on board</h3>
+        <p>
+          In practice no aircraft stores \(d_{ij}\). Every aircraft carries the same small table of slot vectors \(\{r_1,\dots,r_N\}\) and its own estimate
+          \(\hat\psi_c\) of the structure heading (from the leader-state estimator of <a href="8_leader_follower_consensus.html">Part 8</a>), and computes
+          \(d_{ij}=R(\hat\psi_c)(r_i-r_j)\) for its in-neighbours \(j\in\mathcal N_i^{\mathrm{in}}\) on the fly. If two aircraft hold different \(\hat\psi_c\),
+          their \(d_{ij}\) and \(d_{ji}\) are no longer antisymmetric — an inconsistency that consensus on \(\hat\psi_c\) removes but that a designer must know exists.
+        </p>
+        <h3>Rotating formations</h3>
+        <p>When the structure turns, the inertial displacements rotate. Using \(\frac{d}{dt}R(\psi)=\dot\psi R(\psi)J\) with \(J=\begin{bmatrix}0&-1\\1&0\end{bmatrix}\):</p>
+        <div class="formula">
+          \[ \boxed{\,\dot d_{ij}=\omega_c\,R(\psi_c)\,J\,(r_i-r_j)\,},\qquad \|\dot d_{ij}\|=|\omega_c|\,\|r_i-r_j\| . \]
+        </div>
+        <p>
+          For the vee of Figure 2 in the 25 m/s turn of Section 5 (\(\omega_c=0.227\) rad/s), lead and slot 5 are \(\|r_1-r_5\|=144\) m apart,
+          so their relative inertial velocity is \(0.227\times144=32.7\) m/s. A controller that ignores \(\dot d_{ij}\) must generate that
+          relative velocity from position error alone — the lag computed in Part 12.
+        </p>
+      </section>
+
+      <section id="catalogue">
+        <h2>4. Catalogue of Formations</h2>
+        <p>
+          The standard five-ship formations are parametrised by an along-track spacing \(s_a\) and a cross-track spacing \(s_c\) (set \(s_a=s_c=s\) for a single spacing).
+          UAV 1 is the lead at the origin of the formation frame; \(x\) forward, \(y\) starboard; all entries in metres for \(s_a=60\) m, \(s_c=40\) m.
+        </p>
+        <table>
+          <tr><th>Formation</th><th>\(r_1\)</th><th>\(r_2\)</th><th>\(r_3\)</th><th>\(r_4\)</th><th>\(r_5\)</th><th>Numeric (\(s_a=60,\ s_c=40\))</th><th>Extent / note</th></tr>
+          <tr><td>Line abreast</td><td>\((0,0)\)</td><td>\((0,-s_c)\)</td><td>\((0,s_c)\)</td><td>\((0,-2s_c)\)</td><td>\((0,2s_c)\)</td><td>(0,0), (0,−40), (0,40), (0,−80), (0,80)</td><td>lateral ±80 m, no along-track depth; widest sensor sweep, worst in turns</td></tr>
+          <tr><td>Trail</td><td>\((0,0)\)</td><td>\((-s_a,0)\)</td><td>\((-2s_a,0)\)</td><td>\((-3s_a,0)\)</td><td>\((-4s_a,0)\)</td><td>(0,0), (−60,0), (−120,0), (−180,0), (−240,0)</td><td>240 m deep, zero lateral; every aircraft in the wake of the one ahead</td></tr>
+          <tr><td>Echelon (right)</td><td>\((0,0)\)</td><td>\((-s_a,s_c)\)</td><td>\((-2s_a,2s_c)\)</td><td>\((-3s_a,3s_c)\)</td><td>\((-4s_a,4s_c)\)</td><td>(0,0), (−60,40), (−120,80), (−180,120), (−240,160)</td><td>asymmetric: turn feasibility differs for left and right turns</td></tr>
+          <tr><td>Vee</td><td>\((0,0)\)</td><td>\((-s_a,s_c)\)</td><td>\((-s_a,-s_c)\)</td><td>\((-2s_a,2s_c)\)</td><td>\((-2s_a,-2s_c)\)</td><td>(0,0), (−60,40), (−60,−40), (−120,80), (−120,−80)</td><td>lateral ±80 m, 120 m deep; lead sees everyone; the course simulator's default</td></tr>
+          <tr><td>Diamond</td><td>\((0,0)\)</td><td>\((-s_a,s_c)\)</td><td>\((-s_a,-s_c)\)</td><td>\((-2s_a,0)\)</td><td>\((-3s_a,0)\)</td><td>(0,0), (−60,40), (−60,−40), (−120,0), (−180,0)</td><td>lateral ±40 m, 180 m deep; compact, slot 4 behind the lead</td></tr>
+        </table>
+        <figure>
+          <svg viewBox="0 0 760 190" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="five standard formations">
+            <text x="80" y="22" text-anchor="middle" font-size="13" font-weight="600" fill="#172033">line abreast</text>
+            <circle cx="40" cy="60" r="7" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/><circle cx="60" cy="60" r="7" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/>
+            <circle cx="80" cy="60" r="7" fill="#2457d6"/><circle cx="100" cy="60" r="7" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/><circle cx="120" cy="60" r="7" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/>
+            <text x="220" y="22" text-anchor="middle" font-size="13" font-weight="600" fill="#172033">trail</text>
+            <circle cx="220" cy="40" r="7" fill="#2457d6"/><circle cx="220" cy="70" r="7" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/><circle cx="220" cy="100" r="7" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/>
+            <circle cx="220" cy="130" r="7" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/><circle cx="220" cy="160" r="7" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/>
+            <text x="370" y="22" text-anchor="middle" font-size="13" font-weight="600" fill="#172033">echelon</text>
+            <circle cx="330" cy="40" r="7" fill="#2457d6"/><circle cx="350" cy="70" r="7" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/><circle cx="370" cy="100" r="7" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/>
+            <circle cx="390" cy="130" r="7" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/><circle cx="410" cy="160" r="7" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/>
+            <text x="520" y="22" text-anchor="middle" font-size="13" font-weight="600" fill="#172033">vee</text>
+            <circle cx="520" cy="40" r="7" fill="#2457d6"/><circle cx="540" cy="70" r="7" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/><circle cx="500" cy="70" r="7" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/>
+            <circle cx="560" cy="100" r="7" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/><circle cx="480" cy="100" r="7" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/>
+            <text x="660" y="22" text-anchor="middle" font-size="13" font-weight="600" fill="#172033">diamond</text>
+            <circle cx="660" cy="40" r="7" fill="#2457d6"/><circle cx="680" cy="70" r="7" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/><circle cx="640" cy="70" r="7" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/>
+            <circle cx="660" cy="100" r="7" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/><circle cx="660" cy="130" r="7" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/>
+            <text x="380" y="183" text-anchor="middle" font-size="12" fill="#5d687a">flight direction ↑ ; filled = lead (UAV 1); scale 0.5 px per metre, s_a = 60 m, s_c = 40 m</text>
+          </svg>
+          <figcaption>Figure 3. The catalogue of Section 4 drawn to scale in the formation frame.</figcaption>
+        </figure>
+        <p>
+          Which to choose is rarely a free decision: line abreast maximises sensor coverage but has the largest lateral extent (the quantity that
+          turns punish, Section 5); trail has none but places every aircraft in a wake; echelon is one-sided; the vee and diamond are compromises.
+          Altitude offsets \(\Delta h_i\) are added to any of them to separate aircraft vertically (Section 8).
+        </p>
+      </section>
+
+      <section id="turns">
+        <h2>5. Formation Feasibility in Coordinated Turns</h2>
+        <p>
+          Let the structure fly a steady coordinated level turn: constant speed \(V_c\) and constant heading rate \(\dot\psi_c=\omega_c\), with \(\omega_c\gt0\) a right turn.
+          Then \(p_c\) traces a circle of radius \(R_c=V_c/|\omega_c|\), and the coordinated-turn relation (<a href="16_coordinated_turn_high_speed.html">Part 16</a>)
+          links the structure's bank to its turn rate: \(\tan\phi_c=V_c\omega_c/g\), \(R_c=V_c^2/(g\tan\phi_c)\).
+          In the formation frame the turn centre sits at \(c=(0,\ R_c)^T\) for a right turn (starboard) and \(c=(0,-R_c)^T\) for a left turn.
+        </p>
+        <h3>Step 1 — slot velocity</h3>
+        <p>Differentiate \(p_i^d=p_c+R(\psi_c)r_i\) with constant \(r_i\), using \(\dot R=\omega_cRJ\) and \(\dot p_c=V_cR(\psi_c)e_1\):</p>
+        <div class="formula">
+          \[ v_i^d=\dot p_c+\omega_c R(\psi_c)Jr_i=R(\psi_c)\big[V_ce_1+\omega_cJr_i\big]
+          =R(\psi_c)\begin{bmatrix}V_c-\omega_c y_i\\ \omega_c x_i\end{bmatrix}, \]
+        </div>
+        <p>because \(Jr_i=J(x_i,y_i)^T=(-y_i,x_i)^T\). The bracket is the slot velocity expressed in the formation frame: forward component \(V_c-\omega_cy_i\), starboard component \(\omega_cx_i\).</p>
+        <h3>Step 2 — slot speed</h3>
+        <div class="formula">
+          \[ V_i=\|v_i^d\|=\sqrt{(V_c-\omega_cy_i)^2+(\omega_cx_i)^2}=|\omega_c|\sqrt{x_i^2+(R_c-y_i)^2}=|\omega_c|\,\rho_i,\qquad \rho_i=\|r_i-c\| . \]
+        </div>
+        <div class="success">
+          <strong>Interpretation:</strong> a rigid formation in a steady turn is a rigid body rotating about the turn centre. Every slot moves on its own circle of radius
+          \(\rho_i\) (its distance from the turn centre) at the common angular rate \(\omega_c\), hence at speed \(\omega_c\rho_i\). Outside slots are faster, inside slots slower,
+          in exact proportion to their radius: \(V_i/V_c=\rho_i/R_c\).
+        </div>
+        <h3>Step 3 — slot course</h3>
+        <p>The slot velocity is tangent to its own circle, so its course differs from the structure heading:</p>
+        <div class="formula">
+          \[ \chi_i=\psi_c+\beta_i,\qquad \beta_i=\operatorname{atan2}\!\big(\omega_cx_i,\ V_c-\omega_cy_i\big) . \]
+        </div>
+        <p>
+          For a trailing slot (\(x_i\lt0\)) in a right turn \(\beta_i\lt0\): the aircraft points <em>left</em> of the lead's heading, by exactly the angle it is
+          "behind" around the turn centre. It is flying the heading the lead had \(|\beta_i|/\omega_c\) seconds ago — the formation is rigid, not the headings.
+        </p>
+        <h3>Step 4 — bank and load factor of each slot</h3>
+        <p>Slot \(i\) flies a circle of radius \(\rho_i\) at speed \(V_i\), so its centripetal acceleration is \(V_i^2/\rho_i=\omega_c^2\rho_i\). In a coordinated level turn this is supplied by \(g\tan\phi_i\):</p>
+        <div class="formula">
+          \[ \boxed{\,\tan\phi_i=\frac{V_i\,\omega_c}{g}=\frac{\omega_c^2\rho_i}{g}=\tan\phi_c\,\frac{\rho_i}{R_c}\,},\qquad n_{z,i}=\frac1{\cos\phi_i}. \]
+        </div>
+        <h3>Step 5 — feasibility</h3>
+        <p>Slot \(i\) can be held by a fixed-wing aircraft with envelope \([V_{\min},V_{\max}]\) and bank limit \(\phi_{\max}\) only if</p>
+        <div class="formula">
+          \[ \boxed{\,V_{\min}\le|\omega_c|\rho_i\le V_{\max}\quad\text{and}\quad \rho_i\le\frac{g\tan\phi_{\max}}{\omega_c^2}\,}
+          \qquad\Longleftrightarrow\qquad \frac{V_{\min}}{V_c}\le\frac{\rho_i}{R_c}\le\min\!\Big(\frac{V_{\max}}{V_c},\ \frac{\tan\phi_{\max}}{\tan\phi_c}\Big). \]
+        </div>
+        <figure>
+          <svg viewBox="0 0 720 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="rigid formation in a right turn: concentric circles about the turn centre">
+            <defs><marker id="arrowv" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#b42318"/></marker></defs>
+            <circle cx="520" cy="150" r="70" fill="none" stroke="#9aa5b5" stroke-width="1.2" stroke-dasharray="5 4"/>
+            <circle cx="520" cy="150" r="110" fill="none" stroke="#2457d6" stroke-width="1.5" stroke-dasharray="5 4"/>
+            <circle cx="520" cy="150" r="150" fill="none" stroke="#9aa5b5" stroke-width="1.2" stroke-dasharray="5 4"/>
+            <circle cx="520" cy="150" r="4" fill="#172033"/>
+            <text x="528" y="146" font-size="12" fill="#172033">turn centre C</text>
+            <line x1="520" y1="150" x2="410" y2="150" stroke="#2457d6" stroke-width="1.2"/>
+            <text x="462" y="143" text-anchor="middle" font-size="12" fill="#2457d6">R_c</text>
+            <circle cx="410" cy="150" r="9" fill="#2457d6"/>
+            <line x1="410" y1="150" x2="410" y2="95" stroke="#b42318" stroke-width="2" marker-end="url(#arrowv)"/>
+            <text x="416" y="92" font-size="12" fill="#b42318">V_c (lead)</text>
+            <circle cx="450" cy="150" r="8" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/>
+            <line x1="450" y1="150" x2="450" y2="115" stroke="#b42318" stroke-width="2" marker-end="url(#arrowv)"/>
+            <text x="456" y="118" font-size="11" fill="#b42318">V_in &lt; V_c</text>
+            <text x="452" y="170" font-size="11" fill="#5d687a">ρ = R_c − y</text>
+            <circle cx="370" cy="150" r="8" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/>
+            <line x1="370" y1="150" x2="370" y2="75" stroke="#b42318" stroke-width="2" marker-end="url(#arrowv)"/>
+            <text x="298" y="78" font-size="11" fill="#b42318">V_out &gt; V_c</text>
+            <text x="300" y="170" font-size="11" fill="#5d687a">ρ = R_c + y</text>
+            <line x1="520" y1="150" x2="435.7" y2="220.7" stroke="#9aa5b5" stroke-width="1.2"/>
+            <circle cx="435.7" cy="220.7" r="8" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/>
+            <line x1="435.7" y1="220.7" x2="400.3" y2="178.6" stroke="#b42318" stroke-width="2" marker-end="url(#arrowv)"/>
+            <text x="446" y="240" font-size="11" fill="#5d687a">trailing slot: course lags by β</text>
+            <path d="M 480 150 A 40 40 0 0 1 489 176" fill="none" stroke="#172033" stroke-width="1.2"/>
+            <text x="494" y="170" font-size="12" fill="#172033">β</text>
+            <text x="40" y="40" font-size="13" font-weight="600" fill="#172033">Right turn, ω_c &gt; 0</text>
+            <text x="40" y="64" font-size="12" fill="#172033">V_i = ω_c ρ_i, ρ_i = ‖r_i − c‖</text>
+            <text x="40" y="86" font-size="12" fill="#172033">tan φ_i = ω_c V_i / g</text>
+            <text x="40" y="108" font-size="12" fill="#172033">χ_i = ψ_c + β_i</text>
+            <text x="40" y="130" font-size="12" fill="#172033">lateral-only slots: ρ = R_c ± y</text>
+            <text x="40" y="270" font-size="12" fill="#5d687a">arrow length ∝ speed; dashed circles are the paths of the three lateral slots</text>
+          </svg>
+          <figcaption>Figure 4. A rigid formation in a steady right turn rotates about the turn centre; each slot follows its own concentric circle at speed \(\omega_c\rho_i\).</figcaption>
+        </figure>
+        <h3>The pure-lateral case</h3>
+        <p>
+          For a slot directly abeam the lead (\(x_i=0\)) write \(y_i^{\mathrm{out}}\) for the lateral offset measured <em>toward the outside of the turn</em>
+          (\(y^{\mathrm{out}}_i=-y_i\) in a right turn, \(+y_i\) in a left turn). Then \(\rho_i=R_c+y_i^{\mathrm{out}}\) and
+        </p>
+        <div class="formula">
+          \[ V_i=V_c\Big(1+\frac{y_i^{\mathrm{out}}}{R_c}\Big),\qquad
+          \boxed{\,-R_c\Big(1-\frac{V_{\min}}{V_c}\Big)\ \le\ y_i^{\mathrm{out}}\ \le\ R_c\Big(\frac{V_{\max}}{V_c}-1\Big)\,},\qquad
+          \tan\phi_i=\tan\phi_c\Big(1+\frac{y_i^{\mathrm{out}}}{R_c}\Big). \]
+        </div>
+        <table>
+          <tr><th></th><th>\(V_c=25\) m/s, \(\phi_c=30^\circ\), envelope [16, 32] m/s, \(\phi_{\max}=45^\circ\)</th><th>\(V_c=150\) m/s, \(\phi_c=45^\circ\), envelope [120, 190] m/s, \(\phi_{\max}=60^\circ\)</th></tr>
+          <tr><td>\(\omega_c=g\tan\phi_c/V_c\)</td><td>0.227 rad/s = 13.0°/s</td><td>0.0654 rad/s = 3.75°/s</td></tr>
+          <tr><td>\(R_c=V_c^2/(g\tan\phi_c)\)</td><td>110 m</td><td>2290 m</td></tr>
+          <tr><td>inside limit \(-R_c(1-V_{\min}/V_c)\)</td><td>\(-0.360R_c=-39.7\) m</td><td>\(-0.200R_c=-459\) m</td></tr>
+          <tr><td>outside limit \(R_c(V_{\max}/V_c-1)\)</td><td>\(+0.280R_c=+30.9\) m</td><td>\(+0.267R_c=+612\) m</td></tr>
+          <tr><td>wingman 80 m / 500 m inside</td><td>needs 6.88 m/s — impossible</td><td>needs 117 m/s — below \(V_{\min}\) by 3 m/s</td></tr>
+          <tr><td>wingman 80 m / 500 m outside</td><td>needs 43.1 m/s, \(\phi=44.9^\circ\) — above \(V_{\max}\)</td><td>needs 183 m/s, \(\phi=50.6^\circ\), \(n_z=1.58\) — feasible</td></tr>
+          <tr><td>bank limit ratio \(\tan\phi_{\max}/\tan\phi_c\)</td><td>1.73 (speed ratio 1.28 binds first)</td><td>1.73 (speed ratio 1.27 binds first)</td></tr>
+        </table>
+        <div class="success">
+          <strong>Interpretation:</strong> the feasible lateral window is a <em>fraction</em> of the turn radius fixed by the speed-envelope ratios \(1-V_{\min}/V_c\) and \(V_{\max}/V_c-1\),
+          which are similar (0.2–0.36) for both aircraft classes. What differs enormously is \(R_c\): 110 m at 25 m/s and 30° bank versus 2290 m at 150 m/s and 45° bank.
+          A 30° turn at 25 m/s cannot carry a wingman even 40 m abeam; a 45° turn at 150 m/s carries 450 m.
+        </div>
+        <h3>Designing the turn to fit the formation</h3>
+        <p>
+          Invert the window. For a symmetric formation of half-width \(y_{\max}\) that must turn both ways, the pure-lateral bound requires
+        </p>
+        <div class="formula">
+          \[ R_c\ \ge\ R_{c,\mathrm{req}}=\frac{y_{\max}}{\min\!\big(1-V_{\min}/V_c,\ V_{\max}/V_c-1\big)},\qquad
+          \phi_c\ \le\ \arctan\frac{V_c^2}{g\,R_{c,\mathrm{req}}} . \]
+        </div>
+        <p>
+          With \(y_{\max}=80\) m at 25 m/s the binding ratio is 0.280 (outside), so \(R_{c,\mathrm{req}}=286\) m and \(\phi_c\le12.6^\circ\).
+          With \(y_{\max}=500\) m at 150 m/s the binding ratio is 0.200 (inside), so \(R_{c,\mathrm{req}}=2500\) m and \(\phi_c\le42.5^\circ\).
+          Equivalently, for a given radius the structure speed must lie in \(V_{\min}/(1-y_{\max}/R_c)\le V_c\le V_{\max}/(1+y_{\max}/R_c)\):
+          at \(R_c=2500\) m and \(y_{\max}=500\) m this is \(150\le V_c\le158\) m/s — a 150 m/s structure sits at the bottom of its own window.
+        </p>
+        <h3>Along-track offsets are not negligible at low speed</h3>
+        <p>Expanding \(\rho_i/R_c=\sqrt{(1-y_i/R_c)^2+(x_i/R_c)^2}\) for small offsets,</p>
+        <div class="formula">
+          \[ \frac{V_i}{V_c}\approx1-\frac{y_i}{R_c}+\frac{x_i^2}{2R_c^2}\qquad(|x_i|,|y_i|\ll R_c), \]
+        </div>
+        <p>
+          so the along-track offset enters only at second order and always <em>increases</em> the required speed. At 150 m/s the rear slots sit at \(x_i/R_c=0.35\) and the
+          correction is modest (slot 4 of the vee: exact 128 m/s, expansion 126 m/s, lateral-only 117 m/s). At 25 m/s the same slot has \(x_i/R_c=1.09\) and the expansion is useless
+          (exact 28.0 m/s, expansion 21.7 m/s, lateral-only 6.88 m/s): the rear-inside aircraft is actually <em>further</em> from the turn centre than the lead. Use the exact \(\rho_i\) — the worked example does.
+        </p>
+        <div class="warning">
+          <strong>Caution:</strong> a "trail" slot \(r_i=(-x,0)\) in a <em>rigid</em> formation is not on the lead's path. It flies a larger circle, \(\rho_i=\sqrt{x^2+R_c^2}\), faster than the lead
+          (60 m behind at 25 m/s and 30° bank: 28.5 m/s, 13.8 % faster, course lagging 28.5°; 400 m behind at 150 m/s and 45°: 152 m/s, 1.5 % faster, lag 9.9°).
+          A trail that follows the <em>same path</em> with along-path spacing needs no speed difference at all — that is a path-based formation, <a href="19_coordinated_path_following.html">Part 19</a>, and the reason it is preferred at high speed.
+        </div>
+      </section>
+
+      <section id="timevarying">
+        <h2>6. Time-Varying Formations, Reconfiguration and Spacing</h2>
+        <h3>Time-varying slots</h3>
+        <p>
+          Nothing above requires the \(r_i\) to be constant. With smooth \(r_i(t)\) the slot velocity acquires one extra term,
+          \(v_i^d=\dot p_c+\omega_cR(\psi_c)Jr_i+R(\psi_c)\dot r_i\), and the displacement derivative becomes \(\dot d_{ij}=\omega_cRJ(r_i-r_j)+R(\dot r_i-\dot r_j)\).
+          Morphing between two catalogue shapes is a linear interpolation \(r_i(t)=(1-\sigma(t))r_i^A+\sigma(t)r_i^B\) with a smooth \(\sigma:0\to1\);
+          the slot speed \(\|\dot r_i\|\) must stay inside the aircraft's spare speed margin. Moving the outer slot from line abreast \((0,-80)\) to the vee \((-120,-80)\) in 20 s
+          costs 6.0 m/s of along-track speed difference — a large fraction of a 25 m/s aircraft's envelope, trivial for a 150 m/s one.
+        </p>
+        <h3>Reconfiguration is an assignment problem</h3>
+        <p>
+          The specification says what the <em>slots</em> are, not which aircraft fills which. When the formation changes, or a member is lost, the swarm must solve
+        </p>
+        <div class="formula">
+          \[ \min_{\pi\in S_N}\ \sum_{i=1}^N c_{i\pi(i)},\qquad c_{ik}=\|p_i-p_k^d\|\ \text{ (or the Dubins length / flight time to the slot, Part 17)}, \]
+        </div>
+        <p>
+          the linear assignment problem: the Hungarian method solves it centrally in \(O(N^3)\) (Kuhn 1955); the auction and CBBA algorithms of
+          <a href="22_task_allocation_cbba.html">Part 22</a> solve it in a distributed way. Two warnings. First, min-sum and min-max (bottleneck) assignments can differ — Exercise 4 has both.
+          Second, the guarantee that a minimum-sum-of-squared-distance assignment yields collision-free straight-line transfers (Turpin, Michael &amp; Kumar 2014) is for holonomic
+          agents and does not transfer to aircraft that cannot fly straight to a slot behind them; aircraft reconfigure with Dubins manoeuvres and altitude offsets.
+        </p>
+        <h3>Minimum spacing</h3>
+        <p>The spacings \(s_a,s_c\) are not free either. A defensible lower bound is</p>
+        <div class="formula">
+          \[ s_{\min}\ \ge\ d_s+2\varepsilon_{\mathrm{GPS}}+V\,\tau+\text{wake margin}, \]
+        </div>
+        <p>
+          where \(d_s\) is the safety distance of the collision filter (<a href="20_collision_avoidance_cbf.html">Part 20</a>), \(\varepsilon_{\mathrm{GPS}}\) the per-aircraft position error
+          (metres for standalone GNSS, centimetres with RTK), and \(V\tau\) the distance an aircraft flies during one communication latency \(\tau\) — the position a neighbour reports is that old.
+          Latency times speed: 2.5 m at 25 m/s and 100 ms; 6.0 m at 60 m/s; 15 m at 150 m/s; 22.5 m at 150 m/s and 150 ms; 25 m at 250 m/s and 100 ms.
+          With \(d_s=30\) m, \(\varepsilon_{\mathrm{GPS}}=5\) m and 2.5 m of latency the small-aircraft spacing must exceed 42.5 m — the 40 m cross-track spacing of the catalogue is at the limit
+          and relies on the altitude offsets of Section 8. At 150 m/s with \(d_s=150\) m the same budget gives 182.5 m, comfortably below the 250 m used.
+          Wake-vortex spacing is aircraft-specific; keep wingmen outside and above the lead's wake unless formation flight for drag reduction is the goal (Pachter, D'Azzo &amp; Proud 2001).
+        </p>
+      </section>
+
+      <section id="example">
+        <h2>7. Worked Example: a 5-Ship Vee</h2>
+        <p>Slots \(r_1=(0,0)\), \(r_2=(-60,40)\), \(r_3=(-60,-40)\), \(r_4=(-120,80)\), \(r_5=(-120,-80)\) m. All numbers below are produced by the script of Section 9.</p>
+        <h3>Displacements and consistency</h3>
+        <p>
+          \(d_{12}=(60,-40)\), \(d_{13}=(60,40)\), \(d_{23}=(0,80)\), \(d_{24}=(60,-40)\), \(d_{35}=(60,40)\), \(d_{45}=(0,160)\), \(d_{14}=(120,-80)\), \(d_{15}=(120,80)\).
+          Antisymmetry and the cycle identity hold to machine precision (both residuals \(0\)); e.g. \(d_{12}+d_{24}=(120,-80)=d_{14}\).
+          Storing only the tree \(\{d_{12},d_{13},d_{24},d_{35}\}\) and reconstructing from \(r_1=0\) returns the five slots exactly.
+          If instead someone specified \(d_{14}=(110,-90)\), the cycle residual \(d_{12}+d_{24}-d_{14}=(10,10)\) m flags the inconsistency before any flight.
+        </p>
+        <h3>Turn feasibility, right turn, \(V_c=25\) m/s, \(\phi_c=30^\circ\) (\(\omega_c=13.0^\circ\)/s, \(R_c=110\) m)</h3>
+        <table>
+          <tr><th>Slot</th><th>\(r_i\) (m)</th><th>\(\rho_i\) (m)</th><th>\(V_i\) (m/s)</th><th>\(\beta_i\)</th><th>\(\phi_i\)</th><th>\(n_{z,i}\)</th><th>Feasible? (16–32 m/s, 45°)</th></tr>
+          <tr><td>1</td><td>(0, 0)</td><td>110</td><td>25.0</td><td>0°</td><td>30.0°</td><td>1.15</td><td>yes</td></tr>
+          <tr><td>2 (inside)</td><td>(−60, 40)</td><td>92.5</td><td>20.9</td><td>−40.5°</td><td>25.8°</td><td>1.11</td><td>yes</td></tr>
+          <tr><td>3 (outside)</td><td>(−60, −40)</td><td>162</td><td>36.7</td><td>−21.8°</td><td>40.3°</td><td>1.31</td><td><strong>no</strong> (speed)</td></tr>
+          <tr><td>4 (inside)</td><td>(−120, 80)</td><td>124</td><td>28.0</td><td>−75.8°</td><td>32.9°</td><td>1.19</td><td>yes</td></tr>
+          <tr><td>5 (outside)</td><td>(−120, −80)</td><td>225</td><td>51.0</td><td>−32.2°</td><td>49.7°</td><td>1.54</td><td><strong>no</strong> (speed and bank)</td></tr>
+        </table>
+        <p>
+          A left turn mirrors the table (slots 2 and 3, 4 and 5 swap). Bisecting on \(\phi_c\) with the exact \(\rho_i\) and both turn directions, the largest bank at which all five slots
+          are feasible is \(\phi_c=10.5^\circ\) (\(R_c=345\) m, \(\omega_c=4.15^\circ\)/s), lower than the pure-lateral estimate of 12.6° because the along-track offset pushes the outer-rear slot
+          to \(\rho_5=225\) m. At that radius the admissible structure speeds are \(20.8\le V_c\le26.0\) m/s. The course simulator's small preset commands 30° turns — this table is why its
+          outer aircraft saturate and why it needs altitude offsets and a saturated correction (Part 12).
+        </p>
+        <h3>Turn feasibility, right turn, \(V_c=150\) m/s, \(\phi_c=45^\circ\) (\(\omega_c=3.75^\circ\)/s, \(R_c=2290\) m), spacing \(400\times250\) m</h3>
+        <table>
+          <tr><th>Slot</th><th>\(r_i\) (m)</th><th>\(\rho_i\) (m)</th><th>\(V_i\) (m/s)</th><th>\(\beta_i\)</th><th>\(\phi_i\)</th><th>\(n_{z,i}\)</th><th>Feasible? (120–190 m/s, 60°)</th></tr>
+          <tr><td>1</td><td>(0, 0)</td><td>2290</td><td>150</td><td>0°</td><td>45.0°</td><td>1.41</td><td>yes</td></tr>
+          <tr><td>2 (inside)</td><td>(−400, 250)</td><td>2080</td><td>136</td><td>−11.1°</td><td>42.2°</td><td>1.35</td><td>yes</td></tr>
+          <tr><td>3 (outside)</td><td>(−400, −250)</td><td>2570</td><td>168</td><td>−8.94°</td><td>48.3°</td><td>1.50</td><td>yes</td></tr>
+          <tr><td>4 (inside)</td><td>(−800, 500)</td><td>1960</td><td>128</td><td>−24.0°</td><td>40.6°</td><td>1.32</td><td>yes</td></tr>
+          <tr><td>5 (outside)</td><td>(−800, −500)</td><td>2910</td><td>190.0</td><td>−16.0°</td><td>51.7°</td><td>1.61</td><td>marginal: 190.04 m/s</td></tr>
+        </table>
+        <p>
+          Here the exact bisection gives \(\phi_c\le45.0^\circ\), slightly <em>above</em> the pure-lateral 42.5°: the along-track offset lifts the inner-rear slot from 117 m/s to 128 m/s,
+          so the inside limit no longer binds, and the outer-rear slot at 190.0 m/s is what finally touches \(V_{\max}\). The formation is flyable with no margin;
+          a designer would command \(\phi_c=40^\circ\) or reduce \(s_c\).
+        </p>
+      </section>
+
+      <section id="fixed-wing">
+        <h2>8. Fixed-Wing Interpretation</h2>
+        <ul>
+          <li><strong>Minimum speed.</strong> A slot whose required speed \(\omega_c\rho_i\) drops below \(V_{\min}\) cannot be held by slowing down; the aircraft must S-turn or the
+            structure must widen the turn. The window \(V_{\min}/(1-y_{\max}/R_c)\le V_c\le V_{\max}/(1+y_{\max}/R_c)\) is the design statement.</li>
+          <li><strong>Turn-rate limit.</strong> All slots share \(\omega_c\), so the structure's turn rate is limited by the <em>outermost</em> slot: \(\tan\phi_{\mathrm{out}}=\tan\phi_c\,\rho_{\max}/R_c\le\tan\phi_{\max}\).
+            With \(\phi_{\max}=45^\circ\) and \(\phi_c=30^\circ\) the bank limit allows \(\rho/R_c\) up to 1.73, so in both presets the speed envelope (1.27–1.28) binds before the bank limit.</li>
+          <li><strong>Speed envelope.</strong> The feasible lateral window is \(R_c\) times the envelope ratios; the ratios are what the airframe gives you, \(R_c\) is what the mission planner chooses.</li>
+          <li><strong>Latency × speed.</strong> Every reported neighbour position is \(V\tau\) stale (2.5 m at 25 m/s, 22.5 m at 150 m/s with 150 ms); spacing and \(d_s\) must absorb it, and dead-reckoning
+            the neighbour forward by \(v_j\tau\) recovers most of it.</li>
+          <li><strong>Altitude as a cheap de-confliction axis.</strong> A vertical offset table \(\Delta h_i\) (for instance 0, +10, −10, +20, −20 m for the five slots) costs almost nothing in energy,
+            keeps the formation picture unchanged in plan view, and turns a lateral near-miss during a saturated turn into a vertical separation. Specify \(\Delta h_i\) with the \(r_i\).</li>
+        </ul>
+        <div class="note">
+          <strong>High-speed note.</strong> At fixed bank \(R_c\propto V_c^2\), so a formation of fixed metric size occupies a ratio \(y/R_c\propto1/V_c^2\) of the turn radius —
+          turns become relatively gentler. Three things nevertheless get harder as \(V_c\) rises. (i) The envelope ratios shrink for an aircraft operating near its ceiling or its maximum speed, and
+          with it the window. (ii) Changing speed is slow at high speed (specific excess power, Part 16), so the speed <em>redistribution</em> at turn entry — every slot must change speed by
+          \(V_c(\rho_i/R_c-1)\) within the roll-in time — lags, and the formation distorts transiently even when the steady turn is feasible. (iii) Load factor: \(n_{z,i}=1/\cos\phi_i\) with
+          \(\tan\phi_i=\tan\phi_c\rho_i/R_c\) grows for the outer slots (1.61 at the outer-rear slot of the 150 m/s vee). The remedies are to keep \(\rho_i/R_c\) close to 1 — lateral offsets
+          small relative to \(R_c\), i.e. shrink \(y/R_c\) as speed rises — and to prefer altitude stacking and along-path (trail) formations, where no speed difference is needed at all (Part 19).
+        </div>
+        <div class="claw">
+          <strong>Toward the CLAW</strong>
+          This lesson supplies the <em>formation table</em> \(\{(r_i,\Delta h_i)\}_{i=1}^N\) and the two slot functions
+          \(p_i^d=p_c+R(\psi_c)r_i\) and \(v_i^d=\dot p_c+\omega_cR(\psi_c)Jr_i\) that the formation-guidance block (Part 12, layer L2 of the course simulator) evaluates on every aircraft.
+          It consumes the virtual-structure state \(\xi=(p_c,\psi_c,V_c,\omega_c,h_c)\) — estimated locally by the leader-state estimator of Part 8 and defined in Part 13 — and produces
+          the slot position, slot velocity and commanded altitude \(h_i^c=h_c+\Delta h_i\) for UAV \(i\), plus the desired displacements \(d_{ij}=R(\hat\psi_c)(r_i-r_j)\) for its in-neighbours.
+          It also supplies the <em>turn-feasibility check</em> \(V_{\min}\le\omega_c\rho_i\le V_{\max}\), \(\phi_i\le\phi_{\max}\), which the reference generator uses to bound \(\omega_c\) (and thus \(\phi_c\))
+          before the structure is allowed to turn, and the slot-assignment interface \(c_{ik}\) that Part 22 fills.
+        </div>
+      </section>
+
+      <section id="implementation">
+        <h2>9. Implementation</h2>
+        <p>Pure NumPy, 65 lines; reproduces every number in Section 7 (the full-precision output is rounded to three significant figures in the text).</p>
+<pre><code>import numpy as np
+g = 9.81
+
+def vee(sa, sc):
+    """Slot vectors r_i (formation frame: x forward, y starboard) of a 5-ship vee."""
+    return np.array([[0, 0], [-sa, sc], [-sa, -sc], [-2*sa, 2*sc], [-2*sa, -2*sc]], float)
+
+def displacements(r):
+    """d[i,j] = r_i - r_j for every pair, plus consistency checks."""
+    d = r[:, None, :] - r[None, :, :]
+    anti = np.abs(d + d.transpose(1, 0, 2)).max()
+    N = len(r)
+    cyc = max(np.abs(d[i, j] + d[j, k] - d[i, k]).max()
+              for i in range(N) for j in range(N) for k in range(N))
+    return d, anti, cyc
+
+def reconstruct(d, tree, N):
+    """Recover r_i (with r_1 = 0) from the displacements on a spanning tree."""
+    r = np.full((N, 2), np.nan); r[0] = 0.0
+    for _ in range(N):
+        for i, j in tree:
+            if not np.isnan(r[i]).any(): r[j] = r[i] - d[i, j]
+    return r
+
+def slot_in_turn(ri, Vc, omc):
+    """Speed, course offset, bank and n_z of slot ri when the structure turns at omc."""
+    x, y = ri
+    vb = np.array([Vc - omc*y, omc*x])          # slot velocity in the formation frame
+    Vi = np.linalg.norm(vb)                      # = |omc| * distance to turn centre
+    beta = np.arctan2(vb[1], vb[0])              # course lag relative to psi_c
+    phi = np.arctan(abs(omc) * Vi / g)           # coordinated level turn
+    return Vi, beta, phi, 1/np.cos(phi)
+
+def feasibility_table(r, Vc, phic, Vmin, Vmax, phimax):
+    omc = g*np.tan(phic)/Vc
+    print("V_c=%g m/s, phi_c=%.0f deg -&gt; omega_c=%.4f rad/s, R_c=%.1f m"
+          % (Vc, np.degrees(phic), omc, Vc/omc))
+    print(" slot    V_i   beta  phi_i   n_z  ok")
+    for k, ri in enumerate(r):
+        Vi, beta, phi, nz = slot_in_turn(ri, Vc, omc)        # right turn (omc &gt; 0)
+        ok = Vmin &lt;= Vi &lt;= Vmax and phi &lt;= phimax
+        print(" %4d %6.1f %6.1f %6.1f %5.2f  %s" % (k+1, Vi, np.degrees(beta),
+                                                  np.degrees(phi), nz, ok))
+
+def max_bank(r, Vc, Vmin, Vmax, phimax):
+    """Largest phi_c for which every slot is feasible in both turn directions."""
+    def ok(phic):
+        omc = g*np.tan(phic)/Vc
+        return all(Vmin &lt;= slot_in_turn(ri, Vc, s*omc)[0] &lt;= Vmax and
+                   slot_in_turn(ri, Vc, s*omc)[2] &lt;= phimax for ri in r for s in (1, -1))
+    lo, hi = 0.0, phimax
+    for _ in range(60):
+        mid = 0.5*(lo + hi)
+        lo, hi = (mid, hi) if ok(mid) else (lo, mid)
+    return lo
+
+r = vee(60.0, 40.0)
+d, anti, cyc = displacements(r)
+print("d_12 =", d[0, 1], " d_24 =", d[1, 3], " d_14 =", d[0, 3])
+print("antisymmetry error %.1e, cycle error %.1e" % (anti, cyc))
+print("tree reconstruction:\n", reconstruct(d, [(0, 1), (0, 2), (1, 3), (2, 4)], 5))
+feasibility_table(r, 25.0, np.radians(30), 16.0, 32.0, np.radians(45))
+print("max feasible phi_c = %.1f deg" % np.degrees(max_bank(r, 25.0, 16.0, 32.0, np.radians(45))))
+feasibility_table(vee(400.0, 250.0), 150.0, np.radians(45), 120.0, 190.0, np.radians(60))
+print("max feasible phi_c = %.1f deg" % np.degrees(max_bank(vee(400.0, 250.0), 150.0, 120.0, 190.0, np.radians(60))))
+</code></pre>
+        <p>
+          Expected output (abridged): <code>d_12 = [ 60. -40.]  d_24 = [ 60. -40.]  d_14 = [120. -80.]</code>, both consistency errors <code>0.0e+00</code>,
+          the 25 m/s table with slots 3 and 5 flagged <code>False</code> and <code>max feasible phi_c = 10.5 deg</code>, the 150 m/s table with slot 5 at <code>190.0</code> flagged
+          <code>False</code> and <code>max feasible phi_c = 45.0 deg</code>.
+        </p>
+      </section>
+
+      <section id="pitfalls">
+        <h2>10. Common Pitfalls</h2>
+        <ul>
+          <li><strong>Sign of the lateral offset.</strong> \(y_i\) is positive to starboard; "inside" and "outside" swap with the turn direction. A formation that is feasible turning left can be infeasible turning right (echelon). Check both signs of \(\omega_c\).</li>
+          <li><strong>Using the pure-lateral formula when \(x_i\sim R_c\).</strong> At 25 m/s and 30° bank the rear slots are further from the turn centre than the lead; the lateral-only estimate for slot 4 was 6.88 m/s against an exact 28.0 m/s. Always use \(\rho_i=\|r_i-c\|\).</li>
+          <li><strong>Forgetting that \(d_{ij}\) rotates.</strong> \(\dot d_{ij}=\omega_cRJ(r_i-r_j)\) is a real relative velocity (32.7 m/s between lead and slot 5 in the small turn). Without feedforward the controller must earn it from error — Part 12.</li>
+          <li><strong>Inconsistent displacements.</strong> Tuning pairwise offsets independently breaks the cycle identity; the swarm then converges to the least-squares compromise, not the drawing. Always generate \(d_{ij}\) from one slot table.</li>
+          <li><strong>Mixing frames.</strong> \(r_i-r_j\) lives in the formation frame, \(d_{ij}\) in the inertial frame. Rotating twice (or not at all) produces a formation that is right only when \(\psi_c=0\).</li>
+          <li><strong>Heading wrap-around.</strong> \(\hat\psi_c\) estimates differ by \(2\pi\) across aircraft without affecting \(R(\hat\psi_c)\), but any arithmetic on \(\hat\psi_c\) itself (rate limiting, consensus) must wrap differences to \((-\pi,\pi]\).</li>
+          <li><strong>Rigid trail versus path trail.</strong> A rigid-body trail slot flies faster than the lead on a larger circle; a path-following trail does not. Do not specify a trail as slot vectors if what you want is "follow the leader's path".</li>
+          <li><strong>Spacing without a latency budget.</strong> \(V\tau\) is 22.5 m at 150 m/s with 150 ms latency; a spacing chosen from the safety distance alone is too tight.</li>
+        </ul>
+      </section>
+
+      <section id="exercises">
+        <h2>11. Exercises</h2>
+        <div class="exercise">
+          <strong>Exercise 1 (derivation).</strong> Starting from \(d_{ij}=R(\psi_c)(r_i-r_j)\) with constant \(r_i\), derive \(\dot d_{ij}\) and show that \(\|\dot d_{ij}\|=|\omega_c|\|r_i-r_j\|\).
+          Evaluate it for the lead and slot 5 of the vee in a 30° turn at 25 m/s.
+          <details><summary>Show solution</summary><div class="solution">
+            \(\frac{d}{dt}R(\psi_c)=\dot\psi_cR(\psi_c)J\) gives \(\dot d_{ij}=\omega_cR(\psi_c)J(r_i-r_j)\). Both \(R\) and \(J\) are orthogonal, so \(\|\dot d_{ij}\|=|\omega_c|\,\|r_i-r_j\|\).
+            With \(\omega_c=9.81\tan30^\circ/25=0.227\) rad/s and \(\|r_1-r_5\|=\sqrt{120^2+80^2}=144\) m: \(\|\dot d_{15}\|=32.7\) m/s.
+          </div></details>
+        </div>
+        <div class="exercise">
+          <strong>Exercise 2 (numeric).</strong> A medium UAV flies at \(V_c=60\) m/s with envelope [45, 80] m/s. (a) For \(\phi_c=30^\circ\), compute \(R_c\), \(\omega_c\) and the pure-lateral window.
+          (b) A five-ship line abreast with \(s_c=50\) m (so \(y_{\max}=100\) m) must turn both ways: find the largest \(\phi_c\) and the bank of the outer aircraft at that \(\phi_c\).
+          <details><summary>Show solution</summary><div class="solution">
+            (a) \(R_c=60^2/(9.81\tan30^\circ)=636\) m, \(\omega_c=V_c/R_c=5.41^\circ\)/s, window \([-R_c(1-0.75),\ R_c(1.333-1)]=[-159,\ 212]\) m.
+            (b) Binding ratio \(\min(0.250,\ 0.333)=0.250\) (inside), \(R_{c,\mathrm{req}}=100/0.25=400\) m, \(\phi_c\le\arctan(3600/(9.81\times400))=42.5^\circ\).
+            The outer aircraft then banks \(\arctan(\tan42.5^\circ\times(1+100/400))=48.9^\circ\) — check it against \(\phi_{\max}\).
+          </div></details>
+        </div>
+        <div class="exercise">
+          <strong>Exercise 3 (consistency, numeric).</strong> Three aircraft are given \(d_{12}=(60,-40)\), \(d_{23}=(0,80)\), \(d_{13}=(60,50)\) m on the triangle graph. Show the specification is inconsistent and compute the least-squares slots (fix \(r_1=0\)) and the displacements the swarm will actually settle to.
+          <details><summary>Show solution</summary><div class="solution">
+            Cycle residual \(d_{12}+d_{23}-d_{13}=(0,-10)\ne0\). Solving \((B^TB\otimes I_2)r=(B^T\otimes I_2)d\) (or <code>np.linalg.lstsq</code>) and translating so that \(r_1=0\):
+            \(r_2=(-60,\ 36.7)\), \(r_3=(-60,\ -46.7)\). Realised displacements \(d_{12}=(60,-36.7)\), \(d_{23}=(0,83.3)\), \(d_{13}=(60,46.7)\): the 10 m inconsistency is split as 3.33 m per edge, total squared residual 33.3 m².
+          </div></details>
+        </div>
+        <div class="exercise">
+          <strong>Exercise 4 (assignment, code).</strong> Aircraft at \(p_1=(0,0)\), \(p_2=(100,50)\), \(p_3=(-50,120)\) m must fill the slots of a three-ship vee with \(p_c=(200,0)\), \(\psi_c=0\), \(r=\{(0,0),(-60,40),(-60,-40)\}\).
+          Build the Euclidean cost matrix, enumerate the six assignments and report the min-sum and the min-max (bottleneck) optimum.
+          <details><summary>Show solution</summary><div class="solution">
+            Slots at (200,0), (140,40), (140,−40). Cost matrix (rows aircraft, columns slots): [[200, 146, 146], [112, 41.2, 98.5], [277, 206, 248]].
+            Min-sum: aircraft 1→slot 3, 2→slot 1, 3→slot 2 with cost 463.6 m (the runner-up 1→3, 2→2, 3→1 costs 464.1 m — nearly tied, which is typical).
+            Min-max: 1→slot 1, 2→slot 3, 3→slot 2 with largest leg 206 m. The two criteria disagree; a formation assembly that must finish by a deadline wants min-max.
+          </div></details>
+        </div>
+        <div class="exercise">
+          <strong>Exercise 5 (code).</strong> Run <code>feasibility_table</code> for the diamond of Section 4 at \(V_c=25\) m/s and \(\phi_c=10^\circ\), both turn directions. Is it feasible? Which slot is fastest, which lags the most?
+          <details><summary>Show solution</summary><div class="solution">
+            \(R_c=361\) m, \(\omega_c=0.0692\) rad/s. All ten slot/direction combinations are feasible. Fastest: the outside wingman (slot 3 in a right turn, slot 2 in a left turn) at 28.1 m/s; slowest: the inside wingman at 22.6 m/s;
+            largest course lag: the tail slot 5 at 26.5°. Banks range 9.06°–11.2°.
+          </div></details>
+        </div>
+      </section>
+
+      <section id="summary">
+        <h2>12. Key Takeaways &amp; Formula Sheet</h2>
+        <ul>
+          <li>A formation is a target configuration modulo a group: translations (displacement), rigid motions (distance), translations + scale (bearing). The group is chosen by what can be sensed; it fixes how many independent constraints are needed: \(2N-2\), \(2N-3\), \(2N-3\) in the plane.</li>
+          <li>Slots: \(\boxed{p_i^d=p_c+R(\psi_c)r_i}\), displacements \(\boxed{d_{ij}=R(\psi_c)(r_i-r_j)}\); consistency \(d_{ij}=-d_{ji}\), \(d_{ij}+d_{jk}=d_{ik}\); a spanning tree of displacements determines all; inconsistent specs converge to the least-squares compromise \((L\otimes I_2)r=(B^T\otimes I_2)d\).</li>
+          <li>Rotating formation: \(\boxed{\dot d_{ij}=\omega_cR(\psi_c)J(r_i-r_j)}\), magnitude \(|\omega_c|\|r_i-r_j\|\).</li>
+          <li>Steady turn: \(v_i^d=R(\psi_c)[V_c-\omega_cy_i,\ \omega_cx_i]^T\), \(\boxed{V_i=|\omega_c|\rho_i}\) with \(\rho_i=\|r_i-c\|\), \(\chi_i=\psi_c+\operatorname{atan2}(\omega_cx_i,V_c-\omega_cy_i)\), \(\boxed{\tan\phi_i=\omega_cV_i/g=\tan\phi_c\,\rho_i/R_c}\).</li>
+          <li>Feasibility: \(\boxed{V_{\min}\le|\omega_c|\rho_i\le V_{\max},\ \rho_i\le g\tan\phi_{\max}/\omega_c^2}\); pure lateral: \(\boxed{-R_c(1-V_{\min}/V_c)\le y_i^{\mathrm{out}}\le R_c(V_{\max}/V_c-1)}\).
+            Numbers: 25 m/s, 30°: \(R_c=110\) m, window \([-39.7,30.9]\) m; 150 m/s, 45°: \(R_c=2290\) m, window \([-459,612]\) m.</li>
+          <li>Design: \(R_c\ge y_{\max}/\min(1-V_{\min}/V_c,\ V_{\max}/V_c-1)\), \(\phi_c\le\arctan(V_c^2/gR_{c,\mathrm{req}})\); 5-ship vee 60×40 m at 25 m/s: \(\phi_c\le10.5^\circ\) exact; 400×250 m at 150 m/s: \(\phi_c\le45.0^\circ\).</li>
+          <li>Spacing: \(s_{\min}\ge d_s+2\varepsilon_{\mathrm{GPS}}+V\tau+\)wake; reconfiguration is a linear assignment problem; altitude offsets \(\Delta h_i\) are part of the specification.</li>
+        </ul>
+      </section>
+
+      <section id="references">
+        <h2>13. References</h2>
+        <ul>
+          <li>K.-K. Oh, M.-C. Park, H.-S. Ahn, "A survey of multi-agent formation control", <em>Automatica</em> 53, pp. 424–440, 2015.</li>
+          <li>W. Ren, R. W. Beard, <em>Distributed Consensus in Multi-vehicle Cooperative Control</em>, Springer, 2008 (formation-control chapters).</li>
+          <li>R. W. Beard, T. W. McLain, <em>Small Unmanned Aircraft: Theory and Practice</em>, Princeton University Press, 2012 (coordinated-turn kinematics).</li>
+          <li>M. A. Lewis, K.-H. Tan, "High precision formation control of mobile robots using virtual structures", <em>Autonomous Robots</em> 4, pp. 387–403, 1997.</li>
+          <li>M. Pachter, J. J. D'Azzo, A. W. Proud, "Tight formation flight control", <em>Journal of Guidance, Control, and Dynamics</em> 24(2), pp. 246–254, 2001.</li>
+          <li>F. Giulietti, L. Pollini, M. Innocenti, "Autonomous formation flight", <em>IEEE Control Systems Magazine</em> 20(6), pp. 34–44, 2000.</li>
+          <li>H. W. Kuhn, "The Hungarian method for the assignment problem", <em>Naval Research Logistics Quarterly</em> 2, pp. 83–97, 1955.</li>
+          <li>M. Turpin, N. Michael, V. Kumar, "CAPT: Concurrent assignment and planning of trajectories for multiple robots", <em>International Journal of Robotics Research</em> 33(1), pp. 98–112, 2014.</li>
+        </ul>
+      </section>
+
+      <div class="prevnext">
+        <a class="prev" href="9_second_order_consensus.html"><span>&larr; Previous</span>Part 9: Second-Order Consensus</a>
+        <a class="next" href="11_graph_framework_rigidity.html"><span>Next &rarr;</span>Part 11: Graph &amp; Framework Rigidity</a>
+      </div>
+      <div class="done-box"><button id="done-btn" data-lesson="10">Mark Part 10 as complete</button></div>
+    </main>
+  </div>
+
+  <footer>Fixed-Wing Swarm Learning · Part 10 · Formation Specification</footer>
+
+  <script>
+    (function () {
+      try {
+        var btn = document.getElementById('done-btn');
+        if (!btn) return;
+        var id = btn.getAttribute('data-lesson');
+        var key = 'fwswarm_done';
+        var done = JSON.parse(localStorage.getItem(key) || '[]');
+        function render() {
+          var is = done.indexOf(id) >= 0;
+          btn.textContent = is ? 'Completed ✓ (click to undo)' : 'Mark Part ' + id + ' as complete';
+          btn.className = is ? 'undone' : '';
+        }
+        btn.addEventListener('click', function () {
+          var i = done.indexOf(id);
+          if (i >= 0) done.splice(i, 1); else done.push(id);
+          localStorage.setItem(key, JSON.stringify(done));
+          render();
+        });
+        render();
+      } catch (e) { /* storage unavailable: ignore */ }
+    })();
+  </script>
+</body>
+</html>

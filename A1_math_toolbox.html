@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fixed-Wing Swarm Learning — Appendix A1: Math Toolbox</title>
+
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['\\(', '\\)']],
+        displayMath: [['\\[', '\\]'], ['$$', '$$']]
+      },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --card: #ffffff;
+      --text: #172033;
+      --muted: #5d687a;
+      --accent: #2457d6;
+      --accent-light: #eaf0ff;
+      --border: #dce2ec;
+      --code: #111827;
+      --success: #147a4b;
+      --warning: #c27b00;
+      --danger: #b42318;
+      --claw: #0f766e;
+      --claw-light: #e6f6f4;
+      --def: #6d28d9;
+      --def-light: #f3eefe;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+    }
+
+    header {
+      background: linear-gradient(135deg, #172554, #2457d6);
+      color: white;
+      padding: 56px 20px 44px;
+    }
+    header .wrap { max-width: 1320px; margin: auto; }
+    .topbar { margin-bottom: 18px; font-size: .95rem; }
+    .topbar a { color: #dbe6ff; }
+    .topbar a:hover { color: #fff; }
+
+    h1 { margin: 0 0 10px; font-size: clamp(2rem, 5vw, 3.2rem); }
+    h2 { margin-top: 0; font-size: 1.8rem; }
+    h3 { margin-top: 1.6rem; }
+    h4 { margin-top: 1.2rem; margin-bottom: .4rem; }
+
+    .subtitle { max-width: 820px; color: #dbe6ff; font-size: 1.08rem; }
+
+    nav, section, .callout {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px;
+      margin: 20px 0;
+      box-shadow: 0 3px 12px rgba(20, 35, 70, .05);
+    }
+    nav h2 { font-size: 1.35rem; }
+    nav ol { margin-bottom: 0; padding-left: 22px; }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    code { background: #eef1f6; padding: 2px 5px; border-radius: 5px; font-size: .92em; }
+    pre {
+      background: var(--code);
+      color: #e5e7eb;
+      padding: 18px;
+      border-radius: 10px;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+    pre code { background: none; padding: 0; color: inherit; font-size: .9rem; }
+
+    .formula {
+      background: var(--accent-light);
+      border-left: 4px solid var(--accent);
+      padding: 16px 18px;
+      margin: 16px 0;
+      overflow-x: auto;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+    }
+    .mini {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      background: #fbfcff;
+    }
+    .mini strong { display: block; margin-bottom: 5px; }
+
+    .success { border-left: 4px solid var(--success); background: #edf9f3; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .warning { border-left: 4px solid var(--warning); background: #fff8e8; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .danger  { border-left: 4px solid var(--danger);  background: #fdecec; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .note    { border-left: 4px solid var(--muted);   background: #f3f5f8; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .definition, .theorem {
+      border-left: 4px solid var(--def);
+      background: var(--def-light);
+      padding: 14px 18px;
+      border-radius: 8px;
+      margin: 14px 0;
+    }
+    .definition > strong:first-child, .theorem > strong:first-child { color: var(--def); }
+    .claw {
+      border: 1px solid #99d6cf;
+      border-left: 6px solid var(--claw);
+      background: var(--claw-light);
+      padding: 16px 20px;
+      border-radius: 10px;
+      margin: 18px 0;
+    }
+    .claw > strong:first-child { color: var(--claw); display: block; margin-bottom: 6px; font-size: 1.05rem; }
+
+    table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+    th, td { text-align: left; padding: 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    th { background: #f1f4f9; }
+
+    .tag {
+      display: inline-block;
+      background: #eaf0ff;
+      color: #204bb4;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: .82rem;
+      margin: 3px;
+    }
+
+    figure { margin: 18px 0; }
+    figure > svg { width: 100%; height: auto; display: block; background: #fbfcff; border: 1px solid var(--border); border-radius: 10px; }
+    figcaption { color: var(--muted); font-size: .92rem; margin-top: 6px; text-align: center; }
+
+    .exercise { border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; margin: 14px 0; background: #fbfcff; }
+    .exercise summary { cursor: pointer; color: var(--accent); font-weight: 600; margin-top: 8px; }
+    .exercise details { margin-top: 6px; }
+    .exercise .solution { border-top: 1px dashed var(--border); margin-top: 8px; padding-top: 8px; }
+
+    .demo { border: 1px solid var(--border); border-radius: 12px; padding: 14px; background: #fbfcff; margin: 16px 0; }
+    .demo canvas { width: 100%; height: auto; display: block; background: #ffffff; border: 1px solid var(--border); border-radius: 8px; }
+    .controls { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; margin: 10px 0; font-size: .95rem; }
+    .controls label { display: inline-flex; align-items: center; gap: 6px; }
+    .controls input[type=range] { width: 140px; }
+    .controls button, .btn {
+      background: var(--accent); color: #fff; border: 0; padding: 7px 14px; border-radius: 8px; cursor: pointer; font-size: .92rem;
+    }
+    .controls button:hover, .btn:hover { filter: brightness(1.08); }
+    .controls button.secondary { background: #e5e9f2; color: var(--text); }
+
+    .prevnext { display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin: 26px 0 0; }
+    .prevnext a { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; flex: 1 1 260px; }
+    .prevnext a span { display: block; color: var(--muted); font-size: .82rem; }
+    .prevnext a.next { text-align: right; }
+
+    .done-box { text-align: center; margin: 24px 0 0; }
+    .done-box button { background: var(--success); color: #fff; border: 0; padding: 9px 18px; border-radius: 8px; cursor: pointer; }
+    .done-box button.undone { background: #9aa5b5; }
+
+    footer { text-align: center; color: var(--muted); padding: 30px 20px 50px; }
+
+    .page-shell {
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      gap: 24px;
+      max-width: 1320px;
+      margin: 0 auto;
+      padding: 28px 20px 70px;
+      align-items: start;
+    }
+    .sidebar { grid-column: 1; position: sticky; top: 20px; }
+    .sidebar nav { position: sticky; top: 20px; max-height: calc(100vh - 40px); overflow-y: auto; }
+    .content { grid-column: 2; min-width: 0; }
+    @media (max-width: 960px) {
+      .page-shell { grid-template-columns: 1fr; }
+      .sidebar, .sidebar nav { position: static; max-height: none; }
+      .sidebar, .content { grid-column: 1; }
+    }
+    @media print {
+      nav { break-after: page; }
+      section { box-shadow: none; }
+      .demo, .done-box, .prevnext, .topbar { display: none; }
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <div class="wrap">
+      <div class="topbar"><a href="index.html">&larr; Course home</a> &nbsp;·&nbsp; Appendix</div>
+      <h1>Fixed-Wing Swarm Learning</h1>
+      <div class="subtitle">
+        Appendix A1: <strong>Math Toolbox</strong> — the linear algebra, stability theory, geometry and numerics the course leans on, each stated once and precisely, with the Part that uses it.
+      </div>
+      <p>
+        <span class="tag">Linear algebra</span>
+        <span class="tag">Lyapunov</span>
+        <span class="tag">Numerics</span>
+        <span class="tag">NumPy/SciPy</span>
+        <span class="tag">UAV Swarms</span>
+      </p>
+    </div>
+  </header>
+
+  <div class="page-shell">
+    <aside class="sidebar">
+      <nav id="index">
+        <h2>Index</h2>
+        <ol>
+          <li><a href="#how">How to use this appendix</a></li>
+          <li><a href="#vectors">Vectors, norms, projections</a></li>
+          <li><a href="#eigen">Eigen-decomposition</a></li>
+          <li><a href="#psd">Symmetric PSD / PD matrices</a></li>
+          <li><a href="#rayleigh">Rayleigh quotient &amp; Courant–Fischer</a></li>
+          <li><a href="#gershgorin">Gershgorin discs</a></li>
+          <li><a href="#kron">Kronecker product</a></li>
+          <li><a href="#expm">Matrix exponential</a></li>
+          <li><a href="#stability">LTI stability: Hurwitz &amp; Schur</a></li>
+          <li><a href="#lyapunov">Lyapunov theory in two pages</a></li>
+          <li><a href="#nonneg">Non-negative &amp; stochastic matrices</a></li>
+          <li><a href="#rotation">Rotations, atan2, angle wrapping</a></li>
+          <li><a href="#gradients">Gradients &amp; Jacobians</a></li>
+          <li><a href="#integration">Euler &amp; RK4</a></li>
+          <li><a href="#qp">Quadratic programs &amp; KKT</a></li>
+          <li><a href="#cheatsheet">NumPy/SciPy cheat-sheet</a></li>
+          <li><a href="#references">References</a></li>
+        </ol>
+      </nav>
+    </aside>
+
+    <main class="content">
+
+      <section id="how">
+        <h2>1. How to Use This Appendix</h2>
+        <p>
+          This is a reference, not a lesson. Each entry gives a <em>definition</em>, the one or two <em>facts the course actually uses</em>
+          (with a two-line proof or a proof pointer), a <em>tiny example</em> where it helps, and the <em>Parts</em> that rely on it.
+          Notation is the course's: \(N\) UAVs; undirected Laplacian \(L=D-A\) with \(0=\lambda_1\le\lambda_2\le\dots\le\lambda_N\);
+          directed in-degree Laplacian \(L=D_{\mathrm{in}}-W\), \(W=A^T\) (<a href="7_directed_graph_consensus.html">Part 7</a>); pinning \(H=L+B\);
+          stacked vectors \(x=\operatorname{col}(x_1,\dots,x_N)\); projector \(\Pi=I-\tfrac1N\mathbf 1\mathbf 1^T\). Every number was produced by the scripts behind <a href="#cheatsheet">Section 16</a> and is quoted to three significant figures.
+        </p>
+      </section>
+
+      <section id="vectors">
+        <h2>2. Vectors, Norms, Projections</h2>
+        <div class="definition">
+          <strong>Definition.</strong> \(\langle x,y\rangle=x^Ty\); \(\|x\|=\|x\|_2=\sqrt{x^Tx}\), \(\|x\|_1=\sum_i|x_i|\), \(\|x\|_\infty=\max_i|x_i|\);
+          induced matrix norm \(\|M\|_2=\sigma_{\max}(M)=\sqrt{\lambda_{\max}(M^TM)}\); Frobenius norm \(\|M\|_F=\sqrt{\sum m_{ij}^2}\).
+        </div>
+        <ol>
+          <li><em>Cauchy–Schwarz</em> \(|x^Ty|\le\|x\|\,\|y\|\) and \(\|Mx\|\le\|M\|_2\|x\|\); for symmetric \(M\), \(\|M\|_2=\max_i|\lambda_i|\), so \(\|L\|_2=\lambda_N\). This bounds every cross-term in a Lyapunov derivative (Part 6).</li>
+          <li><em>Disagreement vector</em> \(\delta=\Pi x=x-\bar x\mathbf 1\), \(\bar x=\tfrac1N\mathbf 1^Tx\): \(\Pi^2=\Pi\), \(\Pi\mathbf 1=0\), \(\|\Pi\|_2=1\), and for undirected \(L\): \(\Pi L=L\Pi=L\).
+            <em>Proof:</em> \(\Pi L=L-\tfrac1N\mathbf 1(\mathbf 1^TL)=L\) since \(\mathbf 1^TL=(L\mathbf 1)^T=0\); transpose. Hence \(\dot\delta=-L\delta\) (Part 5).</li>
+        </ol>
+        <p><strong>Example.</strong> \(v=(3,4)\): \(\|v\|_2=5\), \(\|v\|_1=7\), \(\|v\|_\infty=4\). \(M=\begin{bmatrix}2&1\\0&1\end{bmatrix}\): singular values \(2.29,\,0.874\), so \(\|M\|_2=2.29\), \(\|M\|_F=2.45\).</p>
+        <p><strong>Used in</strong> <a href="5_continuous_time_consensus.html">Part 5</a>, <a href="6_consensus_convergence_stability.html">Part 6</a>, <a href="20_collision_avoidance_cbf.html">Part 20</a> (\(\|u-u_{\text{nom}}\|^2\)); potentials in Parts 12, 14.</p>
+      </section>
+
+      <section id="eigen">
+        <h2>3. Eigen-decomposition</h2>
+        <div class="definition">
+          <strong>Definition.</strong> \(Mv=\lambda v\), \(v\ne0\) (right eigenvector); \(\gamma^TM=\lambda\gamma^T\) (left). Diagonalisable: \(M=V\Lambda V^{-1}\).
+          <em>Spectral theorem:</em> \(M=M^T\Rightarrow\) real eigenvalues and an orthonormal eigenbasis, \(M=\sum_i\lambda_iv_iv_i^T\), \(V^TV=I\).
+        </div>
+        <ol>
+          <li>Undirected \(L=\sum_i\lambda_iv_iv_i^T\) with \(v_1=\mathbf 1/\sqrt N\): any state splits as \(x=\sum_i(v_i^Tx)v_i\) — a consensus component plus \(N-1\) disagreement modes decaying as \(e^{-\lambda_it}\) under \(\dot x=-Lx\) (Parts 4, 5).</li>
+          <li>\(f(M)=Vf(\Lambda)V^{-1}\) for any power series, so \(e^{-Lt}=\sum_ie^{-\lambda_it}v_iv_i^T\) (Section 8).</li>
+          <li>Directed \(L\) is not symmetric: complex-conjugate eigenvalue pairs, non-orthogonal eigenvectors, possibly Jordan blocks. The consensus value comes from the <em>left</em> null vector \(\gamma^TL=0\), not from a projection (Part 7).</li>
+        </ol>
+        <p><strong>Example.</strong> Path 1–2–3: <code>eigh</code> gives \(\lambda=\{0,1,3\}\), \(v_1=\tfrac1{\sqrt3}(1,1,1)\), \(v_2=\tfrac1{\sqrt2}(-1,0,1)\), \(v_3=\tfrac1{\sqrt6}(1,-2,1)\).
+          Directed ring \(1\to2\to3\to1\): \(L=\begin{bmatrix}1&0&-1\\-1&1&0\\0&-1&1\end{bmatrix}\), eigenvalues \(0,\ 1.5\pm0.866i\).</p>
+        <div class="warning"><strong>Caution:</strong> <code>np.linalg.eig</code> returns eigenvalues unordered and eigenvectors as <em>columns</em> with arbitrary sign; <code>eigh</code> (symmetric input only) returns them ascending.</div>
+        <p><strong>Used in</strong> <a href="4_Laplacian_Eigenvalues.html">Part 4</a>, <a href="5_continuous_time_consensus.html">Part 5</a>, <a href="7_directed_graph_consensus.html">Part 7</a>, <a href="9_second_order_consensus.html">Part 9</a>.</p>
+      </section>
+
+      <section id="psd">
+        <h2>4. Symmetric PSD / PD Matrices</h2>
+        <div class="definition">
+          <strong>Definition.</strong> \(M=M^T\) is positive semidefinite (\(M\succeq0\)) if \(x^TMx\ge0\ \forall x\); positive definite (\(M\succ0\)) if \(x^TMx\gt0\ \forall x\ne0\).
+          Equivalent: all eigenvalues \(\ge0\) (resp. \(\gt0\)); \(M\succ0\iff\) Cholesky \(M=CC^T\) exists \(\iff\) all leading principal minors are positive.
+        </div>
+        <ol>
+          <li><em>Laplacian energy</em> (undirected, weighted):
+            <div class="formula">\[ \boxed{\;x^TLx=\tfrac12\sum_{i,j}a_{ij}(x_i-x_j)^2\ \ge0\;} \]</div>
+            <em>Proof:</em> \(x^TDx=\sum_{i,j}a_{ij}x_i^2\), \(x^TAx=\sum_{i,j}a_{ij}x_ix_j\); the difference \(\sum_{i,j}a_{ij}(x_i^2-x_ix_j)\) symmetrised in \((i,j)\) is \(\tfrac12\sum a_{ij}(x_i-x_j)^2\). So \(L\succeq0\), and \(x^TLx=0\iff x\) is constant on each component (Part 3).</li>
+          <li><em>Pinned Laplacian:</em> connected graph with some \(b_i\gt0\Rightarrow H=L+B\succ0\): \(x^THx=\tfrac12\sum a_{ij}(x_i-x_j)^2+\sum b_ix_i^2=0\) forces \(x\) constant and zero at a pinned node (Part 8).</li>
+          <li><em>Sandwich:</em> \(\lambda_{\min}(M)\|x\|^2\le x^TMx\le\lambda_{\max}(M)\|x\|^2\) — behind every quadratic Lyapunov bound (Parts 6, 8, 9, 21). <em>Congruence:</em> \(M\succeq0\Rightarrow T^TMT\succeq0\), e.g. \(R(p)^TR(p)\succeq0\) (Part 12).</li>
+        </ol>
+        <p><strong>Used in</strong> <a href="3_fixed_wing_swarm_graph_laplacian.html">Part 3</a>, <a href="6_consensus_convergence_stability.html">Part 6</a>, <a href="8_leader_follower_consensus.html">Part 8</a>, <a href="21_distributed_mpc.html">Part 21</a>.</p>
+      </section>
+
+      <section id="rayleigh">
+        <h2>5. Rayleigh Quotient and Courant–Fischer</h2>
+        <div class="definition"><strong>Definition.</strong> For symmetric \(M\), \(x\ne0\): \(R_M(x)=\dfrac{x^TMx}{x^Tx}\).</div>
+        <div class="theorem">
+          <strong>Theorem (Courant–Fischer; Horn &amp; Johnson 2013, Thm 4.2.6).</strong> \(\lambda_k=\min_{\dim S=k}\ \max_{x\in S\setminus0}R_M(x)=\max_{\dim S=N-k+1}\ \min_{x\in S\setminus0}R_M(x)\).
+          Hence \(\lambda_1=\min R_M\), \(\lambda_N=\max R_M\), \(\lambda_2=\min\{R_M(x):x\perp v_1\}\).
+          <em>Proof of the last (two lines):</em> \(x=\sum_{i\ge2}c_iv_i\Rightarrow x^TMx=\sum_{i\ge2}\lambda_ic_i^2\ge\lambda_2\sum_{i\ge2}c_i^2=\lambda_2\|x\|^2\), equality at \(x=v_2\). \(\blacksquare\)
+        </div>
+        <p><strong>The fact the course uses</strong> (\(v_1\propto\mathbf 1\)):</p>
+        <div class="formula">\[ \boxed{\;\lambda_2=\min_{x\perp\mathbf 1,\,x\ne0}\frac{x^TLx}{x^Tx}\quad\Longrightarrow\quad x^TLx\ge\lambda_2\|x\|^2\ \text{ for all } x\perp\mathbf 1\;} \]</div>
+        <p>This is the step \(\dot V=-\delta^TL\delta\le-\lambda_2\|\delta\|^2\) of Part 6 and the reason \(\lambda_2\) measures connectivity in Part 4.
+          <em>Monotonicity:</em> adding an edge adds \(a(e_i-e_j)(e_i-e_j)^T\succeq0\) to \(L\), so by Courant–Fischer no \(\lambda_i\) decreases — more links never slow consensus.</p>
+        <p><strong>Example.</strong> Star (1 linked to 2, 3), \(\lambda=\{0,1,3\}\). \(x=(0,1,-1)\perp\mathbf 1\): \(x^TLx=1+1=2\), \(x^Tx=2\), \(R=1=\lambda_2\) (the Fiedler vector). \(x=(2,-1,-1)\): \(R=3=\lambda_3\). 5000 random \(x\perp\mathbf 1\) never gave \(R\lt1.000\).</p>
+        <p><strong>Used in</strong> <a href="4_Laplacian_Eigenvalues.html">Part 4</a>, <a href="6_consensus_convergence_stability.html">Part 6</a>.</p>
+      </section>
+
+      <section id="gershgorin">
+        <h2>6. Gershgorin Discs</h2>
+        <div class="theorem">
+          <strong>Theorem (Gershgorin).</strong> Every eigenvalue of \(M\in\mathbb C^{N\times N}\) lies in \(\bigcup_iD_i\), \(D_i=\{z:|z-m_{ii}|\le\sum_{j\ne i}|m_{ij}|\}\).
+          <em>Proof:</em> for \(Mv=\lambda v\) pick \(i\) with \(|v_i|=\max_j|v_j|\); row \(i\) gives \((\lambda-m_{ii})v_i=\sum_{j\ne i}m_{ij}v_j\), so \(|\lambda-m_{ii}|\le\sum_{j\ne i}|m_{ij}||v_j|/|v_i|\le\sum_{j\ne i}|m_{ij}|\). \(\blacksquare\)
+        </div>
+        <p>For \(L=D_{\mathrm{in}}-W\): centre \(d_i^{\mathrm{in}}\), radius \(\sum_{j\ne i}w_{ij}=d_i^{\mathrm{in}}\) — every disc touches the origin from the right:</p>
+        <div class="formula">\[ \boxed{\;\operatorname{Re}\lambda(L)\ge0,\qquad|\lambda(L)|\le2d^{\mathrm{in}}_{\max},\qquad\lambda_N\le2d_{\max}\ \text{(undirected)}\;} \]</div>
+        <p>So \(-L\) never has eigenvalues in the open right half-plane (directed consensus can stall, never diverge; Part 7), and the cheap step rule \(\varepsilon\lt1/d_{\max}\) (which also keeps \(I-\varepsilon L\ge0\)) sits inside the exact one \(\varepsilon\lt2/\lambda_N\) (Part 6).</p>
+        <figure>
+          <svg viewBox="0 0 600 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Gershgorin discs of the path Laplacian">
+            <line x1="80" y1="120" x2="420" y2="120" stroke="#5d687a" stroke-width="1.5"/>
+            <line x1="150" y1="20" x2="150" y2="220" stroke="#5d687a" stroke-width="1" stroke-dasharray="4 4"/>
+            <circle cx="250" cy="120" r="100" fill="#eaf0ff" fill-opacity="0.6" stroke="#2457d6" stroke-width="2"/>
+            <circle cx="200" cy="120" r="50" fill="#f3eefe" fill-opacity="0.8" stroke="#6d28d9" stroke-width="2"/>
+            <circle cx="150" cy="120" r="5" fill="#b42318"/><circle cx="200" cy="120" r="5" fill="#b42318"/><circle cx="300" cy="120" r="5" fill="#b42318"/>
+            <text x="150" y="140" text-anchor="middle" font-size="13" fill="#172033">0</text>
+            <text x="200" y="140" text-anchor="middle" font-size="13" fill="#172033">1</text>
+            <text x="300" y="140" text-anchor="middle" font-size="13" fill="#172033">3</text>
+            <text x="350" y="140" text-anchor="middle" font-size="13" fill="#5d687a">4</text>
+            <text x="440" y="70" font-size="13" fill="#2457d6">node 2: centre 2, radius 2</text>
+            <text x="440" y="94" font-size="13" fill="#6d28d9">nodes 1, 3: centre 1, radius 1</text>
+            <text x="440" y="118" font-size="13" fill="#b42318">eigenvalues 0, 1, 3</text>
+          </svg>
+          <figcaption>Figure 1. Gershgorin discs of the path Laplacian \(1-2-3\): spectrum confined to \([0,4]\); actual \(\{0,1,3\}\).</figcaption>
+        </figure>
+        <p><strong>Example.</strong> Directed ring: three discs centred \(1\), radius \(1\Rightarrow|\mu|\le2\); actual \(|\mu|=\sqrt3=1.73\).</p>
+        <p><strong>Used in</strong> <a href="6_consensus_convergence_stability.html">Part 6</a>, <a href="7_directed_graph_consensus.html">Part 7</a>.</p>
+      </section>
+
+      <section id="kron">
+        <h2>7. Kronecker Product</h2>
+        <div class="definition"><strong>Definition.</strong> \(A\otimes B=[a_{ij}B]\in\mathbb R^{mp\times nq}\) for \(A\in\mathbb R^{m\times n}\), \(B\in\mathbb R^{p\times q}\); \(\operatorname{vec}(X)\) stacks columns.</div>
+        <div class="formula">\[ \boxed{\;(A\otimes B)(C\otimes D)=AC\otimes BD,\quad(A\otimes B)^T=A^T\otimes B^T,\quad(A\otimes B)^{-1}=A^{-1}\otimes B^{-1},\quad\operatorname{vec}(AXB)=(B^T\otimes A)\operatorname{vec}X\;} \]</div>
+        <ol>
+          <li>Eigenvalues of \(A\otimes B\) are all products \(\lambda_i(A)\mu_j(B)\); so \(L\otimes I_n\) has each \(\lambda_i(L)\) repeated \(n\) times and every scalar consensus result transfers to \(\mathbb R^n\)-valued states (Part 5).</li>
+          <li>\(e^{(A\otimes I)t}=e^{At}\otimes I\) (first identity applied term-wise to the series).</li>
+          <li>Stacking: for \(x=\operatorname{col}(x_1,\dots,x_N)\), \(x_i\in\mathbb R^n\), block \(i\) of \((L\otimes I_n)x\) is \(\sum_jl_{ij}x_j\); if \(X\in\mathbb R^{N\times n}\) has rows \(x_i^T\), this is the row-stacking of \(LX\). Implementations therefore write <code>L @ X</code> and never form the Kronecker product.</li>
+        </ol>
+        <p><strong>Example.</strong> Path \(L\): eigenvalues of \(L\otimes I_2\) are \(\{0,0,1,1,3,3\}\); all four identities checked numerically.</p>
+        <p><strong>Used in</strong> <a href="5_continuous_time_consensus.html">Part 5</a> (\(\dot x=-(L\otimes I_n)x\)), <a href="9_second_order_consensus.html">Part 9</a>, <a href="12_formation_control.html">Part 12</a>, <a href="21_distributed_mpc.html">Part 21</a>.</p>
+      </section>
+
+      <section id="expm">
+        <h2>8. Matrix Exponential and \(\dot x=Ax\)</h2>
+        <div class="definition">
+          <strong>Definition.</strong> \(e^{At}=\sum_{k\ge0}(At)^k/k!\). \(\tfrac{d}{dt}e^{At}=Ae^{At}=e^{At}A\); \(e^{A(t+s)}=e^{At}e^{As}\); \((e^{At})^{-1}=e^{-At}\); \(A=V\Lambda V^{-1}\Rightarrow e^{At}=Ve^{\Lambda t}V^{-1}\); \(e^{A+B}=e^Ae^B\) <em>only if</em> \(AB=BA\).
+        </div>
+        <div class="theorem">
+          <strong>Theorem (variation of constants).</strong> \(\dot x=Ax+Bu(t)\), \(x(0)=x_0\) has the unique solution
+          \[ x(t)=e^{At}x_0+\int_0^te^{A(t-\tau)}Bu(\tau)\,d\tau . \]
+          <em>Proof:</em> differentiate (Leibniz) using \(\tfrac{d}{dt}e^{At}=Ae^{At}\); uniqueness by Lipschitz continuity. With a zero-order hold of period \(T_s\): \(A_d=e^{AT_s}\), \(B_d=\int_0^{T_s}e^{A\tau}d\tau\,B\), both from \(\exp\!\big(\begin{bmatrix}A&B\\0&0\end{bmatrix}T_s\big)=\begin{bmatrix}A_d&B_d\\0&I\end{bmatrix}\) (Van Loan).
+        </div>
+        <div class="formula">\[ \boxed{\;e^{-Lt}=\sum_{i=1}^Ne^{-\lambda_it}v_iv_i^T\ \xrightarrow[t\to\infty]{}\ \tfrac1N\mathbf 1\mathbf 1^T\;}\quad\text{(undirected, connected)} \]</div>
+        <p>so \(x(t)\to\bar x(0)\mathbf 1\) (Part 5); with a directed spanning tree \(e^{-Lt}\to\mathbf 1\gamma^T\) (Part 7).</p>
+        <p><strong>Example.</strong> Star, \(x(0)=(10,14,8)\): <code>expm(-L*1.0) @ x0</code> \(=(10.6,\,11.8,\,9.58)\), matching Part 5's closed form \(x_2(t)=10.667+3e^{-t}+0.333e^{-3t}\); \(e^{-50L}=\tfrac13\mathbf 1\mathbf 1^T\) to four decimals; the mean \(10.7\) is preserved.</p>
+        <div class="note"><strong>Numerics:</strong> <code>scipy.linalg.expm</code> (scaling-and-squaring Padé; Moler &amp; Van Loan 2003) is reliable at course sizes; never sum the series by hand; for symmetric \(L\) the eigendecomposition is exact in structure.</div>
+        <p><strong>Used in</strong> <a href="5_continuous_time_consensus.html">Part 5</a>, <a href="6_consensus_convergence_stability.html">Part 6</a>, <a href="21_distributed_mpc.html">Part 21</a>.</p>
+      </section>
+
+      <section id="stability">
+        <h2>9. LTI Stability: Hurwitz and Schur</h2>
+        <div class="definition"><strong>Definition.</strong> \(A\) is <em>Hurwitz</em> if all \(\operatorname{Re}\lambda_i(A)\lt0\); <em>Schur</em> if all \(|\lambda_i(A)|\lt1\).</div>
+        <div class="theorem">
+          <strong>Theorem.</strong> \(e^{At}x_0\to0\ \forall x_0\iff A\) Hurwitz, and then \(\|e^{At}\|\le ce^{-\alpha t}\) for every \(0\lt\alpha\lt\min_i(-\operatorname{Re}\lambda_i)\); \(A^kx_0\to0\ \forall x_0\iff A\) Schur. <em>Proof pointer:</em> Jordan form (Chen 1999, Ch. 5; Khalil 2002, Thm 4.5).
+        </div>
+        <ol>
+          <li>Consensus is <em>not</em> asymptotic stability of \(-L\) (eigenvalue \(0\)) but of the disagreement dynamics: on \(\mathbf 1^\perp\) the undirected \(-L\) has eigenvalues \(-\lambda_2,\dots,-\lambda_N\), rate \(\lambda_2\) (Part 5); directed: rate \(\min\operatorname{Re}\mu_i\) over non-zero eigenvalues (Part 7).</li>
+          <li>Low-order tests: \(2\times2\) Hurwitz \(\iff\operatorname{tr}A\lt0,\ \det A\gt0\). Routh–Hurwitz: \(s^2+a_1s+a_0\) iff \(a_1,a_0\gt0\); \(s^3+a_2s^2+a_1s+a_0\) iff \(a_2,a_1,a_0\gt0\) and \(a_2a_1\gt a_0\).
+            Part 9's mode polynomial \(s^2+k_v\lambda_is+k_p\lambda_i\) is Hurwitz for all \(k_p,k_v\gt0\) when \(\lambda_i\gt0\) is real; complex \(\lambda_i\) (digraphs) need the Yu–Chen–Cao condition instead.</li>
+          <li>Discrete consensus: \(I-\varepsilon L\) is Schur on \(\mathbf 1^\perp\iff|1-\varepsilon\lambda_i|\lt1\ (i\ge2)\iff0\lt\varepsilon\lt2/\lambda_N\); Euler integration of \(\dot x=-kLx\) has \(\varepsilon=kT_s\) (Parts 4, 6).</li>
+        </ol>
+        <p><strong>Example.</strong> \(A_{\mathrm{cl}}=\begin{bmatrix}0&1\\-2&-2\sqrt2\end{bmatrix}\) (Part 9: \(\lambda_2=2,k_p=1,k_v=\sqrt2\)): \(\operatorname{tr}=-2.83\), \(\det=2\Rightarrow\) Hurwitz, eigenvalues \(-1.41\) (double), \(\zeta=1\).
+          Path \(L\), \(\varepsilon=0.4\): eigenvalues of \(I-\varepsilon L\) are \(\{1,0.6,-0.2\}\) (contraction \(0.6\)/step); \(\varepsilon=0.7\): \(\{1,0.3,-1.1\}\), unstable (\(2/\lambda_N=0.667\)).</p>
+        <p><strong>Used in</strong> <a href="6_consensus_convergence_stability.html">Part 6</a>, <a href="7_directed_graph_consensus.html">Part 7</a>, <a href="8_leader_follower_consensus.html">Part 8</a>, <a href="9_second_order_consensus.html">Part 9</a>, <a href="21_distributed_mpc.html">Part 21</a>.</p>
+      </section>
+
+      <section id="lyapunov">
+        <h2>10. Lyapunov Theory in Two Pages</h2>
+        <p>
+          Setting: \(\dot x=f(x)\), \(f\) locally Lipschitz on \(D\ni0\), \(f(0)=0\) (shift the equilibrium; for consensus use the disagreement \(\delta\)).
+          Class \(\mathcal K\): continuous, strictly increasing, \(\alpha(0)=0\); \(\mathcal K_\infty\): also unbounded; \(\mathcal{KL}\): \(\beta(r,s)\) class \(\mathcal K\) in \(r\), decreasing to \(0\) in \(s\).
+        </p>
+        <div class="theorem">
+          <strong>Theorem A (Lyapunov's direct method; Khalil Thm 4.1, 4.10).</strong> Let \(V:D\to\mathbb R\) be \(C^1\), \(V(0)=0\), \(V(x)\gt0\) for \(x\ne0\), \(\dot V=\nabla V^Tf\).
+          \(\dot V\le0\) on \(D\Rightarrow\) stable; \(\dot V\lt0\) for \(x\ne0\Rightarrow\) asymptotically stable; if also \(D=\mathbb R^n\) and \(V\) is radially unbounded \(\Rightarrow\) globally asymptotically stable.
+          <em>Exponential version:</em> \(c_1\|x\|^2\le V\le c_2\|x\|^2\) and \(\dot V\le-c_3\|x\|^2\Rightarrow\|x(t)\|\le\sqrt{c_2/c_1}\,e^{-\frac{c_3}{2c_2}t}\|x(0)\|\).
+          <em>Proof:</em> \(\dot V\le-(c_3/c_2)V\Rightarrow V(t)\le e^{-c_3t/c_2}V(0)\), then sandwich. \(\blacksquare\)
+        </div>
+        <div class="success"><strong>Course use.</strong> Part 6: \(V=\tfrac12\delta^T\delta\), \(\dot V=-\delta^TL\delta\le-\lambda_2\|\delta\|^2\) (Section 5), \(c_1=c_2=\tfrac12\), \(c_3=\lambda_2\) gives \(\|\delta(t)\|\le e^{-\lambda_2t}\|\delta(0)\|\) and settling \(\approx4/(k\lambda_2)\).
+          Part 8: \(V=e^Te\), \(\dot V=-2e^THe\le-2\lambda_{\min}(H)\|e\|^2\). Part 18: \(V=\tfrac12e_{py}^2\), \(\dot e_{py}=V_g\sin(\chi-\chi_q)\) proves the straight-line vector field.</div>
+
+        <div class="theorem">
+          <strong>Theorem B (LaSalle; Khalil Thm 4.4).</strong> Let \(\Omega\subset D\) be compact and positively invariant, \(V\in C^1\) with \(\dot V\le0\) on \(\Omega\), \(E=\{x\in\Omega:\dot V(x)=0\}\), \(M\) the largest invariant set in \(E\). Then every solution starting in \(\Omega\) approaches \(M\).
+          \(V\) need not be positive definite; \(\Omega\) is usually a sublevel set of a radially unbounded \(V\). <em>Corollary (Barbashin–Krasovskii):</em> \(V\) positive definite, \(\dot V\le0\), and no solution except \(x\equiv0\) stays in \(\{\dot V=0\}\Rightarrow\) asymptotically stable.
+        </div>
+        <div class="success"><strong>Course use.</strong> Part 9 (undirected second-order consensus): with \(\delta_p=\Pi p\), \(\delta_v=\Pi v\), \(V=\tfrac12k_p\delta_p^TL\delta_p+\tfrac12\delta_v^T\delta_v\):
+          \(\dot V=k_p\delta_p^TL\delta_v+\delta_v^T(-k_pL\delta_p-k_vL\delta_v)=-k_v\delta_v^TL\delta_v\le0\). On \(E\): \(L\delta_v=0\Rightarrow\delta_v=0\) (as \(\delta_v\perp\mathbf 1\)); invariance then needs \(\dot\delta_v=-k_pL\delta_p=0\Rightarrow\delta_p=0\). So \(M=\{0\}\).
+          Part 12: gradient flow \(\dot p=-\nabla V\), \(\dot V=-\|\nabla V\|^2\): convergence to critical points of the distance potential. Part 14: Olfati-Saber's Hamiltonian argument. Part 19: phase coordination on circles.</div>
+
+        <div class="theorem">
+          <strong>Theorem C (Lyapunov equation; Khalil Thm 4.6).</strong> \(A\) is Hurwitz \(\iff\) for every (equivalently some) \(Q=Q^T\succ0\) there is a unique \(P=P^T\succ0\) with
+          \[ \boxed{\;A^TP+PA=-Q\;},\qquad P=\int_0^\infty e^{A^Tt}Qe^{At}\,dt . \]
+          <em>Proof (⇐):</em> \(V=x^TPx\Rightarrow\dot V=-x^TQx\lt0\), Theorem A. <em>(⇒):</em> \(A^TP+PA=\int_0^\infty\tfrac{d}{dt}\big(e^{A^Tt}Qe^{At}\big)dt=\big[e^{A^Tt}Qe^{At}\big]_0^\infty=-Q\). \(\blacksquare\)
+          Discrete: \(A\) Schur \(\iff A^TPA-P=-Q\) has \(P\succ0\).
+        </div>
+        <div class="success"><strong>Course use.</strong> Part 6 (switching): for undirected graphs \(P=I\) works for <em>every</em> \(L_\sigma\) since \(-L_\sigma-L_\sigma^T=-2L_\sigma\preceq0\): a common quadratic Lyapunov function. Parts 7–8: with a spanning tree \(-H\) is Hurwitz, so \(P\succ0\) exists although \(H\ne H^T\). Part 21: the terminal weight \(P\) comes from this (or the Riccati) equation so the MPC cost is a Lyapunov function.
+          <strong>Example:</strong> \(A_{\mathrm{cl}}\) of Section 9, \(Q=I\): \(P=\begin{bmatrix}1.24&0.250\\0.250&0.265\end{bmatrix}\), eigenvalues \(0.205,\,1.30\), residual \(4\times10^{-16}\).</div>
+
+        <div class="theorem">
+          <strong>Theorem D (input-to-state stability; Sontag &amp; Wang 1995; Khalil Def. 4.7, Thm 4.19).</strong> \(\dot x=f(x,d)\) is ISS if there are \(\beta\in\mathcal{KL}\), \(\gamma\in\mathcal K\) with, for all \(x(0)\) and bounded \(d\),
+          \[ \boxed{\;\|x(t)\|\le\beta(\|x(0)\|,t)+\gamma\Big(\sup_{0\le\tau\le t}\|d(\tau)\|\Big)\;} \]
+          <em>ISS-Lyapunov test:</em> \(\alpha_1(\|x\|)\le V\le\alpha_2(\|x\|)\), \(\alpha_{1,2}\in\mathcal K_\infty\), and \(\dot V\le-W(x)\) (\(W\) positive definite) whenever \(\|x\|\ge\rho(\|d\|)\), \(\rho\in\mathcal K\) \(\Rightarrow\) ISS with gain \(\gamma=\alpha_1^{-1}\circ\alpha_2\circ\rho\).
+          <em>Linear case:</em> \(\dot x=Ax+Bd\), \(A\) Hurwitz, is always ISS; for constant \(d\), \(x\to-A^{-1}Bd\).
+        </div>
+        <div class="success"><strong>Course use.</strong> Part 6 (noise, packet loss): \(\dot\delta=-L\delta+\Pi d\), \(V=\tfrac12\|\delta\|^2\): \(\dot V\le-\lambda_2\|\delta\|^2+\|\delta\|\,\|d\|_\infty\lt0\) whenever \(\|\delta\|\gt\|d\|_\infty/\lambda_2\), hence \(\limsup_t\|\delta(t)\|\le\|d\|_\infty/\lambda_2\): connectivity attenuates disturbances.
+          Part 8: the dynamic-leader lag \(e_{ss}=-H^{-1}\mathbf 1u_0\) is the linear steady state. Part 19: saturated speed corrections are a bounded disturbance on the coordination law. Part 20: latency error is a bounded disturbance absorbed by inflating \(d_s\).</div>
+      </section>
+
+      <section id="nonneg">
+        <h2>11. Non-negative Matrices, Perron–Frobenius, Stochastic Matrices</h2>
+        <div class="definition">
+          <strong>Definition.</strong> \(M\ge0\) (entrywise) is <em>irreducible</em> if the digraph with edge \(i\to j\) whenever \(m_{ij}\gt0\) is strongly connected; <em>primitive</em> if \(M^k\gt0\) for some \(k\) (irreducible + positive diagonal suffices).
+          \(P\ge0\) is <em>row-stochastic</em> if \(P\mathbf 1=\mathbf 1\); <em>doubly stochastic</em> if also \(\mathbf 1^TP=\mathbf 1^T\).
+        </div>
+        <div class="theorem">
+          <strong>Theorem (Perron–Frobenius; Horn &amp; Johnson 2013, Ch. 8).</strong> \(M\ge0\) irreducible \(\Rightarrow\rho(M)\gt0\) is a simple eigenvalue with entrywise positive right and left eigenvectors \(v,w\). Primitive \(\Rightarrow\) all other eigenvalues have \(|\lambda|\lt\rho(M)\) and \(M^k/\rho(M)^k\to vw^T/(w^Tv)\).
+        </div>
+        <ol>
+          <li>Row-stochastic \(\Rightarrow\rho(P)=1\): \(P\mathbf 1=\mathbf 1\) gives the eigenvalue \(1\) and Gershgorin puts every disc inside \(|z|\le1\).</li>
+          <li>\(P=I-\varepsilon L\), \(0\lt\varepsilon\lt1/d^{\mathrm{in}}_{\max}\), is row-stochastic with positive diagonal. If its digraph has a directed spanning tree, \(P^k\to\mathbf 1\gamma^T\) with \(\gamma^TP=\gamma^T\), \(\gamma\ge0\), \(\mathbf 1^T\gamma=1\), so \(x[k]\to(\gamma^Tx[0])\mathbf 1\) (Ren &amp; Beard 2005). Doubly stochastic (symmetric or Metropolis weights) \(\Rightarrow\gamma=\mathbf 1/N\): average consensus. Rate: second-largest eigenvalue modulus (Parts 6, 7).</li>
+          <li><em>Birkhoff–von Neumann:</em> doubly stochastic matrices are convex combinations of permutation matrices, so the LP relaxation of the assignment problem is integral — the Hungarian method is exact (Part 22).</li>
+        </ol>
+        <p><strong>Example.</strong> Path, \(\varepsilon=0.4\): \(P=\begin{bmatrix}0.6&0.4&0\\0.4&0.2&0.4\\0&0.4&0.6\end{bmatrix}\), doubly stochastic, eigenvalues \(\{1,0.6,-0.2\}\), \(P^{50}=\tfrac13\mathbf 1\mathbf 1^T\) to four decimals.
+          Directed chain \(1\to2\to3\), \(\varepsilon=0.5\): \(P=\begin{bmatrix}1&0&0\\0.5&0.5&0\\0&0.5&0.5\end{bmatrix}\), \(P^{50}\to\mathbf 1\gamma^T\), \(\gamma=(1,0,0)\): all converge to \(x_1[0]\).
+          Metropolis on the path, \(w_{ij}=1/(1+\max(d_i,d_j))\): \(W=I-\tfrac13L\), eigenvalues \(\{1,\tfrac23,0\}\). Perron: \(A+I\) of the path is primitive, \(\rho=1+\sqrt2=2.41\), Perron vector \(\propto(1,\sqrt2,1)\).</p>
+        <p><strong>Used in</strong> <a href="6_consensus_convergence_stability.html">Part 6</a>, <a href="7_directed_graph_consensus.html">Part 7</a>, <a href="22_task_allocation_cbba.html">Part 22</a>.</p>
+      </section>
+
+      <section id="rotation">
+        <h2>12. Rotation Matrices, atan2 and Angle Wrapping</h2>
+        <div class="definition">
+          <strong>Definition.</strong> On (north, east) components with \(\psi\) clockwise from north: \(R(\psi)=\begin{bmatrix}\cos\psi&-\sin\psi\\ \sin\psi&\cos\psi\end{bmatrix}\), \(J=\begin{bmatrix}0&-1\\1&0\end{bmatrix}=R(\pi/2)\); \(R(\psi)e_1=(\cos\psi,\sin\psi)\) is the unit vector of heading \(\psi\).
+          Course from NED velocity: \(\chi=\operatorname{atan2}(\dot p_e,\dot p_n)\in(-\pi,\pi]\) — <em>east first</em>. Wrap to \((-\pi,\pi]\): \(\operatorname{wrap}(a)=a-2\pi\lceil(a-\pi)/(2\pi)\rceil\).
+        </div>
+        <p>\(R^TR=I\), \(\det R=1\), \(R(a)R(b)=R(a+b)\), \(R^{-1}=R(-\psi)=R^T\), \(J^2=-I\), \(Jv\) is \(v\) rotated \(+90^\circ\) (north \(\to\) east), and</p>
+        <div class="formula">\[ \boxed{\;\frac{dR}{d\psi}=RJ=JR,\qquad\frac{d}{dt}R(\psi(t))=\dot\psi\,R(\psi)J\;} \]</div>
+        <ol>
+          <li>Slot kinematics (Part 13): \(p_i^d=p_c+R(\psi_c)r_i\Rightarrow v_i^d=v_c+\omega_cR(\psi_c)Jr_i\), \(a_i^d=a_c+\dot\omega_cR(\psi_c)Jr_i-\omega_c^2R(\psi_c)r_i\) (use \(J^2=-I\)). In 3-D, \(R(\psi)\) is the yaw block of \(R_z(\psi)\) in the \(Z\)–\(Y\)–\(X\) sequence of Part 15.</li>
+          <li>Angle error \(e_\chi=\operatorname{wrap}(\chi^d-\chi)\), never the raw difference; mean heading \(=\operatorname{atan2}(\sum\sin\chi_i,\sum\cos\chi_i)\), never the arithmetic mean — consensus on raw angles is not linear across \(\pm\pi\) (Part 5).</li>
+        </ol>
+        <p><strong>Example.</strong> \(R(30^\circ)(100,0)=(86.6,\,50.0)\) m. Slot \(r=(100,0)\) m, \(v_c=(20,0)\) m/s, \(\omega_c=0.1\) rad/s, \(\psi_c=30^\circ\): \(v^d=(15.0,\,8.66)\) m/s — the \(10\) m/s term \(\omega_cRJr\) is perpendicular to \(Rr\).
+          \(\operatorname{wrap}(10^\circ-350^\circ)=+20^\circ\); mean of \(350^\circ,10^\circ\): naive \(180^\circ\), correct \(0^\circ\); velocity \((10,-10)\) m/s: \(\chi=-45^\circ\).</p>
+        <div class="warning"><strong>Caution:</strong> <code>(a + np.pi) % (2*np.pi) - np.pi</code> returns \([-\pi,\pi)\); the cheat-sheet's <code>wrap</code> returns \((-\pi,\pi]\). They differ only at \(\pm\pi\); pick one and be consistent.</div>
+        <p><strong>Used in</strong> <a href="10_formation_specification.html">Part 10</a>, <a href="13_virtual_structures.html">Part 13</a>, <a href="15_fixed_wing_kinematics.html">Part 15</a>, <a href="17_dubins_paths.html">Part 17</a>, <a href="18_vector_field_guidance.html">Part 18</a>.</p>
+      </section>
+
+      <section id="gradients">
+        <h2>13. Gradients, Jacobians, Lie Derivatives</h2>
+        <div class="definition">
+          <strong>Definition.</strong> \(\nabla V(x)\in\mathbb R^n\) is the column of partials of \(V:\mathbb R^n\to\mathbb R\); \(J_f=\partial f/\partial x\in\mathbb R^{m\times n}\) for \(f:\mathbb R^n\to\mathbb R^m\); chain rule \(J_{f\circ g}=J_f(g)J_g\).
+          Along \(\dot x=f(x)+g(x)u\): \(\dot h=L_fh+L_gh\,u\) with \(L_fh=\nabla h^Tf\) (Lie derivative).
+        </div>
+        <div class="formula">\[ \nabla(a^Tx)=a,\quad\nabla(x^TQx)=(Q+Q^T)x,\quad\nabla_p\tfrac12\|p-q\|^2=p-q,\quad\nabla_p\|p-q\|=\tfrac{p-q}{\|p-q\|},\quad\nabla_p\tfrac14(\|p-q\|^2-d^2)^2=(\|p-q\|^2-d^2)(p-q) \]</div>
+        <ol>
+          <li><em>Gradient flow</em> \(\dot x=-\nabla V\Rightarrow\dot V=-\|\nabla V\|^2\le0\); by Theorem B trajectories converge to critical points. The distance-based law \(\dot p=-R(p)^Te\) is the gradient flow of the rigidity potential (Part 12); flocking potentials likewise (Part 14).</li>
+          <li><em>Linearisation</em> \(\dot x\approx f(\bar x)+J_f(\bar x)(x-\bar x)\); an equilibrium is locally exponentially stable if \(J_f\) there is Hurwitz (Khalil Sec. 4.3). Part 12: \(J=-R(p^\ast)^TR(p^\ast)\), negative definite on non-trivial motions exactly when infinitesimally rigid; Part 21: linearise the kinematics about the reference; Part 16: the coordinated turn.</li>
+          <li><em>Rigidity matrix</em> \(R(p)=\tfrac12\partial g/\partial p\), \(g=[\dots,\|p_i-p_j\|^2,\dots]\): row \((i,j)\) has \((p_i-p_j)^T\) in block \(i\), \(-(p_i-p_j)^T\) in block \(j\) (Part 11).</li>
+        </ol>
+        <p><strong>Example.</strong> \(f=(V_g\cos\chi,V_g\sin\chi,\omega)\) in \((p_n,p_e,\chi)\): \(J_f\) has last column \((-V_g\sin\chi,V_g\cos\chi,0)\), at \(V_g=20\) m/s, \(\chi=40^\circ\): \((-12.9,\,15.3,\,0)\).
+          Barrier \(h=\|p_1-p_2\|^2-d_s^2\), single integrators: \(\dot h=2(p_1-p_2)^T(u_1-u_2)\); \(p_1=0\), \(p_2=(100,0)\) m, \(u_1=(20,0)\), \(u_2=(-20,0)\) m/s, \(d_s=50\) m: \(h=7500\) m², \(\dot h=-8000\) m²/s (Part 20).
+          Triangle \((0,0),(1,0),(0,1)\): \(\operatorname{rank}R(p)=3=2N-3\). All checked by finite differences.</p>
+        <p><strong>Used in</strong> <a href="11_graph_framework_rigidity.html">Part 11</a>, <a href="12_formation_control.html">Part 12</a>, <a href="20_collision_avoidance_cbf.html">Part 20</a>, <a href="21_distributed_mpc.html">Part 21</a>; also Parts 14, 16.</p>
+      </section>
+
+      <section id="integration">
+        <h2>14. Numerical Integration: Euler and RK4</h2>
+        <div class="definition">
+          <strong>Definition.</strong> For \(\dot x=f(t,x)\), step \(T_s\): forward Euler \(x[k+1]=x[k]+T_sf(t_k,x[k])\), global error \(O(T_s)\). RK4:
+          \(k_1=f(t_k,x[k])\), \(k_2=f(t_k+\tfrac{T_s}2,x[k]+\tfrac{T_s}2k_1)\), \(k_3=f(t_k+\tfrac{T_s}2,x[k]+\tfrac{T_s}2k_2)\), \(k_4=f(t_k+T_s,x[k]+T_sk_3)\), \(x[k+1]=x[k]+\tfrac{T_s}6(k_1+2k_2+2k_3+k_4)\), global error \(O(T_s^4)\).
+        </div>
+        <ol>
+          <li><em>Stability on a mode</em> \(\dot x=\lambda x\), \(\lambda\lt0\): Euler iff \(|1+\lambda T_s|\lt1\iff T_s\lt2/|\lambda|\); RK4 iff \(|1+z+\tfrac{z^2}2+\tfrac{z^3}6+\tfrac{z^4}{24}|\lt1\), \(z=\lambda T_s\), i.e. \(T_s\lt2.785/|\lambda|\). For \(\dot x=-kLx\) the modes are \(-k\lambda_i\), so an Euler-implemented consensus needs
+            <div class="formula">\[ \boxed{\;T_s\,k\,\lambda_N\lt2\;} \]</div>
+            Part 6: complete graph of 4 (\(\lambda_N=4\)), \(T_s=0.1\) s \(\Rightarrow k\lt5\) s\(^{-1}\).</li>
+          <li><em>Exact discretisation</em> \(x[k+1]=e^{AT_s}x[k]\) is stable for any \(T_s\) if \(A\) is Hurwitz; Euler's \(I+AT_s\) is its first-order truncation (Section 8).</li>
+          <li>Integrate the <em>vehicle</em> with RK4 at a small step; run the <em>controller</em> at its own rate with a zero-order hold. Evaluating the controller inside the RK4 stages hides sampling effects (Parts 15, 23).</li>
+        </ol>
+        <p><strong>Example.</strong> Star consensus to \(t=1\) s, exact \((10.6,\,11.8,\,9.58)\): Euler error \(6.5\times10^{-2}\) at \(T_s=0.1\), \(3.2\times10^{-2}\) at \(0.05\) (halves: first order); RK4 \(8.6\times10^{-6}\) and \(4.8\times10^{-7}\) (ratio \(18\approx2^4\)).
+          Scalar \(\dot x=-3x\): \(T_s=0.5\) decays (\(|1-1.5|=0.5\)); \(T_s=0.7\) diverges (\(|1-2.1|=1.1\); \(x[20]=6.73\) from \(x[0]=1\)).</p>
+        <p><strong>Used in</strong> <a href="6_consensus_convergence_stability.html">Part 6</a>, <a href="15_fixed_wing_kinematics.html">Part 15</a>, <a href="21_distributed_mpc.html">Part 21</a>, <a href="23_px4_ros2_multi_vehicle.html">Part 23</a>.</p>
+      </section>
+
+      <section id="qp">
+        <h2>15. Quadratic Programs and KKT Conditions</h2>
+        <div class="definition">
+          <strong>Definition (standard form).</strong> \(\min_x\ \tfrac12x^THx+f^Tx\) s.t. \(Gx\le h\), \(Ax=b\); convex if \(H\succeq0\), unique minimiser if \(H\succ0\).
+        </div>
+        <div class="theorem">
+          <strong>Theorem (KKT; Boyd &amp; Vandenberghe 2004, Sec. 5.5).</strong> For a convex QP (linear constraints need no constraint qualification) \(x^\ast\) is optimal iff there are \(\mu\ge0\), \(\nu\) with
+          \[ \boxed{\;Hx^\ast+f+G^T\mu+A^T\nu=0,\quad Ax^\ast=b,\quad Gx^\ast\le h,\quad\mu_i(Gx^\ast-h)_i=0\ \forall i\;} \]
+        </div>
+        <ol>
+          <li><em>Equalities only:</em> one linear solve, \(\begin{bmatrix}H&A^T\\A&0\end{bmatrix}\begin{bmatrix}x\\ \nu\end{bmatrix}=\begin{bmatrix}-f\\ b\end{bmatrix}\) (Part 21 warm-start).</li>
+          <li><em>Single inequality, \(H=I\)</em> — the CBF filter of Part 20 (projection onto a half-space):
+            \[ \min_u\|u-u_{\text{nom}}\|^2\ \text{s.t.}\ a^Tu\ge b\ \Longrightarrow\ \boxed{\;u^\ast=u_{\text{nom}}+\max\big(0,\,b-a^Tu_{\text{nom}}\big)\frac{a}{\|a\|^2}\;} \]
+            <em>Proof:</em> KKT gives \(u-u_{\text{nom}}=\mu a\), \(\mu\ge0\), \(\mu(a^Tu-b)=0\). If \(a^Tu_{\text{nom}}\ge b\): \(\mu=0\). Else the constraint is active: \(a^T(u_{\text{nom}}+\mu a)=b\Rightarrow\mu=(b-a^Tu_{\text{nom}})/\|a\|^2\gt0\). \(\blacksquare\)</li>
+          <li><em>Several inequalities:</em> OSQP/quadprog in production; for prototyping <code>scipy.optimize.minimize(method='SLSQP')</code> with analytic Jacobians handles a handful of constraints without cvxpy. Always check the KKT residual of the returned point.</li>
+        </ol>
+        <p><strong>Example.</strong> \(u_{\text{nom}}=(-1,0)\), \(a=(1,1)\), \(b=0\): \(a^Tu_{\text{nom}}=-1\lt0\Rightarrow u^\ast=(-1,0)+1\cdot(1,1)/2=(-0.5,\,0.5)\), \(a^Tu^\ast=0\); SLSQP agrees.
+          CBF flavour: \(p_1=0\), \(p_2=(100,0)\) m, \(d_s=50\) m, \(\alpha(h)=h\), nominal \(u_1=(20,0)\) m/s towards UAV 2; the decentralised constraint \(2(p_1-p_2)^Tu_1\ge-\tfrac12h\) reads \(-200u_{1,n}\ge-3750\), so the filter returns \((18.8,\,0)\); at \(p_2=(60,0)\) m (\(h=1100\)) it returns \((4.58,\,0)\).
+          General QP \(H=\operatorname{diag}(2,1)\), \(f=(-2,-5)\), \(G=\begin{bmatrix}1&2\\-1&0\end{bmatrix}\), \(h=(3,0)\): \(x^\ast=(0.111,\,1.44)\), constraint 1 active, \(\mu_1=1.78\), stationarity residual \(10^{-14}\) (unconstrained optimum \((1,5)\)).</p>
+        <p><strong>Used in</strong> <a href="20_collision_avoidance_cbf.html">Part 20</a>, <a href="21_distributed_mpc.html">Part 21</a>, <a href="22_task_allocation_cbba.html">Part 22</a> (assignment LP).</p>
+      </section>
+
+      <section id="cheatsheet">
+        <h2>16. NumPy / SciPy Cheat-Sheet</h2>
+        <p>Executed verbatim with <code>python3 -I</code> on NumPy 1.26 / SciPy 1.11; cvxpy is not used anywhere. Conventions that bite:</p>
+        <table>
+          <tr><th>Call</th><th>Solves / returns</th><th>Gotcha</th></tr>
+          <tr><td><code>np.linalg.eigh(L)</code> / <code>eig(L)</code></td><td>eigen-pairs, columns are eigenvectors</td><td><code>eigh</code>: symmetric only, ascending; <code>eig</code>: unordered, complex (directed \(L\))</td></tr>
+          <tr><td><code>scipy.linalg.expm(A*t)</code></td><td>\(e^{At}\)</td><td>pass the product \(At\)</td></tr>
+          <tr><td><code>solve_continuous_lyapunov(a, q)</code></td><td>\(aX+Xa^H=q\)</td><td>for \(A^TP+PA=-Q\) call <code>(A.T, -Q)</code></td></tr>
+          <tr><td><code>solve_discrete_lyapunov(a, q)</code></td><td>\(aXa^H-X+q=0\)</td><td>for \(A^TPA-P=-Q\) call <code>(A.T, Q)</code></td></tr>
+          <tr><td><code>np.linalg.lstsq(A, b, rcond=None)</code></td><td>least-squares / minimum-norm solution</td><td>returns a 4-tuple; take <code>[0]</code></td></tr>
+          <tr><td><code>np.linalg.matrix_rank</code>, <code>scipy.linalg.null_space</code></td><td>numerical rank; orthonormal basis of \(\ker M\)</td><td>SVD tolerance: keep coordinates well scaled; normalise \(\gamma\) yourself</td></tr>
+          <tr><td><code>np.arctan2(e, n)</code></td><td>course \(\chi\) from NED velocity</td><td>east first, north second</td></tr>
+          <tr><td><code>solve_ivp(f, (t0, t1), x0)</code></td><td>adaptive RK45 solution</td><td>default tolerances are loose; fixed-step RK4 for sampled controllers</td></tr>
+        </table>
+<pre><code>import numpy as np
+import scipy.linalg as sla
+from scipy.integrate import solve_ivp
+from scipy.optimize import minimize
+
+# ---- Graph matrices (course convention: a_ij &gt; 0 iff i -&gt; j) ----
+A = np.array([[0, 1, 1], [1, 0, 0], [1, 0, 0]], float)   # undirected star
+W = A.T                                   # listening weights w_ij = a_ji
+L = np.diag(W.sum(axis=1)) - W            # in-degree Laplacian, L @ ones = 0
+
+# ---- Spectra ----
+lam, V = np.linalg.eigh(L)                # symmetric: real, ascending, V orthonormal
+mu = np.linalg.eigvals(L)                 # general / directed: complex, unordered
+rank = np.linalg.matrix_rank(L)           # N-1 &lt;=&gt; connected (spanning tree)
+gamma = sla.null_space(L.T)[:, 0]         # left null vector: gamma^T L = 0
+gamma = gamma / gamma.sum()               # consensus weights (sum to 1)
+energy = lambda x: x @ L @ x              # = 1/2 sum a_ij (x_i - x_j)^2
+gersh = 2 * np.diag(L).max()              # lam_N &lt;= 2 d_max
+
+# ---- Matrix exponential, ODEs, Kronecker ----
+x0 = np.array([10., 14., 8.])
+x1 = sla.expm(-L * 1.0) @ x0              # x(1) for xdot = -L x  (pass A*t!)
+Phi = sla.expm(-L * 0.1)                  # exact ZOH step: x[k+1] = Phi x[k]
+x1_ivp = solve_ivp(lambda t, z: -L @ z, (0., 1.), x0, rtol=1e-9).y[:, -1]
+Ln = np.kron(L, np.eye(2))                # (L kron I_2) on col(p_1..p_N); prefer L @ X
+
+# ---- Stability tests and Lyapunov equations (note SciPy's conventions) ----
+Acl = np.array([[0., 1.], [-2., -2 * np.sqrt(2)]])   # Part 9 mode: lam=2, kp=1, kv=sqrt2
+hurwitz = np.all(np.linalg.eigvals(Acl).real &lt; 0)
+Ad = np.eye(2) + 0.1 * Acl                           # Euler step matrix, Ts = 0.1
+schur = np.all(np.abs(np.linalg.eigvals(Ad)) &lt; 1)
+Q = np.eye(2)
+P = sla.solve_continuous_lyapunov(Acl.T, -Q)         # solves Acl^T P + P Acl = -Q
+Pd = sla.solve_discrete_lyapunov(Ad.T, Q)            # solves Ad^T Pd Ad - Pd = -Q
+lyap_ok = (np.allclose(Acl.T @ P + P @ Acl, -Q)
+           and np.allclose(Ad.T @ Pd @ Ad - Pd, -Q))
+
+# ---- Linear solve, least squares (rigidity matrix of the triangle, Part 11) ----
+H = np.array([[2., 0.], [0., 1.]]); f = np.array([-2., -5.])
+x_unc = np.linalg.solve(H, -f)                       # never form inv(H)
+Rm = np.array([[-1, 0, 1, 0, 0, 0], [0, 0, 1, -1, -1, 1], [0, -1, 0, 0, 0, 1]], float)
+pdot = np.linalg.lstsq(Rm, [0.1, -0.05, 0.02], rcond=None)[0]   # min-norm solution
+
+# ---- Angles (NED: course chi = atan2(east, north)) ----
+chi = np.arctan2(-10.0, 10.0)                        # -45 deg: moving north-west
+wrap = lambda a: -((np.pi - a) % (2 * np.pi) - np.pi)    # wrap to (-pi, pi]
+err = wrap(np.deg2rad(10.) - np.deg2rad(350.))       # +20 deg, not -340 deg
+angs = np.deg2rad([350., 10.])
+mean_ang = np.arctan2(np.sin(angs).mean(), np.cos(angs).mean())   # 0 deg, not 180
+
+# ---- QPs: closed-form CBF filter (Part 20) and a small general QP (no cvxpy) ----
+def halfspace_qp(u_nom, a, b):
+    """argmin ||u - u_nom||^2  s.t.  a^T u &gt;= b"""
+    return u_nom + max(0.0, b - a @ u_nom) * a / (a @ a)
+G = np.array([[1., 2.], [-1., 0.]]); h = np.array([3., 0.])
+res = minimize(lambda z: 0.5 * z @ H @ z + f @ z, np.zeros(2), jac=lambda z: H @ z + f,
+               constraints=[{'type': 'ineq', 'fun': lambda z: h - G @ z, 'jac': lambda z: -G}],
+               method='SLSQP')                       # min 1/2 z^T H z + f^T z,  G z &lt;= h
+
+# ---- One RK4 step for xdot = fun(t, x) ----
+def rk4_step(fun, t, x, Ts):
+    k1 = fun(t, x); k2 = fun(t + Ts / 2, x + Ts / 2 * k1)
+    k3 = fun(t + Ts / 2, x + Ts / 2 * k2); k4 = fun(t + Ts, x + Ts * k3)
+    return x + Ts / 6 * (k1 + 2 * k2 + 2 * k3 + k4)
+
+np.set_printoptions(precision=3, suppress=True)
+print(lam, rank, gamma, gersh, x1, x1_ivp, hurwitz, schur, lyap_ok, P.ravel())
+print(x_unc, pdot, np.rad2deg([chi, err, mean_ang]),
+      halfspace_qp(np.array([-1., 0.]), np.array([1., 1.]), 0.), res.x, rk4_step(lambda t, z: -L @ z, 0., x0, 0.1))</code></pre>
+        <p>Printed output (3 s.f.): \(\lambda=(0,1,3)\), rank \(2\), \(\gamma=(0.333,0.333,0.333)\), bound \(4\); \(x(1)=(10.6,\,11.8,\,9.58)\) from both <code>expm</code> and <code>solve_ivp</code>; the three Boolean checks <code>True</code>; \(P=(1.24,\,0.250,\,0.250,\,0.265)\); \(x_{\text{unc}}=(1,5)\); angles \((-45^\circ,\,20^\circ,\,0^\circ)\); <code>halfspace_qp</code> \(\to(-0.5,\,0.5)\); <code>res.x</code> \(=(0.111,\,1.44)\); one RK4 step \((10.2,\,13.6,\,8.20)\).</p>
+      </section>
+
+      <section id="references">
+        <h2>17. References</h2>
+        <ul>
+          <li>H. K. Khalil, <em>Nonlinear Systems</em>, 3rd ed., Prentice Hall, 2002 — Ch. 4 (direct method, LaSalle, Lyapunov equation, ISS).</li>
+          <li>R. A. Horn and C. R. Johnson, <em>Matrix Analysis</em>, 2nd ed., Cambridge University Press, 2013 — Ch. 4 (Courant–Fischer, Weyl), Ch. 6 (Gershgorin), Ch. 8 (Perron–Frobenius).</li>
+          <li>W. Ren and R. W. Beard, "Consensus seeking in multiagent systems under dynamically changing interaction topologies," <em>IEEE Trans. Automatic Control</em>, 50(5):655–661, 2005; and <em>Distributed Consensus in Multi-vehicle Cooperative Control</em>, Springer, 2008 (their adjacency is our \(W\)).</li>
+          <li>M. Mesbahi and M. Egerstedt, <em>Graph Theoretic Methods in Multiagent Networks</em>, Princeton University Press, 2010.</li>
+          <li>E. D. Sontag and Y. Wang, "On characterizations of the input-to-state stability property," <em>Systems &amp; Control Letters</em>, 24(5):351–359, 1995.</li>
+          <li>J. P. LaSalle, "Some extensions of Liapunov's second method," <em>IRE Trans. Circuit Theory</em>, 7(4):520–527, 1960.</li>
+          <li>S. Boyd and L. Vandenberghe, <em>Convex Optimization</em>, Cambridge University Press, 2004 — Ch. 5 (duality, KKT).</li>
+          <li>C. Moler and C. Van Loan, "Nineteen dubious ways to compute the exponential of a matrix, twenty-five years later," <em>SIAM Review</em>, 45(1):3–49, 2003.</li>
+          <li>C.-T. Chen, <em>Linear System Theory and Design</em>, 3rd ed., Oxford University Press, 1999 — Ch. 4–5.</li>
+          <li>SciPy reference, <a href="https://docs.scipy.org/doc/scipy/reference/linalg.html">docs.scipy.org/doc/scipy/reference/linalg.html</a> — argument conventions of the Lyapunov solvers, <code>expm</code>, <code>null_space</code>.</li>
+        </ul>
+      </section>
+
+      <div class="prevnext">
+        <a class="prev" href="24_capstone_unified_swarm_claw.html"><span>&larr; Previous</span>Part 24: Capstone — The Unified Swarm CLAW</a>
+        <a class="next" href="index.html"><span>Next &rarr;</span>Course home</a>
+      </div>
+      <div class="done-box"><button id="done-btn" data-lesson="A1">Mark Part A1 as complete</button></div>
+    </main>
+  </div>
+
+  <footer>Fixed-Wing Swarm Learning · Appendix A1 · Math Toolbox</footer>
+
+  <script>
+    (function () {
+      try {
+        var btn = document.getElementById('done-btn');
+        if (!btn) return;
+        var id = btn.getAttribute('data-lesson');
+        var key = 'fwswarm_done';
+        var done = JSON.parse(localStorage.getItem(key) || '[]');
+        function render() {
+          var is = done.indexOf(id) >= 0;
+          btn.textContent = is ? 'Completed ✓ (click to undo)' : 'Mark Part ' + id + ' as complete';
+          btn.className = is ? 'undone' : '';
+        }
+        btn.addEventListener('click', function () {
+          var i = done.indexOf(id);
+          if (i >= 0) done.splice(i, 1); else done.push(id);
+          localStorage.setItem(key, JSON.stringify(done));
+          render();
+        });
+        render();
+      } catch (e) { /* storage unavailable: ignore */ }
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fixed-Wing Swarm Learning — Dubins Paths</title>
+
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['\\(', '\\)']],
+        displayMath: [['\\[', '\\]'], ['$$', '$$']]
+      },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --card: #ffffff;
+      --text: #172033;
+      --muted: #5d687a;
+      --accent: #2457d6;
+      --accent-light: #eaf0ff;
+      --border: #dce2ec;
+      --code: #111827;
+      --success: #147a4b;
+      --warning: #c27b00;
+      --danger: #b42318;
+      --claw: #0f766e;
+      --claw-light: #e6f6f4;
+      --def: #6d28d9;
+      --def-light: #f3eefe;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+    }
+
+    header {
+      background: linear-gradient(135deg, #172554, #2457d6);
+      color: white;
+      padding: 56px 20px 44px;
+    }
+    header .wrap { max-width: 1320px; margin: auto; }
+    .topbar { margin-bottom: 18px; font-size: .95rem; }
+    .topbar a { color: #dbe6ff; }
+    .topbar a:hover { color: #fff; }
+
+    h1 { margin: 0 0 10px; font-size: clamp(2rem, 5vw, 3.2rem); }
+    h2 { margin-top: 0; font-size: 1.8rem; }
+    h3 { margin-top: 1.6rem; }
+    h4 { margin-top: 1.2rem; margin-bottom: .4rem; }
+
+    .subtitle { max-width: 820px; color: #dbe6ff; font-size: 1.08rem; }
+
+    nav, section, .callout {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px;
+      margin: 20px 0;
+      box-shadow: 0 3px 12px rgba(20, 35, 70, .05);
+    }
+    nav h2 { font-size: 1.35rem; }
+    nav ol { margin-bottom: 0; padding-left: 22px; }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    code { background: #eef1f6; padding: 2px 5px; border-radius: 5px; font-size: .92em; }
+    pre {
+      background: var(--code);
+      color: #e5e7eb;
+      padding: 18px;
+      border-radius: 10px;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+    pre code { background: none; padding: 0; color: inherit; font-size: .9rem; }
+
+    .formula {
+      background: var(--accent-light);
+      border-left: 4px solid var(--accent);
+      padding: 16px 18px;
+      margin: 16px 0;
+      overflow-x: auto;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+    }
+    .mini {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      background: #fbfcff;
+    }
+    .mini strong { display: block; margin-bottom: 5px; }
+
+    .success { border-left: 4px solid var(--success); background: #edf9f3; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .warning { border-left: 4px solid var(--warning); background: #fff8e8; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .danger  { border-left: 4px solid var(--danger);  background: #fdecec; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .note    { border-left: 4px solid var(--muted);   background: #f3f5f8; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .definition, .theorem {
+      border-left: 4px solid var(--def);
+      background: var(--def-light);
+      padding: 14px 18px;
+      border-radius: 8px;
+      margin: 14px 0;
+    }
+    .definition > strong:first-child, .theorem > strong:first-child { color: var(--def); }
+    .claw {
+      border: 1px solid #99d6cf;
+      border-left: 6px solid var(--claw);
+      background: var(--claw-light);
+      padding: 16px 20px;
+      border-radius: 10px;
+      margin: 18px 0;
+    }
+    .claw > strong:first-child { color: var(--claw); display: block; margin-bottom: 6px; font-size: 1.05rem; }
+
+    table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+    th, td { text-align: left; padding: 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    th { background: #f1f4f9; }
+
+    .tag {
+      display: inline-block;
+      background: #eaf0ff;
+      color: #204bb4;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: .82rem;
+      margin: 3px;
+    }
+
+    figure { margin: 18px 0; }
+    figure > svg { width: 100%; height: auto; display: block; background: #fbfcff; border: 1px solid var(--border); border-radius: 10px; }
+    figcaption { color: var(--muted); font-size: .92rem; margin-top: 6px; text-align: center; }
+
+    .exercise { border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; margin: 14px 0; background: #fbfcff; }
+    .exercise summary { cursor: pointer; color: var(--accent); font-weight: 600; margin-top: 8px; }
+    .exercise details { margin-top: 6px; }
+    .exercise .solution { border-top: 1px dashed var(--border); margin-top: 8px; padding-top: 8px; }
+
+    .demo { border: 1px solid var(--border); border-radius: 12px; padding: 14px; background: #fbfcff; margin: 16px 0; }
+    .demo canvas { width: 100%; height: auto; display: block; background: #ffffff; border: 1px solid var(--border); border-radius: 8px; }
+    .controls { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; margin: 10px 0; font-size: .95rem; }
+    .controls label { display: inline-flex; align-items: center; gap: 6px; }
+    .controls input[type=range] { width: 140px; }
+    .controls button, .btn {
+      background: var(--accent); color: #fff; border: 0; padding: 7px 14px; border-radius: 8px; cursor: pointer; font-size: .92rem;
+    }
+    .controls button:hover, .btn:hover { filter: brightness(1.08); }
+    .controls button.secondary { background: #e5e9f2; color: var(--text); }
+
+    .prevnext { display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin: 26px 0 0; }
+    .prevnext a { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; flex: 1 1 260px; }
+    .prevnext a span { display: block; color: var(--muted); font-size: .82rem; }
+    .prevnext a.next { text-align: right; }
+
+    .done-box { text-align: center; margin: 24px 0 0; }
+    .done-box button { background: var(--success); color: #fff; border: 0; padding: 9px 18px; border-radius: 8px; cursor: pointer; }
+    .done-box button.undone { background: #9aa5b5; }
+
+    footer { text-align: center; color: var(--muted); padding: 30px 20px 50px; }
+
+    .page-shell {
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      gap: 24px;
+      max-width: 1320px;
+      margin: 0 auto;
+      padding: 28px 20px 70px;
+      align-items: start;
+    }
+    .sidebar { grid-column: 1; position: sticky; top: 20px; }
+    .sidebar nav { position: sticky; top: 20px; max-height: calc(100vh - 40px); overflow-y: auto; }
+    .content { grid-column: 2; min-width: 0; }
+    @media (max-width: 960px) {
+      .page-shell { grid-template-columns: 1fr; }
+      .sidebar, .sidebar nav { position: static; max-height: none; }
+      .sidebar, .content { grid-column: 1; }
+    }
+    @media print {
+      nav { break-after: page; }
+      section { box-shadow: none; }
+      .demo, .done-box, .prevnext, .topbar { display: none; }
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <div class="wrap">
+      <div class="topbar"><a href="index.html">&larr; Course home</a> &nbsp;·&nbsp; Module D: Fixed-Wing Vehicle &amp; Guidance</div>
+      <h1>Fixed-Wing Swarm Learning</h1>
+      <div class="subtitle">
+        Part 17: <strong>Dubins Paths</strong> — the shortest flyable path between two poses for an aircraft that cannot turn tighter than \(R_{\min}\): the six words, their closed-form lengths in the course NED convention, the 3-D airplane extension, and how a swarm uses them.
+      </div>
+      <p>
+        <span class="tag">Dubins car</span>
+        <span class="tag">Path planning</span>
+        <span class="tag">Turn radius</span>
+        <span class="tag">UAV Swarms</span>
+      </p>
+    </div>
+  </header>
+
+  <div class="page-shell">
+    <aside class="sidebar">
+      <nav id="index">
+        <h2>Index</h2>
+        <ol>
+          <li><a href="#why">Why this matters</a></li>
+          <li><a href="#dubins-car">The Dubins car and Dubins' theorem</a></li>
+          <li><a href="#geometry">Turning circles in NED</a></li>
+          <li><a href="#words">The six words: closed forms</a></li>
+          <li><a href="#example">Worked examples (verified)</a></li>
+          <li><a href="#airplane">The 3-D Dubins airplane</a></li>
+          <li><a href="#swarm">Dubins paths in the swarm</a></li>
+          <li><a href="#fixed-wing">Fixed-wing interpretation</a></li>
+          <li><a href="#implementation">Implementation &amp; demo</a></li>
+          <li><a href="#pitfalls">Common pitfalls</a></li>
+          <li><a href="#exercises">Exercises</a></li>
+          <li><a href="#summary">Key takeaways</a></li>
+          <li><a href="#references">References</a></li>
+        </ol>
+      </nav>
+    </aside>
+
+    <main class="content">
+
+      <section id="why">
+        <h2>1. Why This Matters</h2>
+        <p>
+          Every lesson so far produced a <em>velocity</em> or <em>acceleration</em> command and trusted the aircraft to follow it.
+          A fixed-wing aircraft cannot: it flies at \(V_g\ge V_{\min}\) and turns no tighter than
+          \(R_{\min}=V_g^2/(g\tan\phi_{\max})\) (<a href="16_coordinated_turn_high_speed.html">Part 16</a>).
+          Whenever the swarm has to move an aircraft from one <strong>pose</strong> (position and course) to another — joining a formation slot,
+          switching tasks, lining up on a new path, rendezvousing — the honest question is: <em>what is the shortest path the aircraft can
+          actually fly?</em> Dubins (1957) answered it: the shortest bounded-curvature path consists of at most three segments, each a
+          minimum-radius arc or a straight line. This lesson derives those paths in the course's NED convention and builds the generator
+          that the guidance layer (<a href="18_vector_field_guidance.html">Part 18</a>) and the mission layer
+          (<a href="22_task_allocation_cbba.html">Part 22</a>) consume.
+        </p>
+        <div class="formula">
+          \[ \text{formation / task layer} \rightarrow \underbrace{\text{Dubins path generator}}_{\text{this lesson}} \rightarrow \text{path following (Part 18)} \rightarrow \text{autopilot} \]
+        </div>
+        <div class="grid">
+          <div class="mini"><strong>Input</strong>Course convention, turn-radius formula and the turn-rate envelope from
+            <a href="15_fixed_wing_kinematics.html">Part 15</a> and <a href="16_coordinated_turn_high_speed.html">Part 16</a>; atan2 and angle wrapping (<a href="A1_math_toolbox.html">A1</a>).</div>
+          <div class="mini"><strong>Output</strong>You can derive the turning-circle geometry, compute all six Dubins words and their lengths in closed form, verify them numerically, extend them to a climbing aircraft, and use path lengths for timing and allocation.</div>
+          <div class="mini"><strong>Used in</strong>Path following (<a href="18_vector_field_guidance.html">Part 18</a>), time coordination and simultaneous arrival (<a href="19_coordinated_path_following.html">Part 19</a>), MPC warm starts (<a href="21_distributed_mpc.html">Part 21</a>), travel-time costs in CBBA (<a href="22_task_allocation_cbba.html">Part 22</a>), the CLAW's transition block (<a href="24_capstone_unified_swarm_claw.html">Part 24</a>).</div>
+        </div>
+      </section>
+
+      <section id="dubins-car">
+        <h2>2. The Dubins Car and Dubins' Theorem</h2>
+        <div class="definition">
+          <strong>Definition (Dubins car, NED).</strong> A vehicle with state \((p_n,p_e,\chi)\), constant speed \(V\) and bounded turn rate:
+          \[ \dot p_n=V\cos\chi,\qquad \dot p_e=V\sin\chi,\qquad \dot\chi=u,\qquad |u|\le u_{\max}=\frac{V}{R_{\min}} . \]
+          Positions are (north, east); the course \(\chi\) is measured <strong>clockwise from north</strong>, exactly as in
+          <a href="15_fixed_wing_kinematics.html">Part 15</a>. A positive \(u\) is a right (clockwise) turn.
+          In still air heading and course coincide, \(\psi=\chi\); we write \(\chi\) because the guidance layer commands course.
+        </div>
+        <p>
+          Because the speed is constant, <em>minimum time</em> and <em>minimum length</em> are the same problem, and the only decision is how to
+          spend the turn authority. The limit \(u_{\max}=V/R_{\min}\) is exactly the coordinated-turn envelope of Part 16 with
+          \(R_{\min}=V_g^2/(g\tan\phi_{\max})\): the Dubins car is the Part 15 guidance model with the roll loop assumed instantaneous.
+        </p>
+        <div class="theorem">
+          <strong>Theorem (Dubins, 1957).</strong> Between any two poses \((p_s,\chi_s)\) and \((p_e,\chi_e)\) a shortest path of curvature at most \(1/R_{\min}\)
+          exists and is a concatenation of at most three segments of type C (arc of radius \(R_{\min}\)) or S (straight), of one of the forms
+          <strong>CSC</strong> or <strong>CCC</strong>. Writing L for a left (counter-clockwise) arc and R for a right (clockwise) arc, the candidates are the six
+          <em>words</em> \(\{LSL,\ RSR,\ LSR,\ RSL,\ RLR,\ LRL\}\). In a CCC path the middle arc is longer than \(\pi R_{\min}\); any segment may have zero length.
+          <br><em>Proof sketch.</em> Apply Pontryagin's principle to minimise \(\int_0^T 1\,dt\): the Hamiltonian is
+          \(H=1+\lambda_nV\cos\chi+\lambda_eV\sin\chi+\lambda_\chi u\). Since the dynamics do not depend on position, \(\lambda_n,\lambda_e\) are constant and
+          \(\dot\lambda_\chi=\lambda_nV\sin\chi-\lambda_eV\cos\chi\). Minimising \(H\) in \(u\) gives \(u=-u_{\max}\operatorname{sign}(\lambda_\chi)\) when
+          \(\lambda_\chi\ne0\) (a full-rate arc) and the singular control \(u=0\) when \(\lambda_\chi\equiv0\) (a straight line, along which
+          \((\cos\chi,\sin\chi)\) is parallel to \((\lambda_n,\lambda_e)\)). So optimal paths are made only of minimum-radius arcs and straight lines; a geometric
+          argument (Dubins 1957; Boissonnat, Cérézo &amp; Leblond 1994 give the complete PMP proof) shows that more than three segments, or two straight segments,
+          can always be shortened, and that a CCC middle arc shorter than \(\pi R_{\min}\) can be replaced by a shorter CSC path.
+        </div>
+        <div class="success">
+          <strong>Interpretation:</strong> there are only six shapes to try. Compute the length of each word in closed form, discard the infeasible ones, and keep the
+          shortest — an \(O(1)\) planner that an aircraft can run thousands of times per second inside an allocation or sampling loop.
+        </div>
+      </section>
+
+      <section id="geometry">
+        <h2>3. Turning Circles in NED</h2>
+        <p>
+          Everything rests on where the two turning circles of a pose are. The unit tangent of the course is \(\hat t(\chi)=(\cos\chi,\sin\chi)\).
+          Rotating it clockwise by \(90^\circ\) (i.e. to the pilot's right) gives the <strong>right-hand normal</strong>
+        </p>
+        <div class="formula">
+          \[ \hat n_R(\chi)=\big(\cos(\chi+\tfrac\pi2),\ \sin(\chi+\tfrac\pi2)\big)=(-\sin\chi,\ \cos\chi). \]
+        </div>
+        <p>
+          Check: heading north (\(\chi=0\)) the right side is east, and \(\hat n_R(0)=(0,1)\) is indeed the east unit vector. The centres of the two
+          minimum-radius circles through a pose \((p,\chi)\) are therefore
+        </p>
+        <div class="formula">
+          \[ \boxed{\;c_R=p+R\,\hat n_R(\chi)=p+R\begin{bmatrix}-\sin\chi\\ \cos\chi\end{bmatrix},\qquad
+                   c_L=p-R\,\hat n_R(\chi)=p+R\begin{bmatrix}\sin\chi\\ -\cos\chi\end{bmatrix}\;} \]
+        </div>
+        <p>
+          A point on the right circle with course \(\chi\) sits at \(p=c_R-R\hat n_R(\chi)=c_R+R(\sin\chi,-\cos\chi)\); its <em>polar angle</em> seen from the centre
+          (clockwise from north, i.e. \(\operatorname{atan2}(e,n)\)) is \(\vartheta=\chi-\pi/2\). On the left circle \(p=c_L+R\hat n_R(\chi)\) and \(\vartheta=\chi+\pi/2\).
+          A right turn increases both \(\chi\) and \(\vartheta\); a left turn decreases both. Hence, with \([x]_{2\pi}\) denoting \(x \bmod 2\pi\in[0,2\pi)\),
+        </p>
+        <div class="formula">
+          \[ \boxed{\;\text{right arc from }\chi_1\text{ to }\chi_2:\ \ R\,[\chi_2-\chi_1]_{2\pi},\qquad \text{left arc: }\ R\,[\chi_1-\chi_2]_{2\pi}\;} \]
+        </div>
+        <div class="warning">
+          <strong>Convention hazard.</strong> Most robotics code (Shkel &amp; Lumelsky 2001, LaValle 2006, the popular <code>dubins</code> Python package) uses
+          \(x\) east, \(y\) north and \(\theta\) counter-clockwise from \(x\). In that frame the sign of every rotation flips: their "L" is our R if you simply
+          relabel axes. This lesson keeps the course convention throughout — \(n\) first, \(e\) second, angles clockwise from north, \(\operatorname{atan2}(e,n)\) —
+          so that Dubins outputs plug straight into the Part 15 state \((p_n,p_e,\chi)\) without any sign gymnastics.
+        </div>
+        <figure>
+          <svg viewBox="0 0 600 420" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="CSC geometry: RSR external tangent and RSL internal tangent">
+            <defs><marker id="arr17" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#172033"/></marker></defs>
+            <line x1="520" y1="400" x2="520" y2="340" stroke="#5d687a" stroke-width="1.5" marker-end="url(#arr17)"/>
+            <line x1="520" y1="400" x2="580" y2="400" stroke="#5d687a" stroke-width="1.5" marker-end="url(#arr17)"/>
+            <text x="512" y="335" font-size="12" fill="#5d687a">n (north)</text>
+            <text x="548" y="416" font-size="12" fill="#5d687a">e (east)</text>
+            <circle cx="140" cy="380" r="60" fill="none" stroke="#2457d6" stroke-width="1.5" stroke-dasharray="4 3"/>
+            <circle cx="20" cy="380" r="60" fill="none" stroke="#9aa5b5" stroke-width="1" stroke-dasharray="2 3"/>
+            <circle cx="320" cy="260" r="60" fill="none" stroke="#2457d6" stroke-width="1.5" stroke-dasharray="4 3"/>
+            <circle cx="320" cy="140" r="60" fill="none" stroke="#c27b00" stroke-width="1.5" stroke-dasharray="4 3"/>
+            <line x1="140" y1="380" x2="320" y2="260" stroke="#9aa5b5" stroke-width="1"/>
+            <line x1="140" y1="380" x2="320" y2="140" stroke="#9aa5b5" stroke-width="1"/>
+            <polyline points="80.0,380.0 80.5,372.1 82.1,364.4 84.6,356.9 88.2,349.8 92.6,343.2 97.8,337.3 103.8,332.1 110.4,327.8 125.4,319.3 155.3,302.4 185.2,285.4 215.1,268.5 244.9,251.5 274.8,234.6 304.7,217.6 334.6,200.7 349.6,192.2 376.7,159.7 375.6,117.4 346.8,86.3 304.7,82.0 270.2,106.5 260.5,147.7 280.4,185.1 320.0,200.0" fill="none" stroke="#c27b00" stroke-width="2"/>
+            <polyline points="80.0,380.0 80.5,372.6 81.8,365.4 84.0,358.4 87.1,351.7 91.0,345.4 95.6,339.7 100.9,334.5 106.7,330.1 118.0,322.6 140.5,307.6 163.0,292.6 185.5,277.6 208.0,262.6 230.5,247.6 253.0,232.6 275.5,217.6 286.7,210.1 290.5,207.8 294.4,205.7 298.4,204.0 302.6,202.6 306.9,201.5 311.2,200.6 315.6,200.2 320.0,200.0" fill="none" stroke="#2457d6" stroke-width="3"/>
+            <circle cx="140" cy="380" r="3" fill="#2457d6"/><text x="146" y="396" font-size="12" fill="#2457d6">c_rs</text>
+            <circle cx="20" cy="380" r="3" fill="#9aa5b5"/><text x="26" y="396" font-size="12" fill="#9aa5b5">c_ls</text>
+            <circle cx="320" cy="260" r="3" fill="#2457d6"/><text x="326" y="276" font-size="12" fill="#2457d6">c_re</text>
+            <circle cx="320" cy="140" r="3" fill="#c27b00"/><text x="326" y="136" font-size="12" fill="#c27b00">c_le</text>
+            <circle cx="106.7" cy="330.1" r="3.5" fill="#172033"/><circle cx="286.7" cy="210.1" r="3.5" fill="#172033"/>
+            <circle cx="110.4" cy="327.8" r="3" fill="#c27b00"/><circle cx="349.6" cy="192.2" r="3" fill="#c27b00"/>
+            <line x1="80" y1="380" x2="80" y2="350" stroke="#172033" stroke-width="2.5" marker-end="url(#arr17)"/>
+            <text x="40" y="408" font-size="13" fill="#172033">start (0,0), χ_s = 0°</text>
+            <line x1="320" y1="200" x2="350" y2="200" stroke="#172033" stroke-width="2.5" marker-end="url(#arr17)"/>
+            <text x="356" y="222" font-size="13" fill="#172033">goal (300,400), χ_e = 90°</text>
+            <text x="150" y="300" font-size="13" fill="#2457d6" transform="rotate(-33.7 150 300)">RSR: external tangent ∥ (c_re − c_rs), L = 517.6 m</text>
+            <text x="150" y="208" font-size="12" fill="#c27b00" transform="rotate(-29.5 150 208)">RSL: internal tangent, L = 1140.5 m</text>
+            <text x="20" y="24" font-size="13" fill="#172033">R = 100 m. Dashed circles: turning circles; dots: tangent points.</text>
+          </svg>
+          <figcaption>Figure 1. CSC geometry for the worked case A (north up, east right). The RSR path uses the external tangent, which is parallel to the centre-to-centre line; the RSL path crosses between the circles on an internal tangent and is much longer here.</figcaption>
+        </figure>
+      </section>
+
+      <section id="words">
+        <h2>4. The Six Words: Closed-Form Lengths</h2>
+        <p>
+          Fix \(R=R_{\min}\). From the start pose build \(c_{rs},c_{ls}\) and from the end pose \(c_{re},c_{le}\) with the boxed formulas of Section 3.
+          For a pair of circles write \(d=c_{\text{end}}-c_{\text{start}}\), \(\ell=\|d\|\) and \(\vartheta=\operatorname{atan2}(d_e,d_n)\) (the course from one centre to the other).
+        </p>
+
+        <h3>4.1 CSC with an external tangent: RSR and LSL</h3>
+        <p>
+          For RSR both tangent points sit at the <em>same</em> polar angle on their circles, \(c_{rs}+R(\sin\chi_t,-\cos\chi_t)\) and \(c_{re}+R(\sin\chi_t,-\cos\chi_t)\),
+          so the straight segment equals \(d\) itself: its length is \(\ell\) and its course is \(\chi_t=\vartheta\). The aircraft turns right from \(\chi_s\) to \(\vartheta\),
+          flies \(\ell\), turns right from \(\vartheta\) to \(\chi_e\):
+        </p>
+        <div class="formula">
+          \[ \boxed{\;L_{RSR}=R[\vartheta-\chi_s]_{2\pi}+\ell+R[\chi_e-\vartheta]_{2\pi},\qquad d=c_{re}-c_{rs}\;} \]
+          \[ \boxed{\;L_{LSL}=R[\chi_s-\vartheta]_{2\pi}+\ell+R[\vartheta-\chi_e]_{2\pi},\qquad d=c_{le}-c_{ls}\;} \]
+        </div>
+        <p>These two words are always feasible (the external tangent exists for any \(\ell\ge0\)).</p>
+
+        <h3>4.2 CSC with an internal tangent: RSL and LSR</h3>
+        <p>
+          For RSL the straight segment leaves the right start circle at \(c_{rs}-R\hat n_R(\chi_t)\) and reaches the left end circle at \(c_{le}+R\hat n_R(\chi_t)\),
+          where \(\chi_t\) is the (unknown) course on the segment. Its length \(s\) satisfies
+        </p>
+        <div class="formula">
+          \[ d=c_{le}-c_{rs}=s\,\hat t(\chi_t)+2R\,\hat n_R(\chi_t)\ \ \text{(after moving the two offsets to one side)},\qquad
+             \text{so } \ell^2=s^2+4R^2 . \]
+        </div>
+        <p>
+          More carefully: the exit point is \(c_{rs}-R\hat n_R(\chi_t)\) and the entry point is \(c_{le}+R\hat n_R(\chi_t)\), so the segment vector is
+          \(d+2R\hat n_R=s\,\hat t\), i.e. \(d=s\,\hat t(\chi_t)-2R\,\hat n_R(\chi_t)\). Hence \(s=\sqrt{\ell^2-4R^2}\), feasible only if \(\ell\ge2R\).
+          Since \(-\hat n_R\) is \(\hat t\) rotated counter-clockwise, \(d\) points counter-clockwise of \(\hat t(\chi_t)\) by \(\arctan(2R/s)=\arcsin(2R/\ell)\), so
+          \(\vartheta=\chi_t-\arcsin(2R/\ell)\), i.e. \(\chi_t=\vartheta+\arcsin(2R/\ell)\). For the mirror word LSR the offsets flip sign,
+          \(d=s\,\hat t+2R\,\hat n_R\), and \(\chi_t=\vartheta-\arcsin(2R/\ell)\). Reading off the arcs:
+        </p>
+        <div class="formula">
+          \[ \boxed{\;L_{RSL}=R[\chi_t-\chi_s]_{2\pi}+\sqrt{\ell^2-4R^2}+R[\chi_t-\chi_e]_{2\pi},\quad \chi_t=\vartheta+\arcsin\frac{2R}{\ell},\quad d=c_{le}-c_{rs}\;} \]
+          \[ \boxed{\;L_{LSR}=R[\chi_s-\chi_t]_{2\pi}+\sqrt{\ell^2-4R^2}+R[\chi_e-\chi_t]_{2\pi},\quad \chi_t=\vartheta-\arcsin\frac{2R}{\ell},\quad d=c_{re}-c_{ls}\;} \]
+        </div>
+        <div class="note"><strong>Note.</strong> Beard &amp; McLain (2012, Ch. 11) write the same four CSC lengths with \(\arccos(2R/\ell)\) and polar angles \(\chi\pm\pi/2\);
+          since \(\arccos x=\pi/2-\arcsin x\) the expressions are identical. Their flight-management implementation uses only CSC and assumes waypoints at least \(3R\) apart.</div>
+
+        <h3>4.3 CCC: RLR and LRL</h3>
+        <p>
+          When the two same-sense circles are close (\(\ell\le4R\)) a third circle of the opposite sense can be tangent to both. For RLR its centre \(c_m\) is at distance
+          \(2R\) from both \(c_{rs}\) and \(c_{re}\):
+        </p>
+        <div class="formula">
+          \[ c_m=c_{rs}+2R\,\hat u(\vartheta_1),\qquad \vartheta_1=\vartheta\pm\alpha,\qquad \alpha=\arccos\frac{\ell}{4R},\qquad \hat u(\theta)=(\cos\theta,\sin\theta). \]
+        </div>
+        <p>
+          The tangent points are the midpoints \(p_1=\tfrac12(c_{rs}+c_m)\) and \(p_2=\tfrac12(c_m+c_{re})\). At \(p_1\) the aircraft is on the right circle at polar angle
+          \(\vartheta_1\), so its course is \(\chi_1=\vartheta_1+\pi/2\); at \(p_2\) it is on the end circle at polar angle \(\vartheta_2=\operatorname{atan2}\) of \(c_m-c_{re}\),
+          so \(\chi_2=\vartheta_2+\pi/2\). The middle arc is a <em>left</em> turn from \(\chi_1\) to \(\chi_2\):
+        </p>
+        <div class="formula">
+          \[ \boxed{\;L_{RLR}=R\big([\chi_1-\chi_s]_{2\pi}+[\chi_1-\chi_2]_{2\pi}+[\chi_e-\chi_2]_{2\pi}\big),\qquad \ell=\|c_{re}-c_{rs}\|\le4R\;} \]
+        </div>
+        <p>
+          The two signs of \(\pm\alpha\) are mirror images of each other across the line of centres and their middle arcs add up to \(2\pi\); by Dubins' theorem only the one
+          whose middle arc exceeds \(\pi\) can be optimal, so an implementation may evaluate both and keep the shorter. LRL is the mirror image:
+          \(d=c_{le}-c_{ls}\), \(\chi_1=\vartheta_1-\pi/2\), \(\chi_2=\vartheta_2-\pi/2\), and the arcs are
+          \(R([\chi_s-\chi_1]_{2\pi}+[\chi_2-\chi_1]_{2\pi}+[\chi_2-\chi_e]_{2\pi})\).
+        </p>
+        <figure>
+          <svg viewBox="0 0 600 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="CCC geometry: LRL path with the tangent middle circle">
+            <circle cx="190" cy="290" r="70" fill="none" stroke="#2457d6" stroke-width="1.5" stroke-dasharray="4 3"/>
+            <circle cx="414" cy="234" r="70" fill="none" stroke="#2457d6" stroke-width="1.5" stroke-dasharray="4 3"/>
+            <circle cx="282.8" cy="185.2" r="70" fill="none" stroke="#c27b00" stroke-width="1.5" stroke-dasharray="4 3"/>
+            <line x1="190" y1="290" x2="414" y2="234" stroke="#9aa5b5" stroke-width="1"/>
+            <line x1="190" y1="290" x2="282.8" y2="185.2" stroke="#9aa5b5" stroke-width="1" stroke-dasharray="2 2"/>
+            <line x1="282.8" y1="185.2" x2="414" y2="234" stroke="#9aa5b5" stroke-width="1" stroke-dasharray="2 2"/>
+            <polyline points="260.0,290.0 259.6,282.6 258.4,275.3 256.5,268.2 253.8,261.3 250.4,254.7 246.4,248.5 241.7,242.8 236.4,237.6 224.0,223.2 212.8,187.4 221.7,150.9 248.2,124.3 284.6,115.2 320.5,126.2 345.6,154.2 352.5,191.1 348.4,209.6 347.4,212.5 346.5,215.5 345.7,218.5 345.1,221.6 344.6,224.7 344.3,227.8 344.1,230.9 344.0,234.0" fill="none" stroke="#2457d6" stroke-width="3"/>
+            <circle cx="190" cy="290" r="3" fill="#2457d6"/><text x="150" y="312" font-size="12" fill="#2457d6">c_ls</text>
+            <circle cx="414" cy="234" r="3" fill="#2457d6"/><text x="420" y="250" font-size="12" fill="#2457d6">c_le</text>
+            <circle cx="282.8" cy="185.2" r="3" fill="#c27b00"/><text x="288" y="182" font-size="12" fill="#c27b00">c_m (2R from both)</text>
+            <circle cx="236.4" cy="237.6" r="3.5" fill="#172033"/><text x="196" y="236" font-size="12" fill="#172033">p_1</text>
+            <circle cx="348.4" cy="209.6" r="3.5" fill="#172033"/><text x="356" y="206" font-size="12" fill="#172033">p_2</text>
+            <line x1="260" y1="290" x2="260" y2="262" stroke="#172033" stroke-width="2.5" marker-end="url(#arr17)"/>
+            <text x="236" y="316" font-size="13" fill="#172033">start (0,0), χ_s = 0°</text>
+            <line x1="344" y1="234" x2="316" y2="234" stroke="#172033" stroke-width="2.5" marker-end="url(#arr17)"/>
+            <text x="300" y="262" font-size="13" fill="#172033">goal (80,120), χ_e = 180°</text>
+            <text x="20" y="24" font-size="13" fill="#172033">LRL, R = 100 m: L = 84.6 + 434.4 + 35.6 = 554.7 m; middle arc 248.9° &gt; 180°.</text>
+            <text x="20" y="44" font-size="12" fill="#5d687a">ℓ = ‖c_le − c_ls‖ = 329.8 m ≤ 4R, so the CCC words are feasible; the best CSC word (RSR) is 1055.6 m.</text>
+          </svg>
+          <figcaption>Figure 2. CCC geometry for the worked case B. The middle circle is tangent to both left circles; tangent points are the midpoints of the centre-to-centre segments.</figcaption>
+        </figure>
+
+        <h3>4.4 The algorithm</h3>
+        <div class="formula">
+          \[ \boxed{\;\text{word}^\ast=\arg\min_{w\in\{LSL,RSR,LSR,RSL,RLR,LRL\}\ \text{feasible}} L_w,\qquad L^\ast=L_{\text{word}^\ast}\;} \]
+        </div>
+        <p>
+          Shkel &amp; Lumelsky (2001) showed how to pick the optimal word from the relative pose without evaluating all six; for a swarm planner the brute "compute all six"
+          is simpler, branch-free and just as fast. Always re-validate by <em>propagating</em> the chosen segments with the exact arc/line kinematics and checking the end pose
+          — that catches sign and modulo mistakes that a length formula alone cannot.
+        </p>
+      </section>
+
+      <section id="example">
+        <h2>5. Worked Examples (verified)</h2>
+        <p>
+          All numbers below come from <code>part17_dubins.py</code>: the six closed forms, an exact segment-by-segment propagation to check each end pose (errors below
+          \(10^{-12}\) m and \(10^{-15}\) rad), and an independent <strong>brute-force shooting</strong> search: for each word the first two segment lengths \((s_1,s_2)\) are
+          gridded, the third arc is whatever closes the course to \(\chi_e\), the end-position residual is minimised (Nelder–Mead refinement of the 40 best grid points) and
+          only residuals below \(10^{-6}\) m count as solutions. The shooting search agreed with the closed forms to \(10^{-11}\) m in every case. Radius \(R=100\) m throughout.
+        </p>
+        <table>
+          <tr><th>Case</th><th>Start \((p_n,p_e,\chi)\)</th><th>Goal</th><th>RSR</th><th>LSL</th><th>RSL</th><th>LSR</th><th>RLR</th><th>LRL</th><th>Best</th></tr>
+          <tr><td>Sanity</td><td>(0, 0, 0°)</td><td>(500, 0, 0°)</td><td>500.0</td><td>500.0</td><td>500.0</td><td>500.0</td><td>—</td><td>—</td><td>straight, 500.0 m</td></tr>
+          <tr><td>A (Fig. 1)</td><td>(0, 0, 0°)</td><td>(300, 400, 90°)</td><td><strong>517.6</strong></td><td>1739.9</td><td>1140.5</td><td>1123.4</td><td>606.3</td><td>—</td><td>RSR, 517.6 m</td></tr>
+          <tr><td>B (Fig. 2)</td><td>(0, 0, 0°)</td><td>(80, 120, 180°)</td><td>1055.6</td><td>1272.3</td><td>—</td><td>—</td><td>827.8</td><td><strong>554.7</strong></td><td>LRL, 554.7 m</td></tr>
+          <tr><td>C (sidestep)</td><td>(0, 0, 0°)</td><td>(0, 150, 0°)</td><td><strong>778.3</strong></td><td><strong>778.3</strong></td><td>—</td><td>1351.4</td><td>782.1</td><td>782.1</td><td>RSR = LSL, 778.3 m</td></tr>
+        </table>
+        <p>
+          <strong>Sanity case.</strong> With the goal \(5R\) straight ahead, all four CSC words collapse to zero-length arcs plus a 500 m line, and both CCC words are infeasible
+          because \(\ell=500\gt4R\). The brute-force search returns 500.000 m as well: the straight line is a legitimate (degenerate) Dubins path.
+        </p>
+        <p>
+          <strong>Case A.</strong> \(c_{rs}=(0,100)\), \(c_{re}=(300,400)+100(-1,0)=(200,400)\), so \(d=(200,300)\), \(\ell=360.6\) m and
+          \(\vartheta=\operatorname{atan2}(300,200)=56.3^\circ\). The arcs are \(R[56.3^\circ-0]=98.3\) m and \(R[90^\circ-56.3^\circ]=58.8\) m, total \(517.6\) m — the aircraft
+          barely banks, flies the tangent, and rolls out heading east. The RLR alternative (606.3 m) is feasible because the right circles are only 360.6 m \(\lt 4R\) apart, but longer.
+        </p>
+        <p>
+          <strong>Case B.</strong> The goal is close and reversed. The left circles \(c_{ls}=(0,-100)\) and \(c_{le}=(80,220)\) are \(\ell=329.8\) m \(\lt4R\) apart, so a middle right circle fits; the optimal LRL spends
+          \(84.6+434.4+35.6\) m, and its middle arc is \(434.4/100=4.344\) rad \(=248.9^\circ\gt180^\circ\), as Dubins' theorem requires. Every CSC word is at least 1055.6 m.
+        </p>
+        <p>
+          <strong>Case C.</strong> A pure sidestep of \(1.5R\) is a tie between RSR and LSL (\(7.783R\)) with the CCC words only \(0.5\%\) longer (\(7.821R\)):
+          near \(\ell\approx4R\) the regimes compete, which is exactly why a planner must evaluate the CCC words rather than assume "far apart".
+        </p>
+      </section>
+
+      <section id="airplane">
+        <h2>6. The 3-D Dubins Airplane</h2>
+        <p>
+          Owen, Beard &amp; McLain (2015) extend the car with altitude and a bounded flight-path angle:
+          \(\dot h=V\sin\gamma\), \(|\gamma|\le\gamma_{\max}\), with the horizontal motion \(V\cos\gamma\,(\cos\chi,\sin\chi)\) (for small \(\gamma\) the horizontal
+          speed is essentially \(V\)). Let \(L_{2D}\) be the Dubins-car length of the horizontal problem and \(\Delta h=h_e-h_s\) the altitude to gain. Three regimes:
+        </p>
+        <ul>
+          <li><strong>Low altitude</strong>, \(|\Delta h|\le L_{2D}\tan\gamma_{\max}\): fly the 2-D path with constant \(\gamma=\arctan(\Delta h/L_{2D})\). Example: \(\Delta h=50\) m on the 500 m sanity path gives \(\gamma=5.71^\circ\).</li>
+          <li><strong>High altitude</strong>, \(|\Delta h|\gt(L_{2D}+2\pi R_{\min})\tan\gamma_{\max}\): the climb needs a path of length \(|\Delta h|/\tan\gamma_{\max}\); add
+            \(k=\lfloor(|\Delta h|/\tan\gamma_{\max}-L_{2D})/(2\pi R_{\min})\rfloor\) full helical turns at the start (or end) circle and then <em>enlarge</em> the helix radius
+            \(R^\ast\ge R_{\min}\) by bisection until the total length is exactly \(|\Delta h|/\tan\gamma_{\max}\) — the aircraft climbs at \(\gamma_{\max}\) all the way.
+            Example (verified): \(L_{2D}=500\) m, \(\Delta h=600\) m, \(\gamma_{\max}=15^\circ\): required length \(600/\tan15^\circ=2239.2\) m; since
+            \((500+628.3)\tan15^\circ=302.3\) m \(\lt600\) m this is the high case; \(k=\lfloor1739.2/628.3\rfloor=2\) turns and \(R^\ast=1739.2/(4\pi)=138.4\) m
+            (here \(L_{2D}\) does not depend on \(R\), so no bisection is needed).</li>
+          <li><strong>Medium altitude</strong>, in between: a full turn would overshoot the altitude, so an intermediate arc of angle \(\varphi\) is inserted next to the first (or last)
+            turn and \(\varphi\) is found by bisection so that the lengthened path climbs exactly at \(\gamma_{\max}\).</li>
+        </ul>
+        <div class="success"><strong>Interpretation:</strong> altitude never shortens a Dubins path — it can only demand extra length, which is bought with spirals. In a swarm,
+          altitude changes are therefore scheduled where the horizontal path is long anyway, and the extra spiral turns are costed like any other arc.</div>
+      </section>
+
+      <section id="swarm">
+        <h2>7. Dubins Paths in the Swarm</h2>
+        <h3>7.1 Rendezvous with simultaneous arrival</h3>
+        <p>
+          Three UAVs with speed envelope \(V\in[18,28]\) m/s and \(\phi_{\max}=45^\circ\) must arrive at the pose \((800,400,90^\circ)\) at the same instant. The path is planned
+          with the radius at \(V_{\max}\), \(R=28^2/(g\tan45^\circ)=79.9\) m, so it stays flyable at any speed in the envelope. Verified results:
+        </p>
+        <table>
+          <tr><th>UAV</th><th>Start pose</th><th>Word</th><th>\(L_i\) (m)</th><th>Arrival window \([L_i/V_{\max},\,L_i/V_{\min}]\) (s)</th></tr>
+          <tr><td>1</td><td>(0, 0, 0°)</td><td>RSR</td><td>913.6</td><td>[32.6, 50.8]</td></tr>
+          <tr><td>2</td><td>(−200, 600, 90°)</td><td>LSR</td><td>1166.9</td><td>[41.7, 64.8]</td></tr>
+          <tr><td>3</td><td>(400, 900, 180°)</td><td>RSR</td><td>904.7</td><td>[32.3, 50.3]</td></tr>
+        </table>
+        <p>
+          The windows intersect in \([41.7,\,50.3]\) s, so a common arrival time exists. Choosing the earliest, \(T^\ast=41.7\) s, requires speeds
+          \(L_i/T^\ast=21.9,\ 28.0,\ 21.7\) m/s — UAV 2 flies flat out and the others slow down. This is McLain &amp; Beard's (2005) <em>coordination variable</em>
+          (arrival time) with <em>coordination functions</em> (each UAV's feasible window); <a href="19_coordinated_path_following.html">Part 19</a> makes the agreement on
+          \(T^\ast\) distributed. If the windows did <em>not</em> intersect, the alternative is to <strong>lengthen the short paths</strong>: at a common 23 m/s the mission would take
+          \(1166.9/23=50.7\) s and UAVs 1 and 3 would need an extra \(253.3\) m and \(262.2\) m — a loiter arc or a lateral dog-leg inserted into their Dubins path.
+          Speed changes are cheap and continuous; path lengthening is discrete but works when the speed envelope is narrow (high-speed aircraft, Part 16).
+        </p>
+        <h3>7.2 Other uses</h3>
+        <ul>
+          <li><strong>Formation assembly:</strong> after launch each UAV flies a Dubins path from its pose to its assigned slot pose \((p_i^d,\chi_c)\) (<a href="10_formation_specification.html">Part 10</a>); the slot assignment itself uses the Dubins lengths as costs in the Hungarian method or CBBA (<a href="22_task_allocation_cbba.html">Part 22</a>) — Euclidean distance underestimates the cost of a slot that is behind the aircraft.</li>
+          <li><strong>Task transitions:</strong> leaving an orbit for a new target pose, re-joining a path after an avoidance manoeuvre (<a href="20_collision_avoidance_cbf.html">Part 20</a>).</li>
+          <li><strong>Sampling-based planning:</strong> RRT / RRT\(^\ast\) with Dubins primitives as the steering function (Karaman &amp; Frazzoli 2011) for obstacle-rich airspace.</li>
+          <li><strong>MPC warm starts:</strong> the Dubins word gives a feasible initial guess (bang–zero–bang turn rate) for the optimiser of <a href="21_distributed_mpc.html">Part 21</a>.</li>
+        </ul>
+      </section>
+
+      <section id="fixed-wing">
+        <h2>8. Fixed-Wing Interpretation and the High-Speed Note</h2>
+        <p>
+          The radius that enters every formula is the Part 16 minimum radius, and it grows with the <em>square</em> of speed (verified):
+        </p>
+        <table>
+          <tr><th>\(V_g\) (m/s)</th><th>\(R_{\min}\) at \(\phi=30^\circ\)</th><th>at \(45^\circ\)</th><th>at \(60^\circ\)</th><th>180° reversal \(\pi R_{\min}\) (45°)</th></tr>
+          <tr><td>25</td><td>110.3 m</td><td>63.7 m</td><td>36.8 m</td><td>200 m</td></tr>
+          <tr><td>60</td><td>635.6 m</td><td>367.0 m</td><td>211.9 m</td><td>1.15 km</td></tr>
+          <tr><td>150</td><td>3973 m</td><td>2294 m</td><td>1324 m</td><td>7.21 km</td></tr>
+          <tr><td>250</td><td>11035 m</td><td>6371 m</td><td>3678 m</td><td>20.0 km</td></tr>
+        </table>
+        <div class="note">
+          <strong>High-speed note.</strong> Scaling the speed by 6 (25 to 150 m/s) scales every arc by 36. Two consequences for the swarm. (i) Poses that were "far apart"
+          (\(\ell\gg4R\), CSC regime, path length \(\approx\) distance) become "close" (\(\ell\lt4R\)): a formation slot 1 km away at 150 m/s is inside the turning circle, and
+          reaching it costs a CCC manoeuvre of several kilometres. Plan transitions early, and prefer slot changes that are mostly along-track (<a href="19_coordinated_path_following.html">Part 19</a>).
+          (ii) Latency moves the start pose: at 200 m/s a 0.5 s planning delay displaces it by 100 m, so plan from the <em>predicted</em> pose at the time the path becomes active.
+          Also, because \(R_{\min}\propto V_g^2\), a path planned at cruise speed is unflyable if the aircraft accelerates — plan at \(V_{\max}\) of the envelope, as in Section 7.1.
+        </div>
+        <p>
+          <strong>Wind.</strong> The Dubins car lives in still air. In a uniform wind \(w\) the air-relative path is still Dubins, but the ground track of a constant-rate turn is a
+          <em>trochoid</em>, not a circle (McGee &amp; Hedrick 2007; Techy &amp; Woolsey 2009 give the minimum-time solution). A practical approximation: solve the still-air problem to a
+          <em>virtual goal</em> \(p_e-wT\) and iterate on the arrival time \(T\) until it is consistent with the path length (McGee, Spry &amp; Hedrick 2005). Either way the autopilot
+          follows the resulting path in <em>course</em>, not heading (<a href="18_vector_field_guidance.html">Part 18</a>).
+        </p>
+        <p>
+          <strong>Roll dynamics.</strong> A Dubins path has discontinuous curvature at every segment boundary, which asks for an infinite roll rate. With a roll-rate limit
+          \(p_{\max}\) (Part 16) the aircraft lags the path by roughly the time to reach \(\phi_{\max}\); either plan with a slightly larger radius than \(R_{\min}\)
+          (\(R=1.1\)–\(1.3R_{\min}\) is common) or let the path follower absorb the error.
+        </p>
+        <div class="claw">
+          <strong>Toward the CLAW</strong>
+          This lesson supplies the <strong>transition-path generator</strong> of the unified law. It consumes the aircraft's (predicted) pose \((p_n,p_e,\chi)\), a target pose
+          delivered by the formation/task layer (a slot \((p_i^d,\chi_c)\), a rendezvous pose, or the entry point of a new path) and the envelope-derived radius
+          \(R=V_{\max}^2/(g\tan\phi_{\max})\). It produces (a) a flyable path — a list of (type, length) segments with their circle centres — handed to the path-following block of
+          <a href="18_vector_field_guidance.html">Part 18</a>, and (b) its length \(L\), which feeds the timing block of <a href="19_coordinated_path_following.html">Part 19</a>
+          (arrival windows \([L/V_{\max},L/V_{\min}]\)) and the cost matrix of <a href="22_task_allocation_cbba.html">Part 22</a>.
+        </div>
+      </section>
+
+      <section id="implementation">
+        <h2>9. Implementation</h2>
+        <p>
+          Complete NumPy implementation of all six words in the course convention, with an exact segment propagator used to verify every end pose. Running it reproduces
+          the sanity case and cases A and B of Section 5.
+        </p>
+<pre><code>import numpy as np
+TWO_PI = 2 * np.pi
+
+def wrap2pi(a):                       # x mod 2*pi in [0, 2*pi), tolerant of -1e-17
+    a = np.mod(a, TWO_PI); return 0.0 if a &gt; TWO_PI - 1e-9 else a
+def unit(th): return np.array([np.cos(th), np.sin(th)])
+def nR(chi):                          # right-hand normal of the course, NED (n, e)
+    return np.array([-np.sin(chi), np.cos(chi)])
+def pol(d):                           # length and course (clockwise from north) of a vector
+    return np.linalg.norm(d), np.arctan2(d[1], d[0])
+
+def dubins_words(ps, chis, pe, chie, R):
+    """All feasible Dubins words: {word: (length, [(type, seg_length), ...])}."""
+    ps, pe = np.asarray(ps, float), np.asarray(pe, float)
+    crs, cls = ps + R * nR(chis), ps - R * nR(chis)      # start circles
+    cre, cle = pe + R * nR(chie), pe - R * nR(chie)      # end circles
+    out = {}
+    l, th = pol(cre - crs); a1, a3 = wrap2pi(th - chis), wrap2pi(chie - th)      # RSR
+    out['RSR'] = (R * (a1 + a3) + l, [('R', R * a1), ('S', l), ('R', R * a3)])
+    l, th = pol(cle - cls); a1, a3 = wrap2pi(chis - th), wrap2pi(th - chie)      # LSL
+    out['LSL'] = (R * (a1 + a3) + l, [('L', R * a1), ('S', l), ('L', R * a3)])
+    l, th = pol(cle - crs)                                                        # RSL
+    if l &gt;= 2 * R:
+        chit, s = th + np.arcsin(2 * R / l), np.sqrt(l * l - 4 * R * R)
+        a1, a3 = wrap2pi(chit - chis), wrap2pi(chit - chie)
+        out['RSL'] = (R * (a1 + a3) + s, [('R', R * a1), ('S', s), ('L', R * a3)])
+    l, th = pol(cre - cls)                                                        # LSR
+    if l &gt;= 2 * R:
+        chit, s = th - np.arcsin(2 * R / l), np.sqrt(l * l - 4 * R * R)
+        a1, a3 = wrap2pi(chis - chit), wrap2pi(chie - chit)
+        out['LSR'] = (R * (a1 + a3) + s, [('L', R * a1), ('S', s), ('R', R * a3)])
+    for word, c1, c3, sg in (('RLR', crs, cre, +1), ('LRL', cls, cle, -1)):      # CCC
+        l, th = pol(c3 - c1)
+        if l &gt; 4 * R: continue
+        alpha, best = np.arccos(l / (4 * R)), None
+        for sig in (+1, -1):                      # the two tangent middle circles
+            th1 = th + sig * alpha; cm = c1 + 2 * R * unit(th1)
+            chi1 = th1 + sg * np.pi / 2; chi2 = pol(cm - c3)[1] + sg * np.pi / 2
+            a1, a2, a3 = (wrap2pi(sg * (chi1 - chis)), wrap2pi(sg * (chi1 - chi2)),
+                          wrap2pi(sg * (chie - chi2)))
+            L = R * (a1 + a2 + a3)
+            if best is None or L &lt; best[0]:
+                best = (L, [(word[0], R * a1), (word[1], R * a2), (word[2], R * a3)])
+        out[word] = best
+    return out
+
+def dubins_shortest(ps, chis, pe, chie, R):
+    w = dubins_words(ps, chis, pe, chie, R); k = min(w, key=lambda q: w[q][0])
+    return k, w[k][0], w[k][1]
+
+def step(p, chi, typ, s, R):          # exact propagation along one segment
+    if typ == 'S': return p + s * unit(chi), chi
+    sg = 1 if typ == 'R' else -1; c = p + sg * R * nR(chi); chi2 = chi + sg * s / R
+    return c - sg * R * nR(chi2), chi2
+
+def end_pose(ps, chis, segs, R):
+    p, chi = np.asarray(ps, float), chis
+    for typ, s in segs: p, chi = step(p, chi, typ, s, R)
+    return p, chi
+
+if __name__ == '__main__':
+    cases = [((0, 0), 0.0, (500, 0), 0.0),                       # sanity: straight line
+             ((0, 0), 0.0, (300, 400), np.pi / 2),               # case A -&gt; RSR 517.6 m
+             ((0, 0), 0.0, (80, 120), np.pi)]                    # case B -&gt; LRL 554.7 m
+    for ps, chis, pe, chie in cases:
+        word, L, segs = dubins_shortest(ps, chis, pe, chie, 100.0)
+        p, chi = end_pose(ps, chis, segs, 100.0)
+        err = np.linalg.norm(p - np.array(pe, float))
+        print(f"{word}: L = {L:.1f} m, segments {[(t, round(s, 1)) for t, s in segs]}, "
+              f"end-pose error {err:.1e} m, {abs(np.angle(np.exp(1j*(chi-chie)))):.1e} rad")
+</code></pre>
+        <div class="demo">
+          <strong>Interactive demo: drag the poses.</strong> Drag a marker to move it, drag its arrow tip to rotate it. North is up, east is right; the best word is drawn in blue,
+          all six lengths are listed. The lesson is complete without this demo.
+          <div class="controls">
+            <label>Turn radius \(R\) (m) <input type="range" id="dub-R" min="20" max="200" step="5" value="80"></label>
+            <span id="dub-Rval">80</span>
+            <button class="secondary" id="dub-reset">Reset</button>
+            <span id="dub-out" style="font-family:ui-monospace,monospace;font-size:.9rem"></span>
+          </div>
+          <canvas id="dub-canvas" width="900" height="480"></canvas>
+        </div>
+      </section>
+
+      <section id="pitfalls">
+        <h2>10. Common Pitfalls</h2>
+        <ul>
+          <li><strong>Axis convention.</strong> Porting an ENU/counter-clockwise implementation into NED swaps the meaning of L and R and the sign in \(\hat n_R\). Validate with the heading-north test: the right circle must be <em>east</em> of the aircraft.</li>
+          <li><strong>Modulo at zero.</strong> \(\operatorname{mod}(-10^{-17},2\pi)=2\pi\) turns a zero-length arc into a full circle (we saw \(1128\) m instead of \(500\) m before adding the tolerance in <code>wrap2pi</code>).</li>
+          <li><strong>Radius at the wrong speed.</strong> \(R_{\min}\propto V_g^2\); a path planned at cruise is unflyable after acceleration. Plan at \(V_{\max}\) when the speed will be used for timing.</li>
+          <li><strong>Skipping feasibility tests.</strong> Internal tangents need \(\ell\ge2R\), CCC words need \(\ell\le4R\); evaluating the formulas outside their domain gives NaN or, worse, a plausible wrong number.</li>
+          <li><strong>Assuming CSC only.</strong> Fine for waypoints more than \(4R\) apart; at high speed \(4R\) is kilometres, so CCC cases are common for slot changes (case B, case C).</li>
+          <li><strong>Heading versus course in wind.</strong> The Dubins geometry is an air-mass construction; follow it in course and let the wind triangle (Part 15) supply the heading, or plan with trochoids.</li>
+          <li><strong>Curvature discontinuities.</strong> The roll loop cannot jump to \(\phi_{\max}\); inflate \(R\) or expect cross-track error at every junction.</li>
+          <li><strong>Stale start pose.</strong> Plan from the pose predicted at activation time; at 200 m/s every 100 ms of latency is 20 m.</li>
+        </ul>
+      </section>
+
+      <section id="exercises">
+        <h2>11. Exercises</h2>
+        <div class="exercise">
+          <strong>Exercise 1 (derivation).</strong> Starting from \(\hat t(\chi)=(\cos\chi,\sin\chi)\) in (north, east) coordinates, show that the centre of the right turning circle is
+          \(p+R(-\sin\chi,\cos\chi)\), and verify it for an aircraft heading east (\(\chi=90^\circ\)).
+          <details><summary>Show solution</summary><div class="solution">A clockwise rotation by \(90^\circ\) maps \(\chi\mapsto\chi+\pi/2\), so the right normal is
+            \((\cos(\chi+\pi/2),\sin(\chi+\pi/2))=(-\sin\chi,\cos\chi)\). For \(\chi=90^\circ\) this is \((-1,0)\): the centre is \(R\) to the <em>south</em> — correct, since the right-hand side of an east-bound aircraft is south.</div></details>
+        </div>
+        <div class="exercise">
+          <strong>Exercise 2 (numeric).</strong> Recompute \(L_{RSR}\) for case A by hand from the centres \(c_{rs}=(0,100)\) and \(c_{re}=(200,400)\).
+          <details><summary>Show solution</summary><div class="solution">\(d=(200,300)\), \(\ell=\sqrt{200^2+300^2}=360.6\) m, \(\vartheta=\operatorname{atan2}(300,200)=0.9828\) rad \(=56.3^\circ\).
+            Arcs: \(100\times0.9828=98.3\) m and \(100\times(\pi/2-0.9828)=58.8\) m. Total \(98.3+360.6+58.8=517.6\) m, as in the table.</div></details>
+        </div>
+        <div class="exercise">
+          <strong>Exercise 3 (derivation).</strong> Prove that the internal tangent segment of RSL has length \(\sqrt{\ell^2-4R^2}\) and explain why RSL is infeasible for \(\ell\lt2R\).
+          <details><summary>Show solution</summary><div class="solution">The segment direction \(\hat t\) and the right normal \(\hat n_R\) are orthonormal, and
+            \(d=s\hat t+2R\hat n_R\) (the two radius offsets point the same way because the circles have opposite sense). Hence \(\ell^2=s^2+4R^2\). For \(\ell\lt2R\) the circles overlap and no line can be tangent to both from opposite sides.</div></details>
+        </div>
+        <div class="exercise">
+          <strong>Exercise 4 (numeric, high speed).</strong> An aircraft at 150 m/s with \(\phi_{\max}=45^\circ\) must reverse course (goal directly behind, same track). What is the Dubins length, and what is it at 25 m/s?
+          <details><summary>Show solution</summary><div class="solution">\(R_{\min}=150^2/(9.81\tan45^\circ)=2293.6\) m; a reversal with the goal \(2R\) abeam is a half circle,
+            \(\pi R_{\min}=7205\) m. At 25 m/s, \(R_{\min}=63.7\) m and the reversal is \(200\) m — 36 times shorter.</div></details>
+        </div>
+        <div class="exercise">
+          <strong>Exercise 5 (numeric).</strong> For the rendezvous of Section 7.1, what common arrival time results if the envelope is narrowed to \([22,26]\) m/s? Is it feasible?
+          <details><summary>Show solution</summary><div class="solution">Windows: UAV 1 \([913.6/26,913.6/22]=[35.1,41.5]\) s, UAV 2 \([44.9,53.0]\) s, UAV 3 \([34.8,41.1]\) s.
+            The intersection is empty (UAV 2 cannot arrive before 44.9 s, the others cannot arrive after 41.5 s): speed alone cannot coordinate; lengthen the short paths so that they too need 44.9 s at \(V_{\max}\), i.e. by at least \(1166.9-913.6=253.3\) m (UAV 1) and \(1166.9-904.7=262.2\) m (UAV 3).</div></details>
+        </div>
+        <div class="exercise">
+          <strong>Exercise 6 (code).</strong> Add to <code>dubins_shortest</code> a sampler that returns the path as \(N\) poses, and use it to compute the ground track in a wind of
+          5 m/s from the west by adding \(w\,t\) with \(t=s/V\). Observe that the arcs become trochoids.
+          <details><summary>Show solution</summary><div class="solution">Sample each segment with <code>step(p, chi, typ, s*k/n, R)</code> for \(k=0..n\), accumulate the arc length \(s\) and add
+            \((w_n,w_e)\,s/V\) to each sampled position. With \(w=(0,5)\) m/s and \(V=20\) m/s, every point drifts east by \(0.25\) m per metre flown; circles stretch into trochoids and the end pose misses the goal by \(0.25L\) m east, which is why wind-aware planning moves the goal upwind.</div></details>
+        </div>
+      </section>
+
+      <section id="summary">
+        <h2>12. Key Takeaways &amp; Formula Sheet</h2>
+        <ul>
+          <li>Dubins car in NED: \(\dot p_n=V\cos\chi,\ \dot p_e=V\sin\chi,\ \dot\chi=u,\ |u|\le V/R_{\min}\), \(\chi\) clockwise from north.</li>
+          <li>Turning centres: \(c_R=p+R(-\sin\chi,\cos\chi)\), \(c_L=p-R(-\sin\chi,\cos\chi)\); polar angle \(\vartheta=\chi\mp\pi/2\) on the right/left circle.</li>
+          <li>Arcs: right \(R[\chi_2-\chi_1]_{2\pi}\), left \(R[\chi_1-\chi_2]_{2\pi}\).</li>
+          <li>External tangent (RSR/LSL): segment \(=d\), course \(\vartheta\), always feasible. Internal tangent (RSL/LSR): \(s=\sqrt{\ell^2-4R^2}\), \(\chi_t=\vartheta\pm\arcsin(2R/\ell)\), needs \(\ell\ge2R\).</li>
+          <li>CCC (RLR/LRL): \(c_m=c_1+2R\hat u(\vartheta\pm\arccos(\ell/4R))\), needs \(\ell\le4R\); optimal middle arc \(\gt\pi\).</li>
+          <li>Planner: \(L^\ast=\min_w L_w\) over the six words; verify by exact propagation.</li>
+          <li>Dubins airplane: low / medium / high altitude regimes; extra length bought with spirals of radius \(R^\ast\ge R_{\min}\).</li>
+          <li>Swarm: arrival window \([L_i/V_{\max},L_i/V_{\min}]\); common \(T^\ast\) exists iff \(\max_iL_i/V_{\max}\le\min_iL_i/V_{\min}\); otherwise lengthen paths.</li>
+          <li>High speed: \(R_{\min}\propto V_g^2\) (36× from 25 to 150 m/s); plan at \(V_{\max}\), from the predicted pose, in course not heading.</li>
+        </ul>
+      </section>
+
+      <section id="references">
+        <h2>13. References</h2>
+        <ul>
+          <li>L. E. Dubins, "On curves of minimal length with a constraint on average curvature, and with prescribed initial and terminal positions and tangents", <em>American Journal of Mathematics</em>, 79(3):497–516, 1957.</li>
+          <li>A. M. Shkel and V. Lumelsky, "Classification of the Dubins set", <em>Robotics and Autonomous Systems</em>, 34(4):179–202, 2001.</li>
+          <li>J.-D. Boissonnat, A. Cérézo and J. Leblond, "Shortest paths of bounded curvature in the plane", <em>Journal of Intelligent and Robotic Systems</em>, 11:5–20, 1994.</li>
+          <li>R. W. Beard and T. W. McLain, <em>Small Unmanned Aircraft: Theory and Practice</em>, Princeton University Press, 2012, Chapter 11 (Dubins paths and path management).</li>
+          <li>M. Owen, R. W. Beard and T. W. McLain, "Implementing Dubins airplane paths on fixed-wing UAVs", in K. P. Valavanis and G. J. Vachtsevanos (eds.), <em>Handbook of Unmanned Aerial Vehicles</em>, Springer, 2015, pp. 1677–1701.</li>
+          <li>S. M. LaValle, <em>Planning Algorithms</em>, Cambridge University Press, 2006, Section 15.3.1 (Dubins curves).</li>
+          <li>T. G. McGee and J. K. Hedrick, "Optimal path planning with a kinematic airplane model", <em>Journal of Guidance, Control, and Dynamics</em>, 30(2):629–633, 2007; L. Techy and C. A. Woolsey, "Minimum-time path planning for unmanned aerial vehicles in steady uniform winds", <em>JGCD</em>, 32(6):1736–1746, 2009.</li>
+          <li>T. W. McLain and R. W. Beard, "Coordination variables, coordination functions, and cooperative timing missions", <em>Journal of Guidance, Control, and Dynamics</em>, 28(1):150–161, 2005.</li>
+          <li>S. Karaman and E. Frazzoli, "Sampling-based algorithms for optimal motion planning", <em>International Journal of Robotics Research</em>, 30(7):846–894, 2011.</li>
+        </ul>
+      </section>
+
+      <div class="prevnext">
+        <a class="prev" href="16_coordinated_turn_high_speed.html"><span>&larr; Previous</span>Part 16: Coordinated-Turn Dynamics &amp; High-Speed Flight</a>
+        <a class="next" href="18_vector_field_guidance.html"><span>Next &rarr;</span>Part 18: Vector-Field Guidance</a>
+      </div>
+      <div class="done-box"><button id="done-btn" data-lesson="17">Mark Part 17 as complete</button></div>
+    </main>
+  </div>
+
+  <footer>Fixed-Wing Swarm Learning · Part 17 · Dubins Paths</footer>
+
+  <script>
+    (function () {
+      try {
+        var btn = document.getElementById('done-btn');
+        if (!btn) return;
+        var id = btn.getAttribute('data-lesson');
+        var key = 'fwswarm_done';
+        var done = JSON.parse(localStorage.getItem(key) || '[]');
+        function render() {
+          var is = done.indexOf(id) >= 0;
+          btn.textContent = is ? 'Completed ✓ (click to undo)' : 'Mark Part ' + id + ' as complete';
+          btn.className = is ? 'undone' : '';
+        }
+        btn.addEventListener('click', function () {
+          var i = done.indexOf(id);
+          if (i >= 0) done.splice(i, 1); else done.push(id);
+          localStorage.setItem(key, JSON.stringify(done));
+          render();
+        });
+        render();
+      } catch (e) { /* storage unavailable: ignore */ }
+    })();
+  </script>
+  <script>
+    // Dubins demo: drag start/goal poses; all six words computed in the NED/course convention of the lesson.
+    (function () {
+      try {
+        var c = document.getElementById('dub-canvas'); if (!c) return;
+        var ctx = c.getContext('2d'), out = document.getElementById('dub-out');
+        var Rsl = document.getElementById('dub-R'), Rval = document.getElementById('dub-Rval');
+        var TWO_PI = 2 * Math.PI, WORDS = ['RSR', 'LSL', 'RSL', 'LSR', 'RLR', 'LRL'];
+        function wrap2pi(a) { a = ((a % TWO_PI) + TWO_PI) % TWO_PI; return a > TWO_PI - 1e-9 ? 0 : a; }
+        function nR(chi) { return [-Math.sin(chi), Math.cos(chi)]; }
+        function unit(t) { return [Math.cos(t), Math.sin(t)]; }
+        function add(a, b, s) { return [a[0] + s * b[0], a[1] + s * b[1]]; }
+        function pol(d) { return [Math.hypot(d[0], d[1]), Math.atan2(d[1], d[0])]; }
+        function words(ps, chis, pe, chie, R) {
+          var crs = add(ps, nR(chis), R), cls = add(ps, nR(chis), -R), cre = add(pe, nR(chie), R), cle = add(pe, nR(chie), -R);
+          var o = {}, q, l, th, a1, a3, ct, s;
+          q = pol(add(cre, crs, -1)); l = q[0]; th = q[1]; a1 = wrap2pi(th - chis); a3 = wrap2pi(chie - th);
+          o.RSR = { L: R * (a1 + a3) + l, segs: [['R', R * a1], ['S', l], ['R', R * a3]] };
+          q = pol(add(cle, cls, -1)); l = q[0]; th = q[1]; a1 = wrap2pi(chis - th); a3 = wrap2pi(th - chie);
+          o.LSL = { L: R * (a1 + a3) + l, segs: [['L', R * a1], ['S', l], ['L', R * a3]] };
+          q = pol(add(cle, crs, -1)); l = q[0]; th = q[1];
+          if (l >= 2 * R) { ct = th + Math.asin(2 * R / l); s = Math.sqrt(l * l - 4 * R * R); a1 = wrap2pi(ct - chis); a3 = wrap2pi(ct - chie);
+            o.RSL = { L: R * (a1 + a3) + s, segs: [['R', R * a1], ['S', s], ['L', R * a3]] }; }
+          q = pol(add(cre, cls, -1)); l = q[0]; th = q[1];
+          if (l >= 2 * R) { ct = th - Math.asin(2 * R / l); s = Math.sqrt(l * l - 4 * R * R); a1 = wrap2pi(chis - ct); a3 = wrap2pi(chie - ct);
+            o.LSR = { L: R * (a1 + a3) + s, segs: [['L', R * a1], ['S', s], ['R', R * a3]] }; }
+          [['RLR', crs, cre, 1], ['LRL', cls, cle, -1]].forEach(function (w) {
+            var c1 = w[1], c3 = w[2], sg = w[3]; var qq = pol(add(c3, c1, -1)); if (qq[0] > 4 * R) return;
+            var al = Math.acos(qq[0] / (4 * R)), best = null;
+            [1, -1].forEach(function (sig) {
+              var th1 = qq[1] + sig * al, cm = add(c1, unit(th1), 2 * R), chi1 = th1 + sg * Math.PI / 2;
+              var chi2 = pol(add(cm, c3, -1))[1] + sg * Math.PI / 2;
+              var b1 = wrap2pi(sg * (chi1 - chis)), b2 = wrap2pi(sg * (chi1 - chi2)), b3 = wrap2pi(sg * (chie - chi2)), L = R * (b1 + b2 + b3);
+              if (best === null || L < best.L) best = { L: L, segs: [[w[0][0], R * b1], [w[0][1], R * b2], [w[0][2], R * b3]] };
+            });
+            o[w[0]] = best;
+          });
+          return o;
+        }
+        function stepSeg(p, chi, typ, s, R) {
+          if (typ === 'S') return [add(p, unit(chi), s), chi];
+          var sg = typ === 'R' ? 1 : -1, cc = add(p, nR(chi), sg * R), chi2 = chi + sg * s / R;
+          return [add(cc, nR(chi2), -sg * R), chi2];
+        }
+        var W = c.width, H = c.height, sc = 0.9, ox = W / 2, oy = H / 2;
+        function toS(p) { return [ox + sc * p[1], oy - sc * p[0]]; }
+        function toW(x, y) { return [(oy - y) / sc, (x - ox) / sc]; }
+        var start, goal, R, drag = null;
+        function reset() { start = { p: [-150, -250], chi: 0 }; goal = { p: [120, 200], chi: Math.PI / 2 }; R = +Rsl.value; draw(); }
+        function tip(pose) { return add(pose.p, unit(pose.chi), 40); }
+        function drawPose(pose, col, label) {
+          var a = toS(pose.p), b = toS(tip(pose));
+          ctx.strokeStyle = col; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke();
+          ctx.fillStyle = col; ctx.beginPath(); ctx.arc(a[0], a[1], 7, 0, TWO_PI); ctx.fill();
+          ctx.beginPath(); ctx.arc(b[0], b[1], 5, 0, TWO_PI); ctx.fill();
+          ctx.font = '13px system-ui'; ctx.fillText(label, a[0] + 10, a[1] + 16);
+        }
+        function draw() {
+          ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
+          ctx.strokeStyle = '#eef1f6'; ctx.lineWidth = 1;
+          for (var gx = ox % 90; gx < W; gx += 90) { ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, H); ctx.stroke(); }
+          for (var gy = oy % 90; gy < H; gy += 90) { ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(W, gy); ctx.stroke(); }
+          ctx.fillStyle = '#5d687a'; ctx.font = '12px system-ui'; ctx.fillText('north ↑  east →   grid 100 m', 10, 16);
+          var o = words(start.p, start.chi, goal.p, goal.chi, R), best = null;
+          WORDS.forEach(function (w) { if (o[w] && (best === null || o[w].L < o[best].L)) best = w; });
+          [[start, 1], [start, -1], [goal, 1], [goal, -1]].forEach(function (t) {
+            var cc = toS(add(t[0].p, nR(t[0].chi), t[1] * R));
+            ctx.strokeStyle = '#c9d2e3'; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.arc(cc[0], cc[1], sc * R, 0, TWO_PI); ctx.stroke(); ctx.setLineDash([]);
+          });
+          WORDS.forEach(function (w) {
+            if (!o[w]) return;
+            var p = start.p.slice(), chi = start.chi, isBest = (w === best);
+            ctx.strokeStyle = isBest ? '#2457d6' : '#e3b55c'; ctx.lineWidth = isBest ? 3 : 1;
+            ctx.beginPath(); var q0 = toS(p); ctx.moveTo(q0[0], q0[1]);
+            o[w].segs.forEach(function (sg) {
+              for (var k = 1; k <= 24; k++) { var r = stepSeg(p, chi, sg[0], sg[1] * k / 24, R), q = toS(r[0]); ctx.lineTo(q[0], q[1]); }
+              var r2 = stepSeg(p, chi, sg[0], sg[1], R); p = r2[0]; chi = r2[1];
+            });
+            ctx.stroke();
+          });
+          drawPose(start, '#147a4b', 'start'); drawPose(goal, '#b42318', 'goal');
+          var txt = WORDS.map(function (w) { return w + ': ' + (o[w] ? o[w].L.toFixed(1) : '—'); }).join('  ');
+          out.textContent = 'best ' + best + ' (' + o[best].L.toFixed(1) + ' m)   |   ' + txt;
+        }
+        function hit(ev) {
+          var r = c.getBoundingClientRect(), x = (ev.clientX - r.left) * W / r.width, y = (ev.clientY - r.top) * H / r.height;
+          var w = toW(x, y), cand = [[goal, 'tip'], [start, 'tip'], [goal, 'body'], [start, 'body']];
+          for (var i = 0; i < cand.length; i++) {
+            var ref = cand[i][1] === 'tip' ? tip(cand[i][0]) : cand[i][0].p;
+            if (Math.hypot(ref[0] - w[0], ref[1] - w[1]) < 16 / sc) return { pose: cand[i][0], mode: cand[i][1] };
+          }
+          return null;
+        }
+        function move(ev) {
+          if (!drag) return;
+          var r = c.getBoundingClientRect(), x = (ev.clientX - r.left) * W / r.width, y = (ev.clientY - r.top) * H / r.height, w = toW(x, y);
+          if (drag.mode === 'body') drag.pose.p = w; else drag.pose.chi = Math.atan2(w[1] - drag.pose.p[1], w[0] - drag.pose.p[0]);
+          draw(); ev.preventDefault();
+        }
+        c.addEventListener('mousedown', function (ev) { drag = hit(ev); });
+        c.addEventListener('mousemove', move);
+        window.addEventListener('mouseup', function () { drag = null; });
+        c.addEventListener('touchstart', function (ev) { drag = hit(ev.touches[0]); }, { passive: true });
+        c.addEventListener('touchmove', function (ev) { move(ev.touches[0]); ev.preventDefault(); }, { passive: false });
+        window.addEventListener('touchend', function () { drag = null; });
+        Rsl.addEventListener('input', function () { R = +Rsl.value; Rval.textContent = R; draw(); });
+        document.getElementById('dub-reset').addEventListener('click', reset);
+        reset();
+      } catch (e) { console.error('demo failed', e); }
+    })();
+  </script>
+</body>
+</html>

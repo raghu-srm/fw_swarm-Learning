@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fixed-Wing Swarm Learning — Formation Control</title>
+
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['\\(', '\\)']],
+        displayMath: [['\\[', '\\]'], ['$$', '$$']]
+      },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --card: #ffffff;
+      --text: #172033;
+      --muted: #5d687a;
+      --accent: #2457d6;
+      --accent-light: #eaf0ff;
+      --border: #dce2ec;
+      --code: #111827;
+      --success: #147a4b;
+      --warning: #c27b00;
+      --danger: #b42318;
+      --claw: #0f766e;
+      --claw-light: #e6f6f4;
+      --def: #6d28d9;
+      --def-light: #f3eefe;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+    }
+
+    header {
+      background: linear-gradient(135deg, #172554, #2457d6);
+      color: white;
+      padding: 56px 20px 44px;
+    }
+    header .wrap { max-width: 1320px; margin: auto; }
+    .topbar { margin-bottom: 18px; font-size: .95rem; }
+    .topbar a { color: #dbe6ff; }
+    .topbar a:hover { color: #fff; }
+
+    h1 { margin: 0 0 10px; font-size: clamp(2rem, 5vw, 3.2rem); }
+    h2 { margin-top: 0; font-size: 1.8rem; }
+    h3 { margin-top: 1.6rem; }
+    h4 { margin-top: 1.2rem; margin-bottom: .4rem; }
+
+    .subtitle { max-width: 820px; color: #dbe6ff; font-size: 1.08rem; }
+
+    nav, section, .callout {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px;
+      margin: 20px 0;
+      box-shadow: 0 3px 12px rgba(20, 35, 70, .05);
+    }
+    nav h2 { font-size: 1.35rem; }
+    nav ol { margin-bottom: 0; padding-left: 22px; }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    code { background: #eef1f6; padding: 2px 5px; border-radius: 5px; font-size: .92em; }
+    pre {
+      background: var(--code);
+      color: #e5e7eb;
+      padding: 18px;
+      border-radius: 10px;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+    pre code { background: none; padding: 0; color: inherit; font-size: .9rem; }
+
+    .formula {
+      background: var(--accent-light);
+      border-left: 4px solid var(--accent);
+      padding: 16px 18px;
+      margin: 16px 0;
+      overflow-x: auto;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+    }
+    .mini {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      background: #fbfcff;
+    }
+    .mini strong { display: block; margin-bottom: 5px; }
+
+    .success { border-left: 4px solid var(--success); background: #edf9f3; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .warning { border-left: 4px solid var(--warning); background: #fff8e8; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .danger  { border-left: 4px solid var(--danger);  background: #fdecec; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .note    { border-left: 4px solid var(--muted);   background: #f3f5f8; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .definition, .theorem {
+      border-left: 4px solid var(--def);
+      background: var(--def-light);
+      padding: 14px 18px;
+      border-radius: 8px;
+      margin: 14px 0;
+    }
+    .definition > strong:first-child, .theorem > strong:first-child { color: var(--def); }
+    .claw {
+      border: 1px solid #99d6cf;
+      border-left: 6px solid var(--claw);
+      background: var(--claw-light);
+      padding: 16px 20px;
+      border-radius: 10px;
+      margin: 18px 0;
+    }
+    .claw > strong:first-child { color: var(--claw); display: block; margin-bottom: 6px; font-size: 1.05rem; }
+
+    table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+    th, td { text-align: left; padding: 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    th { background: #f1f4f9; }
+
+    .tag {
+      display: inline-block;
+      background: #eaf0ff;
+      color: #204bb4;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: .82rem;
+      margin: 3px;
+    }
+
+    figure { margin: 18px 0; }
+    figure > svg { width: 100%; height: auto; display: block; background: #fbfcff; border: 1px solid var(--border); border-radius: 10px; }
+    figcaption { color: var(--muted); font-size: .92rem; margin-top: 6px; text-align: center; }
+
+    .exercise { border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; margin: 14px 0; background: #fbfcff; }
+    .exercise summary { cursor: pointer; color: var(--accent); font-weight: 600; margin-top: 8px; }
+    .exercise details { margin-top: 6px; }
+    .exercise .solution { border-top: 1px dashed var(--border); margin-top: 8px; padding-top: 8px; }
+
+    .demo { border: 1px solid var(--border); border-radius: 12px; padding: 14px; background: #fbfcff; margin: 16px 0; }
+    .demo canvas { width: 100%; height: auto; display: block; background: #ffffff; border: 1px solid var(--border); border-radius: 8px; }
+    .controls { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; margin: 10px 0; font-size: .95rem; }
+    .controls label { display: inline-flex; align-items: center; gap: 6px; }
+    .controls input[type=range] { width: 140px; }
+    .controls button, .btn {
+      background: var(--accent); color: #fff; border: 0; padding: 7px 14px; border-radius: 8px; cursor: pointer; font-size: .92rem;
+    }
+    .controls button:hover, .btn:hover { filter: brightness(1.08); }
+    .controls button.secondary { background: #e5e9f2; color: var(--text); }
+
+    .prevnext { display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin: 26px 0 0; }
+    .prevnext a { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; flex: 1 1 260px; }
+    .prevnext a span { display: block; color: var(--muted); font-size: .82rem; }
+    .prevnext a.next { text-align: right; }
+
+    .done-box { text-align: center; margin: 24px 0 0; }
+    .done-box button { background: var(--success); color: #fff; border: 0; padding: 9px 18px; border-radius: 8px; cursor: pointer; }
+    .done-box button.undone { background: #9aa5b5; }
+
+    footer { text-align: center; color: var(--muted); padding: 30px 20px 50px; }
+
+    .page-shell {
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      gap: 24px;
+      max-width: 1320px;
+      margin: 0 auto;
+      padding: 28px 20px 70px;
+      align-items: start;
+    }
+    .sidebar { grid-column: 1; position: sticky; top: 20px; }
+    .sidebar nav { position: sticky; top: 20px; max-height: calc(100vh - 40px); overflow-y: auto; }
+    .content { grid-column: 2; min-width: 0; }
+    @media (max-width: 960px) {
+      .page-shell { grid-template-columns: 1fr; }
+      .sidebar, .sidebar nav { position: static; max-height: none; }
+      .sidebar, .content { grid-column: 1; }
+    }
+    @media print {
+      nav { break-after: page; }
+      section { box-shadow: none; }
+      .demo, .done-box, .prevnext, .topbar { display: none; }
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <div class="wrap">
+      <div class="topbar"><a href="index.html">&larr; Course home</a> &nbsp;·&nbsp; Module C: Formation &amp; Flocking</div>
+      <h1>Fixed-Wing Swarm Learning</h1>
+      <div class="subtitle">
+        Part 12: <strong>Formation Control</strong> — the laws that turn a formation specification into velocity commands:
+        displacement-based (consensus in disguise), distance-based (rigidity in action), and why a moving formation needs
+        velocity feedforward.
+      </div>
+      <p>
+        <span class="tag">Formation control</span>
+        <span class="tag">Consensus</span>
+        <span class="tag">Rigidity</span>
+        <span class="tag">UAV Swarms</span>
+      </p>
+    </div>
+  </header>
+
+  <div class="page-shell">
+    <aside class="sidebar">
+      <nav id="index">
+        <h2>Index</h2>
+        <ol>
+          <li><a href="#why">Why this matters</a></li>
+          <li><a href="#displacement">Displacement-based control</a></li>
+          <li><a href="#second-order">Second-order version</a></li>
+          <li><a href="#manoeuvring">Moving formations and lag</a></li>
+          <li><a href="#distance">Distance-based control</a></li>
+          <li><a href="#comparison">Bearing-based note &amp; comparison</a></li>
+          <li><a href="#example">Worked example: 3 UAVs</a></li>
+          <li><a href="#fixed-wing">Fixed-wing interpretation</a></li>
+          <li><a href="#implementation">Implementation &amp; demo</a></li>
+          <li><a href="#pitfalls">Common pitfalls</a></li>
+          <li><a href="#exercises">Exercises</a></li>
+          <li><a href="#summary">Key takeaways</a></li>
+          <li><a href="#references">References</a></li>
+        </ol>
+      </nav>
+    </aside>
+
+    <main class="content">
+
+      <section id="why">
+        <h2>1. Why This Matters</h2>
+        <p>
+          <a href="10_formation_specification.html">Part 10</a> told us <em>what</em> a formation is (slot vectors \(r_i\),
+          displacements \(d_{ij}=r_i-r_j\), distances \(\|r_i-r_j\|\)); <a href="11_graph_framework_rigidity.html">Part 11</a>
+          told us <em>when</em> a set of distances pins a shape down. This part gives the control laws that make a swarm of
+          UAVs actually fly the shape, and proves that they work. Its position in the pipeline:
+        </p>
+        <div class="formula">
+          \[ \text{formation spec }(r_i,\,G)\ \rightarrow\ \boxed{\text{formation law } u_i}\ \rightarrow\ \text{velocity command}\ \rightarrow\ (\chi^c_i, V^c_{g,i})\ \rightarrow\ \text{safety filter}\ \rightarrow\ \text{autopilot} \]
+        </div>
+        <p>
+          Three families exist, differing in what each UAV must <em>measure</em> and what the swarm agrees on
+          <em>implicitly</em>. The displacement law needs relative positions in a common frame (GPS plus a shared north) and is
+          linear consensus with an offset. The distance law needs only ranges and body-frame bearings, no common heading, and
+          its guarantee is local and rests on infinitesimal rigidity. A third family uses bearings only. We derive the first
+          two fully, state the third, and then confront them with the fact that aircraft never stop: a <strong>moving</strong>
+          formation without velocity feedforward lags by \(V/k\), which at 60 m/s and a comfortable gain is 120 m.
+        </p>
+        <div class="grid">
+          <div class="mini"><strong>Input</strong>Consensus with listening weights \(W=A^T\) (<a href="7_directed_graph_consensus.html">Part 7</a>),
+            pinning and \(H=L+B\) (<a href="8_leader_follower_consensus.html">Part 8</a>), second-order consensus
+            (<a href="9_second_order_consensus.html">Part 9</a>), slot vectors and consistency (<a href="10_formation_specification.html">Part 10</a>),
+            the rigidity matrix \(R(p)\) (<a href="11_graph_framework_rigidity.html">Part 11</a>).</div>
+          <div class="mini"><strong>Output</strong>You can write, prove and tune the displacement and distance laws, compute the
+            steady lag of a moving formation, choose feedforward, and map the resulting velocity command onto a fixed-wing
+            aircraft's course and speed.</div>
+          <div class="mini"><strong>Used in</strong><a href="13_virtual_structures.html">Part 13</a> (the slot velocity that feeds
+            the feedforward), <a href="19_coordinated_path_following.html">Part 19</a>, <a href="20_collision_avoidance_cbf.html">Part 20</a>
+            (the nominal command the safety filter protects), <a href="23_px4_ros2_multi_vehicle.html">Part 23</a> and the
+            capstone CLAW (<a href="24_capstone_unified_swarm_claw.html">Part 24</a>).</div>
+        </div>
+      </section>
+
+      <section id="displacement">
+        <h2>2. Displacement-Based Formation Control</h2>
+        <p>
+          Single-integrator model \(\dot p_i=u_i\), \(p_i\in\mathbb R^n\): the law outputs a <strong>velocity command</strong>.
+          UAV \(i\) listens to in-neighbours \(j\in\mathcal N_i^{\mathrm{in}}\) with weights \(w_{ij}=a_{ji}\) and knows the
+          desired displacements \(d_{ij}=r_i-r_j\) from the slot table.
+        </p>
+        <div class="definition">
+          <strong>Definition (formation error).</strong> With consistent displacements \(d_{ij}=r_i-r_j\) (Part 10), define the
+          <em>formation error</em> of UAV \(i\) as \(e_i=p_i-r_i\): how far UAV \(i\) is from its slot, measured as if the
+          formation frame were anchored at the origin. The formation is achieved (up to translation) iff all \(e_i\) are equal.
+        </div>
+        <div class="formula">
+          \[ \boxed{\;u_i=-k_c\sum_{j\in\mathcal N_i^{\mathrm{in}}}w_{ij}\big[(p_i-p_j)-d_{ij}\big]\;} \qquad k_c\gt0 \]
+        </div>
+        <div class="theorem">
+          <strong>Theorem 1 (displacement-based formation = consensus on the formation error).</strong>
+          Under the boxed law with consistent \(d_{ij}=r_i-r_j\), the stacked error \(e=\operatorname{col}(e_1,\dots,e_N)\) obeys
+          \(\dot e=-k_c(L\otimes I_n)e\), where \(L=D_{\mathrm{in}}-W\) is the in-degree Laplacian. Hence
+          \(p_i(t)-p_j(t)\to d_{ij}\) for all \(i,j\) iff the communication digraph contains a directed spanning tree
+          (<a href="7_directed_graph_consensus.html#spanning-tree">Part 7</a>). For an undirected connected graph the common limit
+          is \(e^\ast=\frac1N\sum_j e_j(0)\) and the disagreement decays as \(\|\delta(t)\|\le e^{-k_c\lambda_2 t}\|\delta(0)\|\).
+          <br><em>Proof.</em> Substitute \(d_{ij}=r_i-r_j\):
+          \((p_i-p_j)-d_{ij}=(p_i-r_i)-(p_j-r_j)=e_i-e_j\). Since the \(r_i\) are constant, \(\dot e_i=\dot p_i=u_i\), so
+          \[ \dot e_i=-k_c\sum_j w_{ij}(e_i-e_j)\quad\Longleftrightarrow\quad \dot e=-k_c(L\otimes I_n)\,e . \]
+          This is exactly the consensus protocol of Parts 5 and 7 applied to the vectors \(e_i\); each Cartesian component
+          evolves independently under \(-k_cL\). The spanning-tree condition, the limit \(e^\ast=\gamma^Te(0)\) and the rate
+          \(k_c\lambda_2\) (undirected case, Part 5) follow verbatim. Finally \(e_i\to e^\ast\) for all \(i\) gives
+          \(p_i-p_j\to r_i-r_j=d_{ij}\). \(\square\)
+        </div>
+        <div class="success">
+          <strong>Interpretation:</strong> the displacement law is consensus in disguise. Every convergence result you already own
+          (switching graphs, delays, discrete-time step limits from <a href="6_consensus_convergence_stability.html">Part 6</a>,
+          digraphs from Part 7) transfers unchanged, because the formation offsets cancel out of the error dynamics. The price
+          is that \(p_i-p_j\) must be expressed in a <em>common</em> frame: every UAV needs the same north.
+        </div>
+        <div class="warning">
+          <strong>Caution (sign and consistency).</strong> \(d_{ij}=r_i-r_j\) is "where \(i\) sits relative to \(j\)". Using
+          \(r_j-r_i\) by mistake flies the formation mirrored through its centre. The set \(\{d_{ij}\}\) must be consistent:
+          \(d_{ij}+d_{jk}=d_{ik}\) around every cycle (Part 10). For an undirected graph the law is the gradient flow
+          \(u=-k_c\nabla V_f\) of \(V_f(p)=\tfrac12\sum_{(i,j)\in E}a_{ij}\|(p_i-p_j)-d_{ij}\|^2\); with an inconsistent set
+          the minimum of \(V_f\) is positive and the swarm converges to a compromise shape with permanent residual error.
+        </div>
+
+        <h3>2.1 Absolute placement: pin the formation to a leader</h3>
+        <p>
+          Theorem 1 fixes the shape but not where it is: \(e^\ast\) is whatever the initial errors average to. To place the
+          formation, give some UAVs (pinning gains \(b_i\gt0\)) access to a reference position \(p_0\) (lead aircraft or GCS
+          waypoint, index 0) and add the leader-follower term of Part 8:
+        </p>
+        <div class="formula">
+          \[ u_i=-k_c\sum_j w_{ij}\big[(p_i-p_j)-d_{ij}\big]-k_p\,b_i\,(p_i-p_0-r_i). \]
+        </div>
+        <p>
+          With \(e_i=p_i-p_0-r_i\) the same substitution gives
+          \(\dot e=-\big[(k_cL+k_pB)\otimes I_n\big]e-\mathbf 1_N\otimes\dot p_0\). For a static reference,
+          \(H_k=k_cL+k_pB\succ0\) whenever the graph is connected and at least one \(b_i\gt0\) (Part 8), so
+          \(e\to0\): every UAV reaches its slot \(p_0+r_i\) exponentially at rate \(\lambda_{\min}(H_k)\). For a
+          <em>moving</em> reference the extra term \(\mathbf 1\otimes\dot p_0\) is a persistent disturbance; Section 4 shows
+          what it costs.
+        </p>
+        <figure>
+          <svg viewBox="0 0 640 230" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="formation error as consensus">
+            <defs><marker id="arr12" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2457d6"/></marker></defs>
+            <text x="20" y="24" font-size="13" fill="#5d687a">slots r_i (dashed) and UAVs p_i (filled); arrows = e_i = p_i − r_i</text>
+            <polygon points="150,60 60,190 240,190" fill="none" stroke="#9aa5b5" stroke-width="1.5" stroke-dasharray="6 4"/>
+            <circle cx="150" cy="60" r="7" fill="none" stroke="#9aa5b5" stroke-width="1.5"/>
+            <circle cx="60" cy="190" r="7" fill="none" stroke="#9aa5b5" stroke-width="1.5"/>
+            <circle cx="240" cy="190" r="7" fill="none" stroke="#9aa5b5" stroke-width="1.5"/>
+            <text x="150" y="48" text-anchor="middle" font-size="12" fill="#5d687a">r_1</text>
+            <text x="48" y="212" text-anchor="middle" font-size="12" fill="#5d687a">r_2</text>
+            <text x="252" y="212" text-anchor="middle" font-size="12" fill="#5d687a">r_3</text>
+            <circle cx="205" cy="95" r="8" fill="#2457d6"/>
+            <circle cx="140" cy="150" r="8" fill="#2457d6"/>
+            <circle cx="275" cy="130" r="8" fill="#2457d6"/>
+            <line x1="150" y1="60" x2="197" y2="90" stroke="#2457d6" stroke-width="2" marker-end="url(#arr12)"/>
+            <line x1="60" y1="190" x2="132" y2="155" stroke="#2457d6" stroke-width="2" marker-end="url(#arr12)"/>
+            <line x1="240" y1="190" x2="270" y2="138" stroke="#2457d6" stroke-width="2" marker-end="url(#arr12)"/>
+            <text x="220" y="92" font-size="12" fill="#172033">p_1</text>
+            <text x="118" y="140" font-size="12" fill="#172033">p_2</text>
+            <text x="288" y="128" font-size="12" fill="#172033">p_3</text>
+            <text x="340" y="70" font-size="13" fill="#172033">consensus on e_i:</text>
+            <text x="340" y="92" font-size="13" fill="#172033">all three arrows become equal</text>
+            <text x="340" y="114" font-size="13" fill="#172033">(= e*), so p_i − p_j → r_i − r_j.</text>
+            <polygon points="455,135 365,225 545,225" fill="none" stroke="#147a4b" stroke-width="2" transform="translate(0,-45) scale(0.75) translate(150,60)"/>
+            <text x="340" y="190" font-size="13" fill="#147a4b">final shape = slots shifted by e*</text>
+          </svg>
+          <figcaption>Figure 1. The displacement law drives the formation errors \(e_i=p_i-r_i\) to a common value; the shape is
+            recovered and placed at the average initial error unless a pinned leader anchors it.</figcaption>
+        </figure>
+      </section>
+
+      <section id="second-order">
+        <h2>3. Second-Order Version (velocity terms and reference feedforward)</h2>
+        <p>
+          When the plant is a double integrator \(\dot p_i=v_i,\ \dot v_i=u_i\) (an acceleration-level interface, Part 9), the
+          law needs a damping term on relative velocities and, if the formation moves along a reference
+          \(p_i^d(t)=p_0(t)+r_i\), feedforward of the reference velocity \(v_i^d=\dot p_0\) and acceleration
+          \(a_i^d=\ddot p_0\):
+        </p>
+        <div class="formula">
+          \[ \boxed{\;u_i=a_i^d-\sum_j w_{ij}\Big[k_p\big((p_i-p_j)-d_{ij}\big)+k_v(v_i-v_j)\Big]-b_i\Big[k_p(p_i-p_i^d)+k_v(v_i-v_i^d)\Big]\;} \]
+        </div>
+        <p>
+          With \(e_i=p_i-p_i^d\) (so \(\dot e_i=v_i-v_i^d\), \(\ddot e_i=u_i-a_i^d\)) the same cancellation as in Theorem 1 gives
+          \(\ddot e=-k_p(H\otimes I_n)e-k_v(H\otimes I_n)\dot e\) with \(H=L+B\). For an undirected graph diagonalise
+          \(H=\sum_k\mu_k v_kv_k^T\) (\(\mu_k\gt0\) when connected and pinned): each mode is a second-order system
+        </p>
+        <div class="formula">
+          \[ \ddot z_k+k_v\mu_k\dot z_k+k_p\mu_k z_k=0,\qquad \omega_{n,k}=\sqrt{k_p\mu_k},\qquad \zeta_k=\frac{k_v\sqrt{\mu_k}}{2\sqrt{k_p}} . \]
+        </div>
+        <p>
+          Numbers (verified): three UAVs on the complete graph \(K_3\), UAV 1 pinned (\(b_1=1\)):
+          \(\mu(L+B)=\{0.268,\ 3,\ 3.73\}\). With \(k_p=1\), \(k_v=1.5\): \(\omega_{n}=\{0.518,\ 1.73,\ 1.93\}\) rad/s and
+          \(\zeta=\{0.388,\ 1.30,\ 1.45\}\). The closed-loop eigenvalues are \(-0.201\pm0.477\mathrm i\),
+          \(-0.774\), \(-0.814\), \(-3.69\), \(-4.82\): the slowest, under-damped mode is the <em>whole formation</em> sloshing
+          relative to the leader (eigenvector along \(v_1\) of \(H\)). To speed it up you do not raise \(k_p\) (that makes the
+          fast modes stiffer still); you raise \(\mu_{\min}(H)\) by pinning more UAVs or pinning a central one (Part 8).
+        </p>
+        <div class="note"><strong>Note:</strong> the damping ratio grows with \(\sqrt{\mu_k}\), so the fast graph modes are always
+          better damped than the slow ones. Choose \(k_v\) for the slowest mode (\(\zeta_1\approx0.7\) wants
+          \(k_v\approx1.4\sqrt{k_p/\mu_{\min}}\)) and then check that \(k_v\mu_{\max}\) is still below the autopilot bandwidth
+          (Section 8).</div>
+      </section>
+
+      <section id="manoeuvring">
+        <h2>4. Formation Manoeuvring: Rotating Formations and the Lag Argument</h2>
+        <p>
+          A formation that turns keeps its shape in the <em>formation frame</em> while the displacements rotate in the inertial
+          frame. With the structure heading \(\psi_c(t)\) and \(R(\psi)\) the planar rotation of Section 2 of the course
+          conventions,
+        </p>
+        <div class="formula">
+          \[ d_{ij}(t)=R(\psi_c(t))\,(r_i-r_j),\qquad \dot d_{ij}(t)=\omega_c\,R(\psi_c)\,J\,(r_i-r_j),\qquad \omega_c=\dot\psi_c, \]
+        </div>
+        <p>
+          using \(\frac{d}{dt}R(\psi)=\dot\psi R(\psi)J\) (derived step by step in <a href="13_virtual_structures.html">Part 13</a>).
+          The slot of UAV \(i\) is \(p_i^d(t)=p_c(t)+R(\psi_c)r_i\) and its velocity is \(v_i^d=\dot p_i^d=v_c+\omega_cR(\psi_c)Jr_i\).
+          The time-varying displacement law <em>with feedforward</em> is
+        </p>
+        <div class="formula">
+          \[ \boxed{\;u_i=v_i^d-k_c\sum_j w_{ij}\Big[(p_i-p_j)-\big(p_i^d-p_j^d\big)\Big]-k_p\,b_i\,(p_i-p_i^d)\;} \]
+        </div>
+        <p>
+          Now \((p_i-p_j)-(p_i^d-p_j^d)=e_i-e_j\) with \(e_i=p_i-p_i^d\), and \(\dot e_i=u_i-v_i^d\), so
+          \(\dot e=-(H_k\otimes I_n)e\) <strong>exactly</strong>, whatever the formation does. The error dynamics are autonomous
+          and exponentially stable with rate \(\lambda_{\min}(H_k)\); the only residual error comes from errors in
+          \(v_i^d\) itself (an estimated structure state, Part 13).
+        </p>
+        <h3>4.1 Without feedforward: the lag</h3>
+        <p>
+          Drop \(v_i^d\). Then \(\dot e=-(H_k\otimes I_n)e-v^d\) where \(v^d=\operatorname{col}(v_1^d,\dots,v_N^d)\). On a straight
+          leg every slot moves at the same \(v_d\), \(v^d=\mathbf 1_N\otimes v_d\), and the error settles at
+        </p>
+        <div class="formula">
+          \[ e_{ss}=-\big(H_k^{-1}\mathbf 1_N\big)\otimes v_d . \]
+        </div>
+        <p>
+          For a single UAV tracking its own slot, \(H_k=k\) and \(\dot\varepsilon=-k\varepsilon-v_d\) gives
+          \(\varepsilon_{ss}=-v_d/k\): the UAV flies <strong>behind</strong> its slot by \(|v_d|/k\). Verified numbers
+          (40 s simulation): \(V=60\) m/s, \(k=0.5\ \mathrm{s^{-1}}\) gives a lag of 120 m (simulated 119.9 m).
+        </p>
+        <table>
+          <tr><th>Reference speed \(V\)</th><th>\(k=0.5\ \mathrm{s^{-1}}\)</th><th>\(k=1\ \mathrm{s^{-1}}\)</th><th>\(k=2\ \mathrm{s^{-1}}\)</th></tr>
+          <tr><td>25 m/s (small UAV)</td><td>50 m</td><td>25 m</td><td>12.5 m</td></tr>
+          <tr><td>60 m/s (medium)</td><td><strong>120 m</strong></td><td>60 m</td><td>30 m</td></tr>
+          <tr><td>150 m/s (high-speed)</td><td>300 m</td><td>150 m</td><td>75 m</td></tr>
+          <tr><td>250 m/s (high-speed)</td><td>500 m</td><td>250 m</td><td>125 m</td></tr>
+        </table>
+        <p>
+          Through a network the lag <em>accumulates</em>: for \(K_3\) with UAV 1 pinned, \(k_c=k_p=0.5\),
+          \(H_k^{-1}\mathbf 1=(6,\,8,\,8)\) s, so at 60 m/s the three UAVs settle 360 m, 480 m and 480 m behind their slots
+          (60 s simulation: 359.9, 479.8, 479.8 m). With \(v_i^d\) fed forward the same simulation ends with errors below
+          0.02 m.
+        </p>
+        <div class="warning">
+          <strong>High-speed note.</strong> The lag is \(V/k\): it grows linearly with speed, while \(k\) is capped from above by
+          the course-loop bandwidth (time-scale separation needs \(k_c\lambda_N+k_p\) well below \(b_\chi\), Part 15) and by the
+          sampling rule \(T_s(k_p+k_c\lambda_N)\lt2\) (Part 6). At 250 m/s and \(k=0.5\ \mathrm{s^{-1}}\) the lag is 500 m, more
+          than most formation spacings. Feedforward is therefore not a refinement at high speed; it is the controller. Lag
+          also appears in turns as a radial offset (the UAV cuts inside its slot's circle), which converts into a speed and bank
+          mismatch through Part 10's feasibility relations.
+        </div>
+      </section>
+
+      <section id="distance">
+        <h2>5. Distance-Based Formation Control</h2>
+        <p>
+          Suppose the UAVs have no common heading (GPS-denied, magnetometer-free, or simply a formation that must be
+          invariant to its own orientation). Each UAV \(i\) measures the relative position \(p_i-p_j\) of its neighbours in
+          <em>its own</em> frame; the only coordinate-free information in it is the distance \(\|p_i-p_j\|\) and a direction that
+          UAV \(i\) can act along. The target is now a set of scalar distances on an undirected graph \(G=(\mathcal V,E)\):
+        </p>
+        <div class="definition">
+          <strong>Definition (distance specification).</strong> Desired distances \(\bar d_{ij}=\|r_i-r_j\|\) for each edge
+          \((i,j)\in E\). (The literature writes \(d_{ij}\); we keep the bar to separate it from the displacement vector.)
+          Squared-distance errors \(e_k=\|p_i-p_j\|^2-\bar d_{ij}^2\) for the \(k\)-th edge; stacked \(e\in\mathbb R^{|E|}\).
+          Potential
+          \[ V(p)=\frac14\sum_{(i,j)\in E}\big(\|p_i-p_j\|^2-\bar d_{ij}^2\big)^2=\frac14\|e\|^2 . \]
+        </div>
+        <p>Differentiate: \(\partial e_k/\partial p_i=2(p_i-p_j)^T\) for an edge \(k=(i,j)\) touching \(i\), so</p>
+        <div class="formula">
+          \[ \frac{\partial V}{\partial p_i}=\frac14\sum_{k\ni i}2e_k\cdot2(p_i-p_j)=\sum_{j\in\mathcal N_i}\big(\|p_i-p_j\|^2-\bar d_{ij}^2\big)(p_i-p_j), \]
+          \[ \boxed{\;u_i=-k_d\sum_{j\in\mathcal N_i}\big(\|p_i-p_j\|^2-\bar d_{ij}^2\big)(p_i-p_j)\;}\qquad\Longleftrightarrow\qquad \boxed{\;\dot p=-k_d\,R(p)^T e\;} \]
+        </div>
+        <p>
+          The vector form uses the rigidity matrix of Part 11: \(R(p)=\tfrac12\,\partial g/\partial p\) has row \(k\) equal to
+          \((p_i-p_j)^T\) in block \(i\) and \(-(p_i-p_j)^T\) in block \(j\), so \((R^Te)_i=\sum_{k\ni i}e_k(p_i-p_j)\), which is
+          the sum above. We include a gain \(k_d\) (units \(\mathrm{m^{-2}s^{-1}}\)); \(k_d=1\) recovers the textbook law. Each
+          term \(e_k(p_i-p_j)\) is a push or pull <em>along the line to the neighbour</em>: too far (\(e_k\gt0\)) pulls, too close
+          pushes. Only \(\|p_i-p_j\|\) and the direction to \(j\) in UAV \(i\)'s own frame are needed.
+        </p>
+        <div class="theorem">
+          <strong>Theorem 2 (local exponential stability under infinitesimal rigidity; Krick, Broucke &amp; Francis 2009).</strong>
+          Let the target framework \((G,p^\ast)\) be infinitesimally rigid and minimally rigid (\(|E|=2N-3\) in the plane).
+          Then \(p^\ast\) (and every framework congruent to it) is a locally exponentially stable equilibrium of
+          \(\dot p=-k_dR(p)^Te\), with local rate \(2k_d\lambda_{\min}\big(R(p^\ast)R(p^\ast)^T\big)\).
+          <br><em>Proof sketch.</em> \(\dot V=\nabla V^T\dot p=-k_d\|R(p)^Te\|^2\le0\), so \(V\) is a Lyapunov function and the
+          squared-distance errors are bounded. Differentiate the error: \(\dot e=\frac{\partial g}{\partial p}\dot p=2R(p)\dot p\),
+          hence
+          \[ \dot e=-2k_d\,R(p)R(p)^T\,e . \]
+          Infinitesimal rigidity means \(\operatorname{rank}R(p^\ast)=2N-3\); with \(|E|=2N-3\) the \(|E|\) rows are linearly
+          independent, so \(R(p^\ast)R(p^\ast)^T\succ0\). By continuity \(R(p)R(p)^T\succ0\) in a neighbourhood of the target,
+          and \(\dot e=-2k_dRR^Te\) is locally a linear system with a positive-definite matrix: \(\|e\|\) decays exponentially.
+          Since \(e=0\) means every edge has its length, \(p\) converges to a framework congruent to \(p^\ast\). For a redundantly
+          rigid graph (\(|E|\gt2N-3\)) \(e\) lives in the column space of \(R\) and the same argument applies there (Sun et al.
+          2016; survey in Oh, Park &amp; Ahn 2015). \(\square\)
+        </div>
+        <div class="success">
+          <strong>Interpretation:</strong> rigidity is not a side condition, it <em>is</em> the stability condition. If the graph
+          is flexible, \(R R^T\) is singular and there are error directions the law cannot see (the flex of Part 11's square);
+          if the graph is rigid, the law is locally a linear exponentially stable system in the edge errors. The matrix
+          \(RR^T\) scales with \(\bar d^2\), so the gain must be scheduled as \(k_d\propto1/\bar d^2\) to keep the same rate when
+          the formation is scaled up.
+        </div>
+        <h3>5.1 Invariances and undesired equilibria</h3>
+        <ul>
+          <li><strong>Invariance.</strong> \(V\) depends only on distances, so the law is invariant to translation, rotation and
+            reflection of the whole swarm. Moreover \(\sum_iu_i=0\) (each edge contributes \(e_k(p_i-p_j)+e_k(p_j-p_i)=0\)),
+            so the centroid never moves. The law cannot place or orient the formation; that job belongs to a leader or to a
+            virtual structure (Part 13).</li>
+          <li><strong>Flip ambiguity.</strong> The mirror image of the triangle has the same distances, so it is an equally valid
+            limit. Which one you get depends on the initial condition (globally rigid graphs, Part 11, remove this ambiguity
+            only up to reflection in the plane).</li>
+          <li><strong>Undesired equilibria.</strong> Every critical point of \(V\) with \(e\ne0\) is an equilibrium. For the
+            triangle these are the collinear configurations: if all three UAVs start on a line, every \(u_i\) is a combination of
+            vectors along that line, so the line is <em>invariant</em> and the swarm can never open into a triangle (verified
+            in Section 7). These equilibria are saddles (unstable to out-of-line perturbations), so they are not attractors in
+            practice, but the convergence guarantee is only local.</li>
+        </ul>
+      </section>
+
+      <section id="comparison">
+        <h2>6. Bearing-Based Note and Comparison</h2>
+        <p>
+          A third family uses only unit-vector bearings \(g_{ij}=(p_j-p_i)/\|p_j-p_i\|\) (what a camera gives). With desired
+          bearings \(g_{ij}^\ast\) and the orthogonal projector \(P_g=I-gg^T\), the bearing-only law of Zhao &amp; Zelazo (2016) is
+          \(\dot p_i=-\sum_{j\in\mathcal N_i}P_{g_{ij}}\,g_{ij}^\ast\): UAV \(i\) moves against the component of the desired bearing
+          that is perpendicular to the current one, which rotates the line of sight toward \(g_{ij}^\ast\). Under infinitesimal
+          bearing rigidity (Part 11) the target is almost globally stable; the formation is determined up to translation
+          <em>and scale</em>, which is a feature (scale is free) or a bug (spacing is not controlled) depending on the mission.
+        </p>
+        <table>
+          <tr><th>Law</th><th>Sensing / communication</th><th>Invariance of the spec</th><th>Guarantee</th><th>Graph condition</th></tr>
+          <tr><td>Displacement \((p_i-p_j)\to d_{ij}\)</td><td>Relative position in a common frame (GPS + shared north, or communicated positions)</td><td>Translation</td><td>Global, exponential, linear; rate \(k_c\lambda_2\) or \(\lambda_{\min}(H_k)\)</td><td>Directed spanning tree</td></tr>
+          <tr><td>Distance \(\|p_i-p_j\|\to\bar d_{ij}\)</td><td>Range + direction in own body frame; no heading, no communication strictly needed</td><td>Translation, rotation, reflection</td><td>Local exponential; undesired equilibria exist</td><td>Infinitesimally rigid (undirected)</td></tr>
+          <tr><td>Bearing \(g_{ij}\to g_{ij}^\ast\)</td><td>Bearing only (vision), common orientation needed for \(g^\ast\)</td><td>Translation, scale</td><td>Almost global (Zhao &amp; Zelazo 2016)</td><td>Infinitesimally bearing rigid</td></tr>
+        </table>
+      </section>
+
+      <section id="example">
+        <h2>7. Worked Example: Three UAVs, Both Laws</h2>
+        <p>
+          Slots (north, east) in metres for an equilateral vee of side 100 m:
+          \(r_1=(0,0)\), \(r_2=(-86.6,\,50)\), \(r_3=(-86.6,\,-50)\). Initial positions \(p_1(0)=(30,10)\),
+          \(p_2(0)=(-40,90)\), \(p_3(0)=(-120,-20)\). Communication graph \(K_3\) (every pair linked, unit weights). All numbers
+          below come from the script in Section 9.
+        </p>
+        <h3>7.1 Displacement law, \(k_c=0.5\ \mathrm{s^{-1}}\)</h3>
+        <p>
+          \(L=\begin{bmatrix}2&-1&-1\\-1&2&-1\\-1&-1&2\end{bmatrix}\), eigenvalues \(\{0,3,3\}\), so the rate is
+          \(k_c\lambda_2=1.5\ \mathrm{s^{-1}}\) (time constant 0.667 s). Formation errors
+          \(e_1(0)=(30,10)\), \(e_2(0)=(46.6,40)\), \(e_3(0)=(-33.4,30)\); their mean is \(e^\ast=(14.4,\,26.7)\). Theorem 1
+          predicts the final positions \(r_i+e^\ast\):
+        </p>
+        <div class="formula">
+          \[ p_1\to(14.4,\,26.7),\qquad p_2\to(-72.2,\,76.7),\qquad p_3\to(-72.2,\,-23.3)\ \text{m}, \]
+        </div>
+        <p>
+          which the simulation reproduces to three decimals at \(t=8\) s. The disagreement starts at \(\|\delta(0)\|=63.5\) m and
+          at \(t=1\) s is 14.2 m, right at the bound \(63.5e^{-1.5}=14.2\) m (for \(K_3\) all non-zero modes have the same
+          eigenvalue, so the bound is tight). The largest slot error, 47.8 m initially, drops below 1 m after 2.58 s.
+          Check against the closed form \(e(t)=e^{-k_cLt}e(0)\): at \(t=1\) s the simulation gives \(p_1=(17.88,22.95)\) and
+          <code>expm</code> gives \((17.88,22.95)\).
+        </p>
+        <h3>7.2 Distance law, \(k_d=10^{-4}\ \mathrm{m^{-2}s^{-1}}\)</h3>
+        <p>
+          Desired distances \(\bar d_{12}=\bar d_{23}=\bar d_{13}=100\) m. At the target, \(\operatorname{rank}R=3=2N-3\)
+          (minimally and infinitesimally rigid, Part 11) and
+          \(R R^T=10^4\begin{bmatrix}2&0.5&0.5\\0.5&2&0.5\\0.5&0.5&2\end{bmatrix}\) with eigenvalues
+          \(\{1.5,\,1.5,\,3\}\times10^4\ \mathrm{m^2}\). Theorem 2 predicts a local rate \(2k_d\lambda_{\min}=3.0\ \mathrm{s^{-1}}\);
+          the simulation's decay rate of \(\|e\|\) measured between 4 and 6 s is 3.00 s\(^{-1}\).
+          Initial distances are 106.3, 136.0, 153.0 m, so \(e(0)=(1300,\,8500,\,13400)\ \mathrm{m^2}\) and the initial
+          commands are large (up to 300 m/s for UAV 3): the cubic growth of the law far from the target is why it must be
+          saturated on a real aircraft (Section 8). The maximum distance error falls below 1 m after 0.906 s and below
+          0.1 m after 1.68 s; \(\|e\|\) goes \(15{,}900\to205\to10.2\to0.02\ \mathrm{m^2}\) at \(t=0,1,2,4\) s. Final positions
+          \(p_1=(9.13,2.57)\), \(p_2=(-48.7,84.2)\), \(p_3=(-90.4,-6.72)\) m: all three distances 100.0 m, the centroid
+          \((-43.3,26.7)\) unchanged from \(t=0\), and the orientation is the un-mirrored one (signed area equal to the
+          target's). Starting from the mirrored initial condition gives the mirrored triangle. Starting collinear,
+          \(p=(0,0),(-60,0),(-150,0)\), the swarm stays on the line for ever and settles at distances 45.9, 68.8, 114.7 m: an
+          undesired equilibrium.
+        </p>
+        <div class="success">
+          <strong>Compare:</strong> both laws reach the same shape; the displacement law also fixes the orientation (vee pointing
+          north) and converges from anywhere, the distance law fixes neither the orientation nor the handedness and converges
+          only from a neighbourhood, but needs no common frame.
+        </div>
+      </section>
+
+      <section id="fixed-wing">
+        <h2>8. Fixed-Wing Interpretation</h2>
+        <p>
+          The first-order laws output a velocity vector \(u_i\in\mathbb R^2\) (horizontal plane; altitude is commanded
+          separately). A fixed-wing autopilot accepts a course and a ground-speed command, so the swarm layer converts
+        </p>
+        <div class="formula">
+          \[ \chi_i^c=\operatorname{atan2}(u_{i,e},\,u_{i,n}),\qquad V_{g,i}^c=\operatorname{clip}\big(\|u_i\|,\,V_{\min},\,V_{\max}\big), \]
+        </div>
+        <p>and the course loop then turns at \(\dot\chi=b_\chi(\chi^c-\chi)\) saturated at \(\omega_{\max}=g\tan\phi_{\max}/V_g\)
+          (Parts 15–16). Four things follow.</p>
+        <ul>
+          <li><strong>The feedforward is what makes \(\|u_i\|\) flyable.</strong> With \(u_i=v_i^d+\text{correction}\), the
+            magnitude stays near \(V_c\) and the direction near \(\psi_c\). Without it, the pure correction term tends to zero as
+            the error shrinks, below \(V_{\min}\): the aircraft cannot slow down to follow it and oscillates or circles. Saturate
+            the correction, \(\|u_i-v_i^d\|\le\Delta v_{\max}\) (scale it down, do not clip componentwise), so that
+            \(V^c_{g,i}\in[V_{\min},V_{\max}]\) and \(|\chi^c_i-\psi_c|\) stays small.</li>
+          <li><strong>Gains are bounded by the autopilot.</strong> The error dynamics are only valid if the aircraft tracks
+            \(\chi^c,V^c_g\) faster than the formation dynamics: \(k_c\lambda_N+k_p\lesssim b_\chi/3\). With
+            \(b_\chi\approx1.5\ \mathrm{s^{-1}}\) and \(\lambda_N=3\) this leaves \(k_c\approx0.1\)–\(0.15\), hence the lag
+            numbers of Section 4 are realistic, not pessimistic.</li>
+          <li><strong>Formation hold in turns.</strong> With feedforward the slot velocities differ across the formation
+            (outer slots faster, Part 13), so the feasibility of Part 10 applies: lateral offsets must satisfy
+            \(-R_c(1-V_{\min}/V_c)\le y_i\le R_c(V_{\max}/V_c-1)\) and the outer slot's bank \(\tan\phi_i=V_i\omega_c/g\) must
+            stay below \(\phi_{\max}\). Either limit \(\omega_c\) by the outermost slot or change formation before the turn.</li>
+          <li><strong>Altitude is the cheap axis.</strong> Give neighbouring slots altitude offsets \(\Delta h_i\) (e.g.
+            \(\pm10\) m small UAV, \(\pm30\) m high-speed): the horizontal law can then be tuned aggressively without the
+            transient ever producing a conflict, and the distance law's flip ambiguity becomes harmless.</li>
+        </ul>
+        <div class="warning">
+          <strong>High-speed note.</strong> Everything in this part that is "per second" becomes "per \(V\) metres". The lag is
+          \(V/k\); the discrete-time limit \(T_s(k_p+k_c\lambda_N)\lt2\) is unchanged but the error made in one sample is
+          \(VT_s\) (15 m at 150 m/s and 10 Hz); the distance law's commands grow as the cube of the spacing, so at a 400 m
+          spacing \(k_d\) must be \(16\times\) smaller than at 100 m to keep the same rate. The high-speed recipe is: slot
+          velocity feedforward from an estimated structure (Part 13), small correction gains with saturation, altitude stacking,
+          and along-track spacing in turns (Part 19).
+        </div>
+        <div class="claw">
+          <strong>Toward the CLAW</strong>
+          This part supplies the <em>formation guidance block</em> (layer L2) of the unified law. It consumes the structure
+          estimate \(\hat\xi_i=(\hat p_c,\hat\psi_c,\hat V_c,\hat\omega_c)\) from the estimator block (Parts 8 and 13), the slot
+          table \(r_j\), and the neighbours' dead-reckoned positions \(p_j\) and produces the nominal velocity command
+          \[ v_i^{\mathrm{cmd}}=v_i^d-k_p\,b_i\,(p_i-p_i^d)-k_c\sum_jw_{ij}\big[(p_i-p_j)-(p_i^d-p_j^d)\big],\qquad \|v_i^{\mathrm{cmd}}-v_i^d\|\le\Delta v_{\max}, \]
+          with \(p_j^d\) computed from UAV \(i\)'s own \(\hat\xi_i\). This nominal command is handed to the safety filter of
+          Part 20 and then mapped to \((\chi^c_i,V^c_{g,i})\) in Part 15. The distance law is the fallback block when the common
+          frame is lost (GPS-denied mode).
+        </div>
+      </section>
+
+      <section id="implementation">
+        <h2>9. Implementation and Interactive Demo</h2>
+        <p>The script reproduces every number of Section 7 (Python 3 + NumPy; run as <code>python3 part12_impl.py</code>).</p>
+<pre><code>"""Part 12 worked example: displacement-based vs distance-based formation control, 3 UAVs."""
+import numpy as np
+np.set_printoptions(precision=3, suppress=True)
+
+# slot vectors r_i (north, east) [m]: equilateral triangle, side 100 m
+r = np.array([[0.0, 0.0], [-86.6025, 50.0], [-86.6025, -50.0]])
+p0 = np.array([[30.0, 10.0], [-40.0, 90.0], [-120.0, -20.0]])      # initial positions
+A = np.ones((3, 3)) - np.eye(3)                                     # K3 (undirected)
+W = A.T                                                             # listening weights (Part 7)
+E = [(0, 1), (1, 2), (0, 2)]                                        # edge list for the distance law
+dbar = np.array([np.linalg.norm(r[i] - r[j]) for i, j in E])        # desired distances
+
+def u_displacement(p, kc=0.5):
+    """u_i = -kc * sum_j w_ij [ (p_i - p_j) - (r_i - r_j) ]"""
+    u = np.zeros_like(p)
+    for i in range(3):
+        for j in range(3):
+            u[i] -= kc*W[i, j]*((p[i] - p[j]) - (r[i] - r[j]))
+    return u
+
+def rigidity_matrix(p):
+    """rows (p_i - p_j)^T in block i, -(p_i - p_j)^T in block j (Part 11)"""
+    R = np.zeros((len(E), 2*len(p)))
+    for k, (i, j) in enumerate(E):
+        R[k, 2*i:2*i+2] = p[i] - p[j]
+        R[k, 2*j:2*j+2] = -(p[i] - p[j])
+    return R
+
+def u_distance(p, kd=1e-4):
+    """vector form  p_dot = -kd R(p)^T e,  e_k = ||p_i-p_j||^2 - dbar_k^2"""
+    e = np.array([np.linalg.norm(p[i] - p[j])**2 - dbar[k]**2 for k, (i, j) in enumerate(E)])
+    return -kd*(rigidity_matrix(p).T @ e).reshape(len(p), 2)
+
+def simulate(law, T=8.0, dt=1e-3):
+    p = p0.copy(); hist = [p.copy()]
+    for _ in range(int(round(T/dt))):
+        p = p + dt*law(p); hist.append(p.copy())
+    return np.array(hist)
+
+dt = 1e-3
+# --- displacement law: consensus on e_i = p_i - r_i
+L = np.diag(W.sum(axis=1)) - W
+lam = np.linalg.eigvalsh(L)
+e_star = (p0 - r).mean(axis=0)                 # average of the initial formation errors
+H1 = simulate(u_displacement)
+err1 = np.linalg.norm(H1 - (r + e_star), axis=2).max(axis=1)
+print("eig(L) =", lam, " rate k_c*lambda_2 =", 0.5*lam[1], "1/s")
+print("predicted final p_i = r_i + e*:\n", r + e_star)
+print("simulated p(8 s):\n", H1[-1])
+print("displacement law: max slot error &lt; 1 m after %.2f s" % (np.argmax(err1 &lt; 1.0)*dt))
+
+# --- distance law: local rate 2 kd lambda_min(R R^T) at the target
+Rs = rigidity_matrix(r)
+print("rank R(r*) =", np.linalg.matrix_rank(Rs), " eig(R R^T) =", np.linalg.eigvalsh(Rs @ Rs.T))
+print("local rate 2*kd*lambda_min =", 2*1e-4*np.linalg.eigvalsh(Rs @ Rs.T).min(), "1/s")
+H2 = simulate(u_distance, T=12.0)
+dist = lambda p: np.array([np.linalg.norm(p[i] - p[j]) for i, j in E])
+err2 = np.array([np.abs(dist(p) - dbar).max() for p in H2])
+print("distance law: final positions\n", H2[-1], "\n  distances =", dist(H2[-1]))
+print("distance law: max distance error &lt; 1 m after %.3f s" % (np.argmax(err2 &lt; 1.0)*dt))
+print("centroid start", p0.mean(axis=0), " end", H2[-1].mean(axis=0))
+</code></pre>
+        <p>Output (abridged): <code>eig(L) = [0 3 3]</code>, <code>rate 1.5 1/s</code>, final positions as in Section 7.1,
+          <code>max slot error &lt; 1 m after 2.58 s</code>; <code>rank R = 3</code>, <code>eig(RR^T) = [15000 15000 30000]</code>,
+          <code>local rate 3.0 1/s</code>, <code>max distance error &lt; 1 m after 0.906 s</code>, centroid unchanged.</p>
+
+        <div class="demo">
+          <strong>Interactive demo: displacement-based formation with a moving leader.</strong>
+          The leader (red) flies a racetrack. Four followers (blue) hold a vee using the time-varying displacement law of
+          Section 4; UAVs 1 and 2 listen to the leader, 3 listens to 1 and 4, 4 listens to 2 and 3 (undirected among followers).
+          Hollow circles are the slots. Switch the feedforward off to see the lag of Section 4 appear; switch the fixed-wing
+          constraints on to see what a minimum speed and a turn-rate limit do to each case.
+          <div class="controls">
+            <label>Leader speed <input type="range" id="demo-v" min="15" max="60" step="1" value="25"> <span id="demo-v-out">25</span> m/s</label>
+            <label>Gain \(k_c\) <input type="range" id="demo-kc" min="0.05" max="1.0" step="0.05" value="0.3"> <span id="demo-kc-out">0.30</span> 1/s</label>
+            <label><input type="checkbox" id="demo-ff" checked> slot-velocity feedforward</label>
+            <label><input type="checkbox" id="demo-fw"> fixed-wing constraints</label>
+            <button id="demo-run">Run / Pause</button>
+            <button class="secondary" id="demo-reset">Reset</button>
+          </div>
+          <canvas id="demo-canvas" width="900" height="360"></canvas>
+        </div>
+      </section>
+
+      <section id="pitfalls">
+        <h2>10. Common Pitfalls</h2>
+        <ul>
+          <li><strong>Displacement sign.</strong> \(d_{ij}=r_i-r_j\). Build the table from the slot vectors in code and never type
+            displacements by hand; check \(d_{ij}=-d_{ji}\) and the cycle sums (Part 10).</li>
+          <li><strong>Mixing frames.</strong> The displacement law needs \(p_i-p_j\) in one frame. A body-frame relative position
+            fed to it rotates the formation with the aircraft's heading. Use the distance law, or rotate measurements by the
+            own heading first (which requires a heading).</li>
+          <li><strong>No feedforward on a moving formation.</strong> Lag \(V/k\) per UAV, accumulating through the graph. Always
+            feed \(v_i^d\) forward and saturate only the correction.</li>
+          <li><strong>Treating the distance law as global.</strong> It is local; collinear and other saddle configurations exist,
+            and the mirrored formation is a valid limit. Initialise near the target (e.g. after a displacement-based
+            assembly) and stack altitudes.</li>
+          <li><strong>Gain units.</strong> \(k_d\) has units \(\mathrm{m^{-2}s^{-1}}\) and the right value scales as
+            \(1/\bar d^2\); \(k_c\) and \(k_p\) are in \(\mathrm{s^{-1}}\) and must respect \(T_s(k_p+k_c\lambda_N)\lt2\) and the
+            autopilot bandwidth.</li>
+          <li><strong>Angle wrap-around when mapping to \(\chi^c\).</strong> Compute \(\chi^c\) with atan2 and wrap
+            \(\chi^c-\chi\) to \((-\pi,\pi]\) before feeding the course loop; a 350° error is a 10° error.</li>
+          <li><strong>Stale neighbour data.</strong> \(p_j\) arrives with latency \(\tau\); at speed \(V\) it is \(V\tau\) old
+            (6 m at 60 m/s and 100 ms). Dead-reckon \(p_j+v_j\tau\) before using it (Part 23).</li>
+        </ul>
+      </section>
+
+      <section id="exercises">
+        <h2>11. Exercises</h2>
+        <div class="exercise">
+          <strong>Exercise 1 (derivation).</strong> Show that for an undirected graph the displacement law is the gradient flow of
+          \(V_f(p)=\tfrac12\sum_{(i,j)\in E}a_{ij}\|(p_i-p_j)-d_{ij}\|^2\), and explain what the swarm converges to when the
+          \(d_{ij}\) are inconsistent.
+          <details><summary>Show solution</summary><div class="solution">
+            Differentiate edge by edge: \(\partial/\partial p_i\) of \(\tfrac12a_{ij}\|(p_i-p_j)-d_{ij}\|^2\) is
+            \(a_{ij}[(p_i-p_j)-d_{ij}]\); writing the same edge from \(j\)'s side with \(d_{ji}=-d_{ij}\) gives the matching term
+            for \(p_j\). Summing over the edges at \(i\) gives \(\partial V_f/\partial p_i=\sum_ja_{ij}[(p_i-p_j)-d_{ij}]\), so
+            \(u=-k_c\nabla V_f\). \(V_f\) is a convex quadratic in \(p\); the flow converges to its minimisers. If the
+            \(d_{ij}\) are consistent the minimum is zero (exact formation). If not, the minimum is positive and the limit is
+            the least-squares compromise: residual edge errors remain, distributed according to the weights.
+          </div></details>
+        </div>
+        <div class="exercise">
+          <strong>Exercise 2 (numeric).</strong> Four UAVs on a ring (cycle \(C_4\), unit weights) run the displacement law with
+          \(k_c=0.4\ \mathrm{s^{-1}}\). Compute the Laplacian eigenvalues, the convergence rate, and the time for the
+          disagreement to shrink by a factor 100.
+          <details><summary>Show solution</summary><div class="solution">
+            \(\lambda(L)=\{0,2,2,4\}\). Rate \(k_c\lambda_2=0.8\ \mathrm{s^{-1}}\). From \(\|\delta(t)\|\le e^{-0.8t}\|\delta(0)\|\),
+            a factor 100 needs \(t=\ln(100)/0.8=5.76\) s (verified).
+          </div></details>
+        </div>
+        <div class="exercise">
+          <strong>Exercise 3 (numeric / design).</strong> A high-speed formation at \(V=150\) m/s must keep the no-feedforward
+          lag below 30 m. What single-UAV gain \(k\) is needed? Using the \(K_3\)-with-pinned-UAV-1 graph
+          (\(\mu_{\max}(L+B)=3.73\)) and \(T_s=0.1\) s, is the Euler-discretised loop stable with that gain? What is the
+          practical conclusion?
+          <details><summary>Show solution</summary><div class="solution">
+            \(k=V/\text{lag}=150/30=5\ \mathrm{s^{-1}}\). Euler stability needs \(T_sk\mu_{\max}\lt2\): \(0.1\times5\times3.73=1.87\),
+            marginally stable on paper but with almost no margin, and far above any fixed-wing course-loop bandwidth
+            (\(b_\chi\approx1\)–\(2\ \mathrm{s^{-1}}\)), so the time-scale separation behind the error dynamics is lost.
+            Conclusion: the lag cannot be fixed with gain at high speed; use slot-velocity feedforward.
+          </div></details>
+        </div>
+        <div class="exercise">
+          <strong>Exercise 4 (code).</strong> Apply the distance law with \(k_d=10^{-4}\ \mathrm{m^{-2}s^{-1}}\) to the square of
+          side 100 m with one diagonal (Part 11: \(p^\ast=(0,0),(100,0),(100,100),(0,100)\), edges the four sides plus
+          \((1,3)\)). Compute the rank of \(R(p^\ast)\), the local rate, and the time to bring all distance errors below 1 m
+          from a start perturbed by Gaussian noise of 20 m (seed 3).
+          <details><summary>Show solution</summary><div class="solution">
+            \(\operatorname{rank}R=5=2N-3\) (minimally rigid). \(\lambda(RR^T)=\{7639,\ 2\times10^4,\ 2\times10^4,\ 2\times10^4,\ 52{,}361\}\ \mathrm{m^2}\),
+            so the local rate is \(2k_d\lambda_{\min}=1.53\ \mathrm{s^{-1}}\). With <code>numpy.random.default_rng(3)</code> and
+            \(\sigma=20\) m the maximum distance error drops below 1 m after 1.17 s and the final distances are
+            \(100,100,100,100,141.4\) m (verified).
+          </div></details>
+        </div>
+        <div class="exercise">
+          <strong>Exercise 5 (derivation).</strong> Prove that under the distance law the centroid \(\bar p=\frac1N\sum_ip_i\) is
+          constant, and that the law is invariant under \(p_i\mapsto Qp_i+c\) for any orthogonal \(Q\) and vector \(c\).
+          <details><summary>Show solution</summary><div class="solution">
+            Each edge \((i,j)\) contributes \(-k_de_k(p_i-p_j)\) to \(u_i\) and \(-k_de_k(p_j-p_i)\) to \(u_j\); the sum is zero,
+            so \(\sum_iu_i=0\) and \(\dot{\bar p}=0\) (the example's centroid \((-43.3,26.7)\) m is indeed unchanged).
+            Under \(p_i\mapsto Qp_i+c\): \(\|Q(p_i-p_j)\|=\|p_i-p_j\|\) so every \(e_k\) is unchanged, and
+            \(u_i\mapsto Qu_i\); hence if \(p(t)\) is a solution so is \(Qp(t)+c\). The law therefore cannot distinguish a
+            formation from its rotated, translated or reflected copies.
+          </div></details>
+        </div>
+      </section>
+
+      <section id="summary">
+        <h2>12. Key Takeaways &amp; Formula Sheet</h2>
+        <ul>
+          <li>Displacement law \(u_i=-k_c\sum_jw_{ij}[(p_i-p_j)-d_{ij}]\) with \(d_{ij}=r_i-r_j\): the error \(e_i=p_i-r_i\)
+            obeys \(\dot e=-k_c(L\otimes I_n)e\); formation up to translation iff a directed spanning tree exists; rate
+            \(k_c\lambda_2\) (undirected).</li>
+          <li>Pinning \(-k_pb_i(p_i-p_0-r_i)\) fixes the placement: \(\dot e=-(H_k\otimes I)e\), \(H_k=k_cL+k_pB\succ0\).</li>
+          <li>Second order: \(\ddot e=-k_p(H\otimes I)e-k_v(H\otimes I)\dot e\), modes \(\omega_{n,k}=\sqrt{k_p\mu_k}\),
+            \(\zeta_k=k_v\sqrt{\mu_k}/(2\sqrt{k_p})\).</li>
+          <li>Moving formation: \(d_{ij}(t)=R(\psi_c)(r_i-r_j)\), \(\dot d_{ij}=\omega_cR(\psi_c)J(r_i-r_j)\); with slot-velocity
+            feedforward \(v_i^d\) the error dynamics are autonomous; without it the lag is \(e_{ss}=-(H_k^{-1}\mathbf 1)\otimes v_d\),
+            i.e. \(V/k\) per UAV (120 m at 60 m/s, \(k=0.5\ \mathrm{s^{-1}}\)).</li>
+          <li>Distance law \(u_i=-k_d\sum_j(\|p_i-p_j\|^2-\bar d_{ij}^2)(p_i-p_j)\), i.e. \(\dot p=-k_dR(p)^Te\), gradient of
+            \(V=\tfrac14\|e\|^2\); \(\dot e=-2k_dRR^Te\); locally exponentially stable iff the target is infinitesimally rigid,
+            rate \(2k_d\lambda_{\min}(RR^T)\); invariant to rotation/translation/reflection; centroid fixed; undesired saddle
+            equilibria (collinear).</li>
+          <li>Fixed-wing mapping: \(\chi^c=\operatorname{atan2}(u_e,u_n)\), \(V_g^c=\operatorname{clip}(\|u\|,V_{\min},V_{\max})\);
+            saturate the correction, keep \(k_c\lambda_N+k_p\) below the course-loop bandwidth, respect Part 10's turn
+            feasibility, stack altitudes.</li>
+        </ul>
+      </section>
+
+      <section id="references">
+        <h2>13. References</h2>
+        <ul>
+          <li>W. Ren and R. W. Beard, <em>Distributed Consensus in Multi-vehicle Cooperative Control</em>, Springer, 2008 (formation control via consensus).</li>
+          <li>M. Mesbahi and M. Egerstedt, <em>Graph Theoretic Methods in Multiagent Networks</em>, Princeton University Press, 2010, Ch. 6.</li>
+          <li>K.-K. Oh, M.-C. Park and H.-S. Ahn, "A survey of multi-agent formation control", <em>Automatica</em> 53, 424–440, 2015.</li>
+          <li>L. Krick, M. E. Broucke and B. A. Francis, "Stabilisation of infinitesimally rigid formations of multi-robot networks", <em>International Journal of Control</em> 82(3), 423–439, 2009.</li>
+          <li>B. D. O. Anderson, C. Yu, B. Fidan and J. M. Hendrickx, "Rigid graph control architectures for autonomous formations", <em>IEEE Control Systems Magazine</em> 28(6), 48–63, 2008.</li>
+          <li>Z. Sun, S. Mou, B. D. O. Anderson and M. Cao, "Exponential stability for formation control systems with generalized controllers: A unified approach", <em>Systems &amp; Control Letters</em> 93, 50–57, 2016.</li>
+          <li>S. Zhao and D. Zelazo, "Bearing rigidity and almost global bearing-only formation stabilization", <em>IEEE Transactions on Automatic Control</em> 61(5), 1255–1268, 2016.</li>
+          <li>J. A. Fax and R. M. Murray, "Information flow and cooperative control of vehicle formations", <em>IEEE Transactions on Automatic Control</em> 49(9), 1465–1476, 2004.</li>
+        </ul>
+      </section>
+
+      <div class="prevnext">
+        <a class="prev" href="11_graph_framework_rigidity.html"><span>&larr; Previous</span>Part 11: Graph &amp; Framework Rigidity</a>
+        <a class="next" href="13_virtual_structures.html"><span>Next &rarr;</span>Part 13: Virtual Structures</a>
+      </div>
+      <div class="done-box"><button id="done-btn" data-lesson="12">Mark Part 12 as complete</button></div>
+    </main>
+  </div>
+
+  <footer>Fixed-Wing Swarm Learning · Part 12 · Formation Control</footer>
+
+  <script>
+    (function () {
+      try {
+        var btn = document.getElementById('done-btn');
+        if (!btn) return;
+        var id = btn.getAttribute('data-lesson');
+        var key = 'fwswarm_done';
+        var done = JSON.parse(localStorage.getItem(key) || '[]');
+        function render() {
+          var is = done.indexOf(id) >= 0;
+          btn.textContent = is ? 'Completed ✓ (click to undo)' : 'Mark Part ' + id + ' as complete';
+          btn.className = is ? 'undone' : '';
+        }
+        btn.addEventListener('click', function () {
+          var i = done.indexOf(id);
+          if (i >= 0) done.splice(i, 1); else done.push(id);
+          localStorage.setItem(key, JSON.stringify(done));
+          render();
+        });
+        render();
+      } catch (e) { /* storage unavailable: ignore */ }
+    })();
+  </script>
+  <script>
+    // Demo: displacement-based formation with a moving leader (vanilla JS, no libraries).
+    (function () {
+      try {
+        var c = document.getElementById('demo-canvas');
+        if (!c) return;
+        var ctx = c.getContext('2d');
+        var vEl = document.getElementById('demo-v'), kcEl = document.getElementById('demo-kc');
+        var ffEl = document.getElementById('demo-ff'), fwEl = document.getElementById('demo-fw');
+        var vOut = document.getElementById('demo-v-out'), kcOut = document.getElementById('demo-kc-out');
+        var g = 9.81, LEG = 1100, RC = 220, SCALE = 0.42;          // metres, px per metre
+        var slots = [[-50, 35], [-50, -35], [-100, 70], [-100, -70]]; // followers' slot vectors (north, east)
+        // listening weights w[i][j]: j = 0 is the leader, 1..4 the followers
+        var W = [[1, 0, 1, 1, 0], [1, 1, 0, 0, 1], [0, 1, 0, 0, 1], [0, 0, 1, 1, 0]];
+        var st, running = false, timer = null;
+        function wrap(a) { while (a > Math.PI) a -= 2 * Math.PI; while (a <= -Math.PI) a += 2 * Math.PI; return a; }
+        function leaderState(s, V) {                // racetrack by arc length: returns (n, e, psi, omega)
+          var tot = 2 * LEG + 2 * Math.PI * RC; s = s % tot; var th;
+          if (s < LEG) return { n: -RC, e: -LEG / 2 + s, psi: Math.PI / 2, w: 0 };
+          if (s < LEG + Math.PI * RC) { th = (s - LEG) / RC; return { n: -RC * Math.cos(th), e: LEG / 2 + RC * Math.sin(th), psi: Math.PI / 2 - th, w: -V / RC }; }
+          if (s < 2 * LEG + Math.PI * RC) return { n: RC, e: LEG / 2 - (s - LEG - Math.PI * RC), psi: -Math.PI / 2, w: 0 };
+          th = (s - 2 * LEG - Math.PI * RC) / RC; return { n: RC * Math.cos(th), e: -LEG / 2 - RC * Math.sin(th), psi: -Math.PI / 2 - th, w: -V / RC };
+        }
+        function rot(psi, r) { return [Math.cos(psi) * r[0] - Math.sin(psi) * r[1], Math.sin(psi) * r[0] + Math.cos(psi) * r[1]]; }
+        function reset() {
+          var V = +vEl.value, L = leaderState(0, V); st = { s: 0, t: 0, uav: [] };
+          for (var i = 0; i < 4; i++) {
+            var sl = rot(L.psi, slots[i]);
+            st.uav.push({ n: L.n + sl[0] + (Math.random() - 0.5) * 160, e: L.e + sl[1] + (Math.random() - 0.5) * 160, chi: Math.random() * 2 * Math.PI, V: V });
+          }
+          draw();
+        }
+        function step(dt) {
+          var V = +vEl.value, kc = +kcEl.value, ff = ffEl.checked, fw = fwEl.checked;
+          var L = leaderState(st.s, V), vc = [V * Math.cos(L.psi), V * Math.sin(L.psi)];
+          var P = [[L.n, L.e]], Pd = [[L.n, L.e]], Vd = [], i, j;
+          for (i = 0; i < 4; i++) {
+            var sl = rot(L.psi, slots[i]), Jr = [-slots[i][1], slots[i][0]], RJr = rot(L.psi, Jr);
+            P.push([st.uav[i].n, st.uav[i].e]); Pd.push([L.n + sl[0], L.e + sl[1]]);
+            Vd.push([vc[0] + L.w * RJr[0], vc[1] + L.w * RJr[1]]);      // slot velocity v_c + omega_c R J r_i
+          }
+          var rms = 0;
+          for (i = 0; i < 4; i++) {
+            var u = ff ? [Vd[i][0], Vd[i][1]] : [0, 0];
+            for (j = 0; j < 5; j++) if (W[i][j] > 0) {                      // -kc sum w_ij [(p_i-p_j)-(p_i^d-p_j^d)]
+              u[0] -= kc * W[i][j] * ((P[i + 1][0] - P[j][0]) - (Pd[i + 1][0] - Pd[j][0]));
+              u[1] -= kc * W[i][j] * ((P[i + 1][1] - P[j][1]) - (Pd[i + 1][1] - Pd[j][1]));
+            }
+            var a = st.uav[i];
+            if (fw) {                                                       // course/speed loops with limits
+              var chic = Math.atan2(u[1], u[0]), Vc = Math.min(1.4 * V, Math.max(0.6 * V, Math.hypot(u[0], u[1])));
+              var wmax = g * Math.tan(Math.PI / 4) / a.V, chid = Math.max(-wmax, Math.min(wmax, 1.5 * wrap(chic - a.chi)));
+              a.chi += dt * chid; a.V += dt * Math.max(-4, Math.min(4, 1.0 * (Vc - a.V)));
+              a.n += dt * a.V * Math.cos(a.chi); a.e += dt * a.V * Math.sin(a.chi);
+            } else { a.n += dt * u[0]; a.e += dt * u[1]; a.chi = Math.atan2(u[1], u[0]); }
+            rms += Math.pow(a.n - Pd[i + 1][0], 2) + Math.pow(a.e - Pd[i + 1][1], 2);
+          }
+          st.rms = Math.sqrt(rms / 4); st.s += V * dt; st.t += dt;
+        }
+        function X(e) { return c.width / 2 + e * SCALE; } function Y(n) { return c.height / 2 - n * SCALE; }
+        function tri(n, e, psi, col) {
+          ctx.save(); ctx.translate(X(e), Y(n)); ctx.rotate(psi); ctx.fillStyle = col; ctx.beginPath();
+          ctx.moveTo(9, 0); ctx.lineTo(-6, 5); ctx.lineTo(-6, -5); ctx.closePath(); ctx.fill(); ctx.restore();
+        }
+        function draw() {
+          var V = +vEl.value, L = leaderState(st.s, V);
+          ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, c.width, c.height);
+          ctx.strokeStyle = '#dce2ec'; ctx.lineWidth = 1; ctx.beginPath();          // track
+          for (var s = 0; s <= 2 * LEG + 2 * Math.PI * RC; s += 20) { var q = leaderState(s, V); if (s === 0) ctx.moveTo(X(q.e), Y(q.n)); else ctx.lineTo(X(q.e), Y(q.n)); }
+          ctx.closePath(); ctx.stroke();
+          var i, j, Pd = [[L.n, L.e]];
+          for (i = 0; i < 4; i++) { var sl = rot(L.psi, slots[i]); Pd.push([L.n + sl[0], L.e + sl[1]]); }
+          ctx.strokeStyle = '#c7d2e6';                                               // graph edges
+          for (i = 0; i < 4; i++) for (j = 0; j < 5; j++) if (W[i][j] > 0) {
+            var pj = j === 0 ? [L.n, L.e] : [st.uav[j - 1].n, st.uav[j - 1].e];
+            ctx.beginPath(); ctx.moveTo(X(st.uav[i].e), Y(st.uav[i].n)); ctx.lineTo(X(pj[1]), Y(pj[0])); ctx.stroke();
+          }
+          ctx.strokeStyle = '#2457d6';
+          for (i = 1; i < 5; i++) { ctx.beginPath(); ctx.arc(X(Pd[i][1]), Y(Pd[i][0]), 5, 0, 2 * Math.PI); ctx.stroke(); }
+          for (i = 0; i < 4; i++) tri(st.uav[i].n, st.uav[i].e, -st.uav[i].chi + Math.PI / 2, '#2457d6');
+          tri(L.n, L.e, -L.psi + Math.PI / 2, '#b42318');
+          ctx.fillStyle = '#172033'; ctx.font = '13px system-ui, sans-serif';
+          ctx.fillText('t = ' + st.t.toFixed(1) + ' s   RMS slot error = ' + (st.rms || 0).toFixed(1) + ' m   leader bank in turn = ' +
+            (Math.atan(V * V / (g * RC)) * 180 / Math.PI).toFixed(0) + ' deg   (1 px = ' + (1 / SCALE).toFixed(1) + ' m)', 12, 20);
+        }
+        function tick() { for (var k = 0; k < 4; k++) step(0.05); draw(); }
+        document.getElementById('demo-run').addEventListener('click', function () {
+          running = !running; if (running) timer = setInterval(tick, 33); else { clearInterval(timer); timer = null; }
+        });
+        document.getElementById('demo-reset').addEventListener('click', reset);
+        vEl.addEventListener('input', function () { vOut.textContent = vEl.value; });
+        kcEl.addEventListener('input', function () { kcOut.textContent = (+kcEl.value).toFixed(2); });
+        reset();
+      } catch (e) { console.error('demo failed', e); }
+    })();
+  </script>
+</body>
+</html>

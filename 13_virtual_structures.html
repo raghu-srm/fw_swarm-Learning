@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fixed-Wing Swarm Learning — Virtual Structures</title>
+
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['\\(', '\\)']],
+        displayMath: [['\\[', '\\]'], ['$$', '$$']]
+      },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --card: #ffffff;
+      --text: #172033;
+      --muted: #5d687a;
+      --accent: #2457d6;
+      --accent-light: #eaf0ff;
+      --border: #dce2ec;
+      --code: #111827;
+      --success: #147a4b;
+      --warning: #c27b00;
+      --danger: #b42318;
+      --claw: #0f766e;
+      --claw-light: #e6f6f4;
+      --def: #6d28d9;
+      --def-light: #f3eefe;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+    }
+
+    header {
+      background: linear-gradient(135deg, #172554, #2457d6);
+      color: white;
+      padding: 56px 20px 44px;
+    }
+    header .wrap { max-width: 1320px; margin: auto; }
+    .topbar { margin-bottom: 18px; font-size: .95rem; }
+    .topbar a { color: #dbe6ff; }
+    .topbar a:hover { color: #fff; }
+
+    h1 { margin: 0 0 10px; font-size: clamp(2rem, 5vw, 3.2rem); }
+    h2 { margin-top: 0; font-size: 1.8rem; }
+    h3 { margin-top: 1.6rem; }
+    h4 { margin-top: 1.2rem; margin-bottom: .4rem; }
+
+    .subtitle { max-width: 820px; color: #dbe6ff; font-size: 1.08rem; }
+
+    nav, section, .callout {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px;
+      margin: 20px 0;
+      box-shadow: 0 3px 12px rgba(20, 35, 70, .05);
+    }
+    nav h2 { font-size: 1.35rem; }
+    nav ol { margin-bottom: 0; padding-left: 22px; }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    code { background: #eef1f6; padding: 2px 5px; border-radius: 5px; font-size: .92em; }
+    pre {
+      background: var(--code);
+      color: #e5e7eb;
+      padding: 18px;
+      border-radius: 10px;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+    pre code { background: none; padding: 0; color: inherit; font-size: .9rem; }
+
+    .formula {
+      background: var(--accent-light);
+      border-left: 4px solid var(--accent);
+      padding: 16px 18px;
+      margin: 16px 0;
+      overflow-x: auto;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+    }
+    .mini {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      background: #fbfcff;
+    }
+    .mini strong { display: block; margin-bottom: 5px; }
+
+    .success { border-left: 4px solid var(--success); background: #edf9f3; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .warning { border-left: 4px solid var(--warning); background: #fff8e8; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .danger  { border-left: 4px solid var(--danger);  background: #fdecec; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .note    { border-left: 4px solid var(--muted);   background: #f3f5f8; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .definition, .theorem {
+      border-left: 4px solid var(--def);
+      background: var(--def-light);
+      padding: 14px 18px;
+      border-radius: 8px;
+      margin: 14px 0;
+    }
+    .definition > strong:first-child, .theorem > strong:first-child { color: var(--def); }
+    .claw {
+      border: 1px solid #99d6cf;
+      border-left: 6px solid var(--claw);
+      background: var(--claw-light);
+      padding: 16px 20px;
+      border-radius: 10px;
+      margin: 18px 0;
+    }
+    .claw > strong:first-child { color: var(--claw); display: block; margin-bottom: 6px; font-size: 1.05rem; }
+
+    table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+    th, td { text-align: left; padding: 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    th { background: #f1f4f9; }
+
+    .tag {
+      display: inline-block;
+      background: #eaf0ff;
+      color: #204bb4;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: .82rem;
+      margin: 3px;
+    }
+
+    figure { margin: 18px 0; }
+    figure > svg { width: 100%; height: auto; display: block; background: #fbfcff; border: 1px solid var(--border); border-radius: 10px; }
+    figcaption { color: var(--muted); font-size: .92rem; margin-top: 6px; text-align: center; }
+
+    .exercise { border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; margin: 14px 0; background: #fbfcff; }
+    .exercise summary { cursor: pointer; color: var(--accent); font-weight: 600; margin-top: 8px; }
+    .exercise details { margin-top: 6px; }
+    .exercise .solution { border-top: 1px dashed var(--border); margin-top: 8px; padding-top: 8px; }
+
+    .demo { border: 1px solid var(--border); border-radius: 12px; padding: 14px; background: #fbfcff; margin: 16px 0; }
+    .demo canvas { width: 100%; height: auto; display: block; background: #ffffff; border: 1px solid var(--border); border-radius: 8px; }
+    .controls { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; margin: 10px 0; font-size: .95rem; }
+    .controls label { display: inline-flex; align-items: center; gap: 6px; }
+    .controls input[type=range] { width: 140px; }
+    .controls button, .btn {
+      background: var(--accent); color: #fff; border: 0; padding: 7px 14px; border-radius: 8px; cursor: pointer; font-size: .92rem;
+    }
+    .controls button:hover, .btn:hover { filter: brightness(1.08); }
+    .controls button.secondary { background: #e5e9f2; color: var(--text); }
+
+    .prevnext { display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin: 26px 0 0; }
+    .prevnext a { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; flex: 1 1 260px; }
+    .prevnext a span { display: block; color: var(--muted); font-size: .82rem; }
+    .prevnext a.next { text-align: right; }
+
+    .done-box { text-align: center; margin: 24px 0 0; }
+    .done-box button { background: var(--success); color: #fff; border: 0; padding: 9px 18px; border-radius: 8px; cursor: pointer; }
+    .done-box button.undone { background: #9aa5b5; }
+
+    footer { text-align: center; color: var(--muted); padding: 30px 20px 50px; }
+
+    .page-shell {
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      gap: 24px;
+      max-width: 1320px;
+      margin: 0 auto;
+      padding: 28px 20px 70px;
+      align-items: start;
+    }
+    .sidebar { grid-column: 1; position: sticky; top: 20px; }
+    .sidebar nav { position: sticky; top: 20px; max-height: calc(100vh - 40px); overflow-y: auto; }
+    .content { grid-column: 2; min-width: 0; }
+    @media (max-width: 960px) {
+      .page-shell { grid-template-columns: 1fr; }
+      .sidebar, .sidebar nav { position: static; max-height: none; }
+      .sidebar, .content { grid-column: 1; }
+    }
+    @media print {
+      nav { break-after: page; }
+      section { box-shadow: none; }
+      .demo, .done-box, .prevnext, .topbar { display: none; }
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <div class="wrap">
+      <div class="topbar"><a href="index.html">&larr; Course home</a> &nbsp;·&nbsp; Module C: Formation &amp; Flocking</div>
+      <h1>Fixed-Wing Swarm Learning</h1>
+      <div class="subtitle">
+        Part 13: <strong>Virtual Structures</strong> — the formation as a rigid body that is planned, not flown: slot kinematics from the
+        rotation-matrix derivative, flyability of every slot in a turn, the synchronised (distributed) structure, and formation feedback.
+      </div>
+      <p>
+        <span class="tag">Virtual rigid body</span>
+        <span class="tag">Slot velocity</span>
+        <span class="tag">Synchronised structure</span>
+        <span class="tag">Formation feedback</span>
+        <span class="tag">UAV Swarms</span>
+      </p>
+    </div>
+  </header>
+
+  <div class="page-shell">
+    <aside class="sidebar">
+      <nav id="index">
+        <h2>Index</h2>
+        <ol>
+          <li><a href="#why">Why this matters</a></li>
+          <li><a href="#state">The virtual rigid body</a></li>
+          <li><a href="#slots">Slot kinematics: position, velocity, acceleration</a></li>
+          <li><a href="#example">Worked example: a diamond on a racetrack</a></li>
+          <li><a href="#flyability">Flyability: who limits the turn</a></li>
+          <li><a href="#distributed">Centralised vs synchronised structure</a></li>
+          <li><a href="#feedback">Formation feedback</a></li>
+          <li><a href="#comparison">Architectures compared</a></li>
+          <li><a href="#fixed-wing">Fixed-wing interpretation</a></li>
+          <li><a href="#implementation">Implementation</a></li>
+          <li><a href="#pitfalls">Common pitfalls</a></li>
+          <li><a href="#exercises">Exercises</a></li>
+          <li><a href="#summary">Key takeaways &amp; formula sheet</a></li>
+          <li><a href="#references">References</a></li>
+        </ol>
+      </nav>
+    </aside>
+
+    <main class="content">
+
+      <section id="why">
+        <h2>1. Why This Matters</h2>
+        <p>
+          Leader–follower formations (<a href="8_leader_follower_consensus.html">Part 8</a>) hang the whole swarm on one aircraft: its state is the
+          reference, its loss is the end of the formation, and every follower lags it by the structural amount \(H^{-1}\mathbf 1u_0\).
+          The <strong>virtual structure</strong> (Lewis &amp; Tan 1997) removes the aircraft from the reference. The formation is a rigid body
+          that exists only as a computation: a centre, a heading, a speed and a turn rate. Each aircraft is assigned a fixed slot in that body
+          and tracks the slot. Nobody has to fly the centre; the centre can do things no aircraft could (it can be at the middle of a vee with
+          nothing there), and it can be made to <em>wait</em> for aircraft that fall behind.
+        </p>
+        <div class="formula">
+          \[ \text{reference }\xi=(p_c,\psi_c,V_c,\omega_c,h_c)\ \longrightarrow\ \text{slot } p_i^d=p_c+R(\psi_c)\,r_i\ \longrightarrow\ \text{each aircraft tracks its slot} \]
+        </div>
+        <p>Three things have to be got right, and they are the three technical sections of this part: the slot's <em>velocity</em> (not just its position — Part 12 showed what the missing feedforward costs), whether every slot is <em>flyable</em> while the body turns, and how \(N\) aircraft can share <em>one</em> body without a central computer.</p>
+        <div class="grid">
+          <div class="mini"><strong>Input</strong>Slot vectors and turn feasibility (<a href="10_formation_specification.html">Part 10</a>), displacement-based formation control and feedforward (<a href="12_formation_control.html">Part 12</a>), the leader-state estimator (<a href="8_leader_follower_consensus.html">Part 8 §7</a>), rotation matrices (<a href="A1_math_toolbox.html#rotation">A1 §12</a>).</div>
+          <div class="mini"><strong>Output</strong>Compute slot position, velocity and acceleration from the body state; find the largest turn rate every slot can fly; run a synchronised copy of the body on each aircraft; add formation feedback safely.</div>
+          <div class="mini"><strong>Used in</strong>Part 24 layers L0–L2 (this part <em>is</em> the capstone's reference architecture), <a href="19_coordinated_path_following.html">Part 19</a> (path-parameterised structures).</div>
+        </div>
+      </section>
+
+      <section id="state">
+        <h2>2. The Virtual Rigid Body</h2>
+        <p>A planar formation is a rigid body with three degrees of freedom; a flyable one also has a speed, a turn rate and an altitude. Its state and kinematics (NED, course clockwise from north, Part 15):</p>
+        <div class="formula">
+          \[ \xi=(p_c,\ \psi_c,\ V_c,\ \omega_c,\ h_c),\qquad
+          \dot p_c=v_c=V_c\begin{bmatrix}\cos\psi_c\\ \sin\psi_c\end{bmatrix},\qquad \dot\psi_c=\omega_c,\qquad
+          \omega_c=\begin{cases}0&\text{on a leg}\\ \pm\,g\tan\phi_c/V_c&\text{in a turn.}\end{cases} \]
+        </div>
+        <p>The body's own motion is a coordinated turn of bank \(\phi_c\) (Part 16) or straight flight; \(V_c,\omega_c,h_c\) are piecewise constant mission data (a racetrack: legs of length \(\ell\) and 180° turns). Slots are fixed vectors \(r_i=(r_{n,i},r_{e,i})\) in the body frame (Part 10), plus altitude offsets \(\Delta h_i\). Positive \(\omega_c\) is a right turn (clockwise seen from above), and \(r_{e,i}\gt0\) is to the right of the centre.</p>
+        <figure>
+          <svg viewBox="0 0 760 330" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Virtual structure in a right turn">
+            <defs><marker id="ar13" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#2457d6"/></marker>
+                  <marker id="ar13r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#b42318"/></marker></defs>
+            <g font-family="system-ui, sans-serif" font-size="13" fill="#172033">
+              <!-- turn centre at (560,165); structure centre at (340,165) i.e. radius 220 -->
+              <circle cx="560" cy="165" r="220" fill="none" stroke="#dce2ec" stroke-width="1.5" stroke-dasharray="6 5"/>
+              <circle cx="560" cy="165" r="160" fill="none" stroke="#dce2ec" stroke-width="1" stroke-dasharray="4 4"/>
+              <circle cx="560" cy="165" r="280" fill="none" stroke="#dce2ec" stroke-width="1" stroke-dasharray="4 4"/>
+              <circle cx="560" cy="165" r="5" fill="#5d687a"/><text x="572" y="160" fill="#5d687a" font-size="12">turn centre</text>
+              <text x="572" y="178" fill="#5d687a" font-size="12">R_c = V_c/ω_c</text>
+              <!-- structure centre (slot 1) heading "up" (north) with right turn -> centre to the east (right) -->
+              <circle cx="340" cy="165" r="9" fill="#2457d6"/><text x="300" y="150" fill="#2457d6" font-weight="700">p_c (slot 1)</text>
+              <line x1="340" y1="165" x2="340" y2="95" stroke="#2457d6" stroke-width="2.5" marker-end="url(#ar13)"/>
+              <text x="348" y="100" fill="#2457d6" font-size="12">v_c</text>
+              <!-- body frame axes: n up, e right -->
+              <line x1="340" y1="165" x2="340" y2="240" stroke="#5d687a" stroke-width="1"/>
+              <line x1="340" y1="165" x2="280" y2="165" stroke="#5d687a" stroke-width="1"/>
+              <!-- inner slot r=(-40,+30): behind and to the right: (x=340+30*? ) scale 2 px/m: e->+x, n->-y -->
+              <circle cx="400" cy="245" r="8" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/><text x="412" y="262" font-size="12">slot 2 (inside): slower</text>
+              <line x1="400" y1="245" x2="394" y2="195" stroke="#b42318" stroke-width="2.5" marker-end="url(#ar13r)"/>
+              <!-- outer slot r=(-40,-30): behind and to the left -->
+              <circle cx="280" cy="245" r="8" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/><text x="120" y="262" font-size="12">slot 3 (outside): faster</text>
+              <line x1="280" y1="245" x2="262" y2="160" stroke="#b42318" stroke-width="2.5" marker-end="url(#ar13r)"/>
+              <!-- trail slot r=(-80,0) -->
+              <circle cx="340" cy="325" r="8" fill="#eaf0ff" stroke="#2457d6" stroke-width="2" transform="translate(0 -10)"/><text x="352" y="322" font-size="12">slot 4 (trail): course offset −36°</text>
+              <line x1="340" y1="315" x2="290" y2="252" stroke="#b42318" stroke-width="2.5" marker-end="url(#ar13r)"/>
+              <text x="40" y="40" fill="#5d687a" font-size="12">Red arrows: slot velocities v_i^d = v_c + ω_c R(ψ_c) J r_i — tangent to each slot's own circle,</text>
+              <text x="40" y="58" fill="#5d687a" font-size="12">longer outside, shorter inside, rotated for slots ahead of or behind the centre.</text>
+            </g>
+          </svg>
+          <figcaption>Figure 1. A diamond formation in a right turn. Every slot moves on its own circle about the common turn centre; its speed is \(\omega_c\) times its own radius and its course is not the structure heading.</figcaption>
+        </figure>
+      </section>
+
+      <section id="slots">
+        <h2>3. Slot Kinematics: Position, Velocity, Acceleration</h2>
+        <h3>3.1 The derivative of a rotation matrix</h3>
+        <p>With \(R(\psi)=\begin{bmatrix}\cos\psi&-\sin\psi\\ \sin\psi&\cos\psi\end{bmatrix}\) and \(J=\begin{bmatrix}0&-1\\1&0\end{bmatrix}\):</p>
+        <div class="formula">
+          \[ \frac{dR}{d\psi}=\begin{bmatrix}-\sin\psi&-\cos\psi\\ \cos\psi&-\sin\psi\end{bmatrix}
+          =\begin{bmatrix}\cos\psi&-\sin\psi\\ \sin\psi&\cos\psi\end{bmatrix}\begin{bmatrix}0&-1\\1&0\end{bmatrix}=R(\psi)J
+          \quad\Longrightarrow\quad \boxed{\;\dot R(\psi)=\dot\psi\,R(\psi)\,J\;} \]
+        </div>
+        <p>(Multiply out the middle product: first column \((\cos\psi\cdot0-\sin\psi\cdot1,\ \sin\psi\cdot0+\cos\psi\cdot1)=(-\sin\psi,\cos\psi)\) ✓, second column \((-\cos\psi,-\sin\psi)\) ✓.) Two facts used below: \(RJ=JR\) (planar rotations commute, verified numerically to \(10^{-16}\)), and \(J^2=-I\). Finite differences confirm \(\dot R=\omega RJ\) to \(3\times10^{-11}\).</p>
+        <h3>3.2 Slot position and velocity</h3>
+        <div class="formula">
+          \[ p_i^d=p_c+R(\psi_c)\,r_i\qquad\Longrightarrow\qquad
+          \boxed{\;v_i^d=\dot p_i^d=v_c+\omega_c\,R(\psi_c)\,J\,r_i\;} \]
+        </div>
+        <p>The second term is the rigid-body rotation velocity: perpendicular to the slot's offset (because \(Jr_i\perp r_i\)), of magnitude \(\omega_c\|r_i\|\), rotated into the inertial frame. In the body frame (\(\psi_c=0\), \(v_c=(V_c,0)\)) it reads</p>
+        <div class="formula">
+          \[ v_i^d\big|_{\text{body}}=\begin{bmatrix}V_c-\omega_c\,r_{e,i}\\ \omega_c\,r_{n,i}\end{bmatrix},\qquad
+          \boxed{\;V_i=\|v_i^d\|=\sqrt{(V_c-\omega_cr_{e,i})^2+(\omega_cr_{n,i})^2}=\omega_c\,R_i\;},\qquad
+          \chi_i^d=\psi_c+\operatorname{atan2}\!\big(\omega_cr_{n,i},\ V_c-\omega_cr_{e,i}\big), \]
+        </div>
+        <p>where \(R_i=\sqrt{r_{n,i}^2+(r_{e,i}-R_c)^2}\) is the slot's distance from the turn centre (which sits at \(r=(0,R_c)\) in the body frame for a right turn). Three readings:</p>
+        <ul>
+          <li><strong>Inside slower, outside faster</strong> (\(r_{e,i}\gt0\) inside a right turn lowers \(V_i\)): Part 10's feasibility result, now derived from the rigid-body kinematics.</li>
+          <li><strong>Slots ahead of or behind the centre fly a different course</strong>: \(\chi_i^d\ne\psi_c\) whenever \(r_{n,i}\ne0\). A trail slot's velocity is rotated toward the inside of the turn because it is on the same circle, further back.</li>
+          <li><strong>Every slot's bank follows from its own speed:</strong> \(\tan\phi_i=V_i\omega_c/g\) (all slots share \(\omega_c\); Part 16).</li>
+        </ul>
+        <h3>3.3 Slot acceleration</h3>
+        <p>Differentiating again, with \(\dot v_c=\dot V_c\hat t+\omega_cJv_c\) (speed change along the course, centripetal across it):</p>
+        <div class="formula">
+          \[ a_i^d=\dot V_c\,\hat t(\psi_c)+\omega_c\,J\,v_c+\dot\omega_c\,R(\psi_c)Jr_i-\omega_c^2\,R(\psi_c)\,r_i , \]
+        </div>
+        <p>which in a steady turn (\(\dot V_c=\dot\omega_c=0\)) is the centripetal term of the centre plus the centripetal term of the offset. Finite-difference checks on the example below agree to \(2\times10^{-6}\) m/s². Second-order laws (Part 9) and acceleration-setpoint autopilots (Part 23) consume \(a_i^d\); the velocity-level law of Part 12 needs only \(v_i^d\).</p>
+      </section>
+
+      <section id="example">
+        <h2>4. Worked Example: a Diamond on a Racetrack</h2>
+        <p>Four small UAVs, \(V_c=25\) m/s, speed envelope \([16,32]\) m/s, \(\phi_{\max}=45^\circ\). Diamond slots (metres, body frame): \(r_1=(0,0)\) at the centre, \(r_2=(-40,30)\) right-rear, \(r_3=(-40,-30)\) left-rear, \(r_4=(-80,0)\) trail. The racetrack has 2000 m legs and right-hand 180° turns at \(\phi_c=30^\circ\):</p>
+        <div class="formula">\[ \omega_c=\frac{g\tan30^\circ}{25}=0.2266\ \mathrm{rad/s}=12.98^\circ/\mathrm s,\qquad R_c=\frac{V_c}{\omega_c}=110.3\ \mathrm m,\qquad \text{turn time }\pi/\omega_c=13.9\ \mathrm s,\ \text{leg }80\ \mathrm s,\ \text{lap }187.7\ \mathrm s. \]</div>
+        <table>
+          <thead><tr><th>slot</th><th>\(r_i\) [m]</th><th>\(R_i\) [m]</th><th>\(V_i\) [m/s]</th><th>\(\chi_i^d-\psi_c\)</th><th>bank \(\phi_i\)</th><th>\(n_{z,i}\)</th><th>flyable?</th></tr></thead>
+          <tbody>
+            <tr><td>1 (centre)</td><td>(0, 0)</td><td>110.3</td><td>25.00</td><td>0°</td><td>30.0°</td><td>1.155</td><td>yes</td></tr>
+            <tr><td>2 (inside)</td><td>(−40, +30)</td><td>89.8</td><td>20.33</td><td>−26.5°</td><td>25.2°</td><td>1.105</td><td>yes</td></tr>
+            <tr><td>3 (outside)</td><td>(−40, −30)</td><td>145.9</td><td>33.06</td><td>−15.9°</td><td>37.4°</td><td>1.258</td><td><span style="color:var(--danger)">no: 33.1 &gt; 32</span></td></tr>
+            <tr><td>4 (trail)</td><td>(−80, 0)</td><td>136.3</td><td>30.88</td><td>−35.9°</td><td>35.5°</td><td>1.228</td><td>yes</td></tr>
+          </tbody>
+        </table>
+        <p>On the legs all four fly \(25\) m/s wings-level on course \(\psi_c\). In the turn the outer slot needs 33.1 m/s — above the envelope — so this body cannot be flown at 30° of bank with this formation. Note the trail slot: 30.9 m/s (its radius is 136 m although it is "directly behind") and a course 36° inside the body heading. A follower told merely to "match the leader's heading" would leave its slot immediately.</p>
+        <p>The slot velocity formula was checked against finite differences of the slot position on the turning body (slot 3: \((33.054,\ 0.739)\) m/s both ways, difference \(5\times10^{-10}\)).</p>
+      </section>
+
+      <section id="flyability">
+        <h2>5. Flyability: Who Limits the Turn</h2>
+        <p>Every slot's speed is a quadratic in \(\omega_c\): \(V_i^2=V_c^2-2V_c\omega_cr_{e,i}+\omega_c^2\|r_i\|^2\). The largest turn rate the formation can fly is the smallest positive root over the slots of</p>
+        <div class="formula">
+          \[ \|r_i\|^2\,\omega_c^2-2V_cr_{e,i}\,\omega_c+\big(V_c^2-V_{\max}^2\big)=0\quad(\text{outer slots}),\qquad
+          \|r_i\|^2\,\omega_c^2-2V_cr_{e,i}\,\omega_c+\big(V_c^2-V_{\min}^2\big)=0\quad(\text{inner slots}), \]
+        </div>
+        <p>together with \(\arctan(V_i\omega_c/g)\le\phi_{\max}\). For the diamond the outer slot 3 binds: \(\omega_{c,\max}=0.1996\) rad/s \(=11.4^\circ\)/s (a grid search over \(\omega_c\) gives 0.1995), i.e. \(\phi_c\le27.0^\circ\), \(R_c\ge125.3\) m, with slot speeds \((25.0,\ 20.6,\ 32.0,\ 29.7)\) m/s and banks \((27.0^\circ,22.8^\circ,33.1^\circ,31.1^\circ)\). This is Part 10's feasibility check in its general form: there \(y_i\) was a pure lateral offset; here the along-track component \(r_{n,i}\) also raises \(V_i\), which is why the trail slot nearly binds too.</p>
+        <div class="success"><strong>Design rule.</strong> The body's bank limit is set by the <em>outermost and rearmost</em> slots, not by the lead aircraft. Compute \(\omega_{c,\max}\) from the slot table before flying the body, and either reduce \(\phi_c\) (larger \(R_c\)), shrink the formation, or morph to a trail before the turn (Section 9).</div>
+        <h3>High-speed example</h3>
+        <p>\(V_c=150\) m/s, \(\phi_c=45^\circ\): \(\omega_c=0.0654\) rad/s \(=3.75^\circ\)/s, \(R_c=2294\) m. A slot 250 m laterally outside flies 166.3 m/s at 48.0° bank (\(n_z=1.49\)); 250 m inside, 133.7 m/s at 41.7°; a slot 400 m <em>in trail</em> flies 152.3 m/s at 45.4° — almost unchanged, because along-track offsets enter \(V_i\) only through \(\sqrt{V_c^2+\omega_c^2r_n^2}\), second order in \(\omega_cr_n/V_c=0.17\). Trail is the turn-friendly formation at high speed.</p>
+      </section>
+
+      <section id="distributed">
+        <h2>6. Centralised vs Synchronised Structure</h2>
+        <p>In the original scheme one computer propagates \(\xi\) and broadcasts slot commands: a single point of failure and a bandwidth hog. The <strong>synchronised virtual structure</strong> (Ren &amp; Beard 2004) gives every aircraft its own copy \(\hat\xi_i\), propagated locally with the body model and kept consistent by consensus — exactly the distributed leader-state estimator of Part 8 §7 with the body kinematics as the model:</p>
+        <div class="formula">
+          \[ \boxed{\;\dot{\hat\xi}_i=f(\hat\xi_i)-k_\xi\Big[\sum_{j\in\mathcal N_i^{\mathrm{in}}}w_{ij}\big(\hat\xi_i\ominus\hat\xi_j\big)+b_i\big(\hat\xi_i\ominus\xi\big)\Big]\;},\qquad
+          f(\hat\xi_i)=\big(\hat V_{c,i}\hat t(\hat\psi_{c,i}),\ \hat\omega_{c,i},\ 0,\ 0,\ 0\big), \]
+        </div>
+        <p>where \(\ominus\) wraps the heading difference, and \(b_i\gt0\) marks the aircraft that receive the authoritative \(\xi\) (from the ground station, or whoever generates the mission). Between packets each copy flies on its own model; consensus only removes drift and distributes changes of \(V_c,\omega_c\) (turn entries) from the pinned aircraft to the rest.</p>
+        <h3>6.1 How fast do the copies agree?</h3>
+        <p>Four aircraft, undirected graph 1–2, 1–3, 2–4, 3–4, \(k_\xi=1\): pinning 1 and 2 gives \(\lambda(H)=\{0.382,2.382,2.618,4.618\}\), slowest time constant \(2.6\) s — 65 m of flight at 25 m/s, 393 m at 150 m/s; pinning only aircraft 1 gives \(\lambda_{\min}(H)=0.186\), time constant \(5.4\) s — 134 m / 805 m. A turn entry announced to the pinned aircraft is therefore executed by the far side of the formation a few hundred metres late at high speed unless (a) more aircraft are pinned, (b) \(k_\xi\) is raised toward its sampling limit (Part 8 §7.2), or (c) the turn is announced in advance with its start time, so that every copy switches \(\hat\omega_c\) simultaneously and consensus only corrects clock error.</p>
+        <h3>6.2 Dead-reckoning error between packets</h3>
+        <p>A copy whose turn-rate estimate is wrong by \(\Delta\omega\) drifts laterally by about \(\tfrac12V\Delta\omega\,T^2\) over a packet gap \(T\): \(0.9\) m for a small UAV (25 m/s, 1°/s, 2 s), but \(32.7\) m at 150 m/s with a 1°/s error over a 5 s gap, and \(6.5\) m with a 0.2°/s error. At high speed the turn-rate component of \(\hat\xi\) must be accurate to a fraction of a degree per second, or the packet gap must be short.</p>
+      </section>
+
+      <section id="feedback">
+        <h2>7. Formation Feedback</h2>
+        <p>A reference that ignores the aircraft will leave a slow one behind. <strong>Formation feedback</strong> (Beard, Lawton &amp; Hadaegh 2001; Ren &amp; Beard 2004) lets the body respond to its members' slot errors \(\varepsilon_i=p_i-p_i^d\):</p>
+        <div class="formula">
+          \[ \dot p_c=v_c+k_f\sum_i\varepsilon_i\qquad(\text{and similarly }\dot\psi_c=\omega_c+k_f'\textstyle\sum_i\,\text{angular slot errors}) . \]
+        </div>
+        <p>If every aircraft lags (\(\varepsilon_i\) pointing backwards), the body slows down; if they lead, it speeds up. Along-track scalar example: \(V_c=30\) m/s but a member can only fly \(V_{\max}=28\) m/s; with slot gain \(k_p=0.5\) and \(k_f=0.05\) the member settles \(40\) m behind its slot and the body settles at exactly 28 m/s — \(\varepsilon_{ss}=(V_{\max}-V_c)/k_f\) — instead of running away at 30 m/s with an ever-growing gap. The trade-off: the body is no longer an exogenous reference; the loop body → slot → aircraft → body must be analysed for stability (it is a cascade with feedback, so the small-gain condition \(k_f\sum_i(\cdot)\) small relative to the tracking bandwidth applies), and in the synchronised version every copy must agree on the <em>same</em> feedback, which means the slot errors travel in the packets too.</p>
+      </section>
+
+      <section id="comparison">
+        <h2>8. Architectures Compared</h2>
+        <table>
+          <thead><tr><th></th><th>Leader–follower (Part 8)</th><th>Virtual leader</th><th>Virtual structure (this part)</th><th>Behaviour-based / flocking (Part 14)</th></tr></thead>
+          <tbody>
+            <tr><td>Reference</td><td>a real aircraft's state</td><td>a computed point trajectory</td><td>a computed rigid body (point + heading + rates)</td><td>none; emergent from local rules</td></tr>
+            <tr><td>Single point of failure</td><td>yes (the leader)</td><td>no (if synchronised)</td><td>no (if synchronised)</td><td>no</td></tr>
+            <tr><td>Formation keeping</td><td>relative, lags the leader</td><td>each follows an offset point; heading convention needed</td><td>exact slots, exact slot velocities, flyability computable</td><td>approximate spacing, no fixed shape</td></tr>
+            <tr><td>Manoeuvres</td><td>leader manoeuvres, followers react</td><td>offsets rotate only if the leader's heading is shared</td><td>body turns; slot speeds and courses follow from kinematics</td><td>whole flock turns via the \(\gamma\)-agent</td></tr>
+            <tr><td>Communication</td><td>leader → followers (+ neighbours)</td><td>reference broadcast or consensus</td><td>\(\xi\) broadcast or consensus on \(\hat\xi_i\)</td><td>neighbour states only</td></tr>
+            <tr><td>Guarantees</td><td>convergence to the leader (Part 8)</td><td>as for leader–follower</td><td>cascade stability + flyability check</td><td>cohesion/alignment, no shape guarantee</td></tr>
+            <tr><td>Flexibility</td><td>low</td><td>medium</td><td>medium (morph by changing \(r_i(t)\))</td><td>high</td></tr>
+          </tbody>
+        </table>
+        <p>The virtual structure is the architecture of choice when the formation shape itself matters — sensor baselines, refuelling positions, tight spacing — and the environment is known. Flocking (Part 14) wins when the swarm must flow around unknown obstacles and the exact shape is irrelevant. The capstone uses the virtual structure and keeps flocking as an alternative formation layer (Part 24 §17).</p>
+      </section>
+
+      <section id="fixed-wing">
+        <h2>9. Fixed-Wing Interpretation</h2>
+        <ul>
+          <li><strong>Each slot is its own coordinated turn.</strong> In the turn, aircraft \(i\) flies at \(V_i=\omega_cR_i\) on the course \(\chi_i^d\) of Section 3.2, at bank \(\arctan(V_i\omega_c/g)\). The formation guidance law (Part 12, Part 24 L2) delivers this automatically through \(v_i^d\); a heading-synchronisation law would not.</li>
+          <li><strong>The body's bank is limited by its worst slot</strong> (Section 5), and the limit is a speed-envelope limit before it is a bank limit.</li>
+          <li><strong>Morphing before the turn.</strong> Because the slots are mission data, \(r_i(t)\) can change: a vee collapses into a trail a few seconds before a turn (\(v_i^d\) then gains the term \(R(\psi_c)\dot r_i\)), the turn is flown at the lead's bank, and the vee re-forms on the next leg. With synchronised copies all aircraft morph in step.</li>
+          <li><strong>What to broadcast.</strong> \(\xi\) with a timestamp, and preferably the <em>future</em> \(\xi\) (turn start time, bank, speed) so that copies switch simultaneously. Pinned aircraft dead-reckon the received \(\xi\) by \(V_c\tau\) before using it (Part 8 §9.3).</li>
+          <li><strong>Altitude stacking.</strong> \(h_i^d=h_c+\Delta h_i\) with \(\Delta h_i\) part of the slot table — cheap de-confliction that the safety filter (Part 20) can exploit.</li>
+        </ul>
+        <div class="note"><strong>High-speed note.</strong> At 150 m/s the lateral slot speeds of a 500 m-wide vee differ by ±16 m/s from the centre's (Section 5) — close to the envelope — while a 400 m trail slot differs by 2 m/s. The synchronised copies disagree for a few seconds after every turn entry, which is 400–800 m of flight (Section 6.1), and a 1°/s turn-rate error costs 33 m of lateral drift in a 5 s packet gap. Hence the high-speed pattern of the capstone (Part 24 §13): fly vees on legs, trail in turns, announce turns ahead, pin at least two aircraft, and keep \(\hat\omega_c\) accurate rather than relying on fast consensus to fix it.</div>
+        <div class="claw"><strong>Toward the CLAW</strong>
+          This part <em>is</em> the capstone's reference architecture. Layer L0 generates \(\xi\) (Section 2, with the racetrack generator); layer L1 is the synchronised copy \(\hat\xi_i\) of Section 6 (the estimator of Part 8 with the body model); layer L2 tracks the slot using the position \(p_i^d\) and the velocity feedforward \(v_i^d=v_c+\omega_cR(\psi_c)Jr_i\) of Section 3 — the term whose absence produces the Part 12 lag; and check D1 of the design procedure is the flyability computation of Section 5, applied to the outermost slot. Formation feedback (Section 7) is listed as an extension because it closes a loop through the reference that the capstone's cascade proof deliberately avoids.</div>
+      </section>
+
+      <section id="implementation">
+        <h2>10. Implementation</h2>
+        <p>Pure NumPy. Computes slot position/velocity/acceleration from the body state, the slot table of Section 4, the flyability limit of Section 5, and checks the velocity formula by finite differences.</p>
+<pre><code>import numpy as np
+np.set_printoptions(precision=3, suppress=True)
+g = 9.81
+def R(psi):
+    return np.array([[np.cos(psi), -np.sin(psi)], [np.sin(psi), np.cos(psi)]])
+J = np.array([[0.0, -1.0], [1.0, 0.0]])
+
+# structure: V_c = 25 m/s, bank 30 deg in the turns, legs of 2000 m
+V_c, phi_c, leg = 25.0, np.radians(30.0), 2000.0
+omega_c = g*np.tan(phi_c)/V_c            # turn rate in the turns (0 on the legs)
+R_c = V_c/omega_c
+slots = np.array([[0.0, 0.0], [-40.0, 30.0], [-40.0, -30.0], [-80.0, 0.0]])   # r_i (n, e) in the formation frame
+V_min, V_max, phi_max = 16.0, 32.0, np.radians(45.0)
+
+def slot_state(p_c, psi_c, V_c, omega_c, r_i):
+    """slot position, velocity and acceleration from the virtual-structure state"""
+    v_c = V_c*np.array([np.cos(psi_c), np.sin(psi_c)])
+    p_d = p_c + R(psi_c) @ r_i
+    v_d = v_c + omega_c*R(psi_c) @ J @ r_i                      # from dR/dt = omega R J
+    a_d = omega_c*J @ v_c - omega_c**2*R(psi_c) @ r_i           # steady turn: omega_dot = 0
+    return p_d, v_d, a_d
+
+print("omega_c = %.4f rad/s = %.2f deg/s, R_c = %.1f m" % (omega_c, np.degrees(omega_c), R_c))
+print("slot |  R_i [m] | V_i [m/s] | course-psi_c [deg] | bank [deg] |  n_z  | flyable")
+for i, r_i in enumerate(slots):
+    p_d, v_d, a_d = slot_state(np.zeros(2), 0.0, V_c, omega_c, r_i)
+    V_i = np.linalg.norm(v_d)
+    R_i = np.sqrt(r_i[0]**2 + (r_i[1] - R_c)**2)               # distance from the turn centre (right turn)
+    off = np.degrees(np.arctan2(v_d[1], v_d[0]))
+    phi_i = np.arctan(V_i*omega_c/g)
+    ok = (V_min &lt;= V_i &lt;= V_max) and (phi_i &lt;= phi_max)
+    print("  %d  | %7.1f | %8.2f | %13.2f | %9.2f | %.3f | %s" % (i+1, R_i, V_i, off, np.degrees(phi_i), 1/np.cos(phi_i), ok))
+
+# largest omega_c such that every slot stays inside the speed envelope (quadratic in omega_c)
+w_ok = np.inf
+for r_i in slots[1:]:                                           # slot 1 sits at p_c: always V_c
+    a, b, c = r_i @ r_i, -2*V_c*r_i[1], V_c**2 - V_max**2       # |v_d|^2 = V_max^2
+    w_ok = min(w_ok, (-b + np.sqrt(b*b - 4*a*c))/(2*a))
+print("max flyable omega_c = %.4f rad/s (%.2f deg/s) -&gt; phi_c = %.2f deg, R_c = %.1f m"
+      % (w_ok, np.degrees(w_ok), np.degrees(np.arctan(w_ok*V_c/g)), V_c/w_ok))
+
+# finite-difference check of the slot velocity on a turning structure
+dt = 1e-5
+def p_slot(t, r_i):
+    psi = 0.3 + omega_c*t
+    centre = R(0.3) @ np.array([0.0, R_c])                       # right turn: centre to the right
+    p_c = centre + R(psi) @ np.array([0.0, -R_c])
+    return p_c + R(psi) @ r_i
+fd = (p_slot(dt, slots[2]) - p_slot(-dt, slots[2]))/(2*dt)
+_, v_d, _ = slot_state(p_slot(0, np.zeros(2)), 0.3, V_c, omega_c, slots[2])
+print("slot 3 velocity: finite difference", fd, " formula", v_d)
+print("racetrack: turn time %.2f s, leg time %.1f s, lap %.1f s" % (np.pi/omega_c, leg/V_c, 2*leg/V_c + 2*np.pi/omega_c))
+</code></pre>
+<pre><code>omega_c = 0.2266 rad/s = 12.98 deg/s, R_c = 110.3 m
+slot |  R_i [m] | V_i [m/s] | course-psi_c [deg] | bank [deg] |  n_z  | flyable
+  1  |   110.3 |    25.00 |          0.00 |     30.00 | 1.155 | True
+  2  |    89.8 |    20.33 |        -26.47 |     25.15 | 1.105 | True
+  3  |   145.9 |    33.06 |        -15.91 |     37.36 | 1.258 | False
+  4  |   136.3 |    30.88 |        -35.94 |     35.49 | 1.228 | True
+max flyable omega_c = 0.1996 rad/s (11.44 deg/s) -&gt; phi_c = 26.96 deg, R_c = 125.3 m
+slot 3 velocity: finite difference [33.054  0.739]  formula [33.054  0.739]
+racetrack: turn time 13.87 s, leg time 80.0 s, lap 187.7 s
+</code></pre>
+      </section>
+
+      <section id="pitfalls">
+        <h2>11. Common Pitfalls</h2>
+        <ul>
+          <li><strong>Tracking the slot position without its velocity.</strong> The \(\omega_cR(\psi_c)Jr_i\) term is the difference between holding formation in a turn and lagging by \(\|v_i^d\|/k_p\) (Part 12).</li>
+          <li><strong>Commanding the body heading as the slot's course.</strong> The trail slot in Section 4 flies 36° inside \(\psi_c\). Use \(\chi_i^d=\operatorname{atan2}(v_{e,i}^d,v_{n,i}^d)\).</li>
+          <li><strong>Choosing \(\phi_c\) from the lead aircraft.</strong> The outermost and rearmost slots bind; compute Section 5's limit.</li>
+          <li><strong>Sign conventions.</strong> Positive \(\omega_c\) = right turn, turn centre at \(r=(0,R_c)\), \(r_e\gt0\) inside the right turn. A flipped sign puts the fast slot on the wrong side.</li>
+          <li><strong>Synchronising positions but not rates.</strong> Copies that agree on \(\hat p_c\) but not on \(\hat\omega_c\) diverge between packets by \(\tfrac12V\Delta\omega T^2\).</li>
+          <li><strong>No timestamps.</strong> A received \(\xi\) is \(V_c\tau\) metres stale; dead-reckon before fusing.</li>
+          <li><strong>Formation feedback without analysis.</strong> It closes a loop through the reference; keep \(k_f\) small relative to the slot-tracking bandwidth and send the slot errors with the packets.</li>
+        </ul>
+      </section>
+
+      <section id="exercises">
+        <h2>12. Exercises</h2>
+        <div class="exercise">
+          <strong>Exercise 1 (rotation derivative).</strong> Show that \(R(\psi)J=JR(\psi)\) and \(J^2=-I\), and use them to derive the slot acceleration in a steady turn from \(v_i^d=v_c+\omega_cR(\psi_c)Jr_i\).
+          <details><summary>Show solution</summary><div class="solution">\(J\) is the rotation by \(+90^\circ\), and planar rotations commute, so \(RJ=JR\); \(J^2=R(180^\circ)=-I\). With \(\dot v_c=\omega_cJv_c\) (steady turn) and \(\dot R=\omega_cRJ\): \(a_i^d=\omega_cJv_c+\omega_c\cdot\omega_cRJ\cdot Jr_i=\omega_cJv_c+\omega_c^2RJ^2r_i=\omega_cJv_c-\omega_c^2Rr_i\).</div></details>
+        </div>
+        <div class="exercise">
+          <strong>Exercise 2 (slot in a turn).</strong> \(V_c=40\) m/s, \(\phi_c=35^\circ\), slot \(r=(-60,-45)\) m. Find \(\omega_c\), \(R_c\), the slot's radius, speed, course offset and bank.
+          <details><summary>Show solution</summary><div class="solution">\(\omega_c=9.81\tan35^\circ/40=0.1717\) rad/s \(=9.84^\circ\)/s, \(R_c=232.9\) m; \(R_i=\sqrt{60^2+(-45-232.9)^2}=284.3\) m; \(V_i=\omega_cR_i=48.8\) m/s; body-frame velocity \((40+0.1717\cdot45,\ -0.1717\cdot60)=(47.7,-10.3)\), offset \(\operatorname{atan2}(-10.3,47.7)=-12.2^\circ\); bank \(\arctan(48.8\cdot0.1717/9.81)=40.5^\circ\), \(n_z=1.32\).</div></details>
+        </div>
+        <div class="exercise">
+          <strong>Exercise 3 (flyability).</strong> For \(V_c=25\) m/s, \(V_{\max}=32\) m/s and an outer-rear slot \(r=(-80,-60)\) m, find the largest \(\omega_c\), the corresponding \(\phi_c\) and \(R_c\).
+          <details><summary>Show solution</summary><div class="solution">\(\|r\|^2=10\,000\), \(-2V_cr_e=3000\), \(V_c^2-V_{\max}^2=-399\): \(10\,000\,\omega^2+3000\,\omega-399=0\Rightarrow\omega_c=0.0998\) rad/s \(=5.72^\circ\)/s; \(\phi_c=\arctan(0.0998\cdot25/9.81)=14.3^\circ\); \(R_c=250.5\) m. Check: \(V_i=\|(25+0.0998\cdot60,\ -0.0998\cdot80)\|=32.0\) m/s.</div></details>
+        </div>
+        <div class="exercise">
+          <strong>Exercise 4 (synchronisation).</strong> With the 4-aircraft graph of Section 6.1 and \(k_\xi=1\), compare the slowest time constant for pinning \(\{1,2\}\) versus \(\{1\}\), and the distance flown at 150 m/s. What third option reduces the delay without touching the graph?
+          <details><summary>Show solution</summary><div class="solution">\(\{1,2\}\): \(\lambda_{\min}(H)=0.382\), \(\tau=2.6\) s, 393 m; \(\{1\}\): \(0.186\), \(5.4\) s, 805 m. Announcing the turn ahead of time (start time and \(\omega_c\) in the packet) lets every copy switch at the same instant; consensus then only corrects clock disagreement, which is far smaller than a whole turn-rate step.</div></details>
+        </div>
+        <div class="exercise">
+          <strong>Exercise 5 (formation feedback).</strong> With \(V_c=30\) m/s and a member limited to 28 m/s, what \(k_f\) keeps the steady lag at 10 m? What is the body's speed then?
+          <details><summary>Show solution</summary><div class="solution">\(\varepsilon_{ss}=(V_{\max}-V_c)/k_f\Rightarrow k_f=2/10=0.2\ \mathrm{s^{-1}}\). The body settles at the member's limit, 28 m/s, regardless of \(k_f\); \(k_f\) only sets how far behind the member sits.</div></details>
+        </div>
+        <div class="exercise">
+          <strong>Exercise 6 (dead reckoning).</strong> A copy's turn-rate estimate is 0.5°/s too high at 60 m/s and no packet arrives for 3 s. Estimate the lateral slot error that accumulates.
+          <details><summary>Show solution</summary><div class="solution">\(\tfrac12V\Delta\omega T^2=0.5\cdot60\cdot0.00873\cdot9=2.36\) m — acceptable for a 60 m spacing, not for a 10 m one.</div></details>
+        </div>
+      </section>
+
+      <section id="summary">
+        <h2>13. Key Takeaways &amp; Formula Sheet</h2>
+        <ul>
+          <li>Body state \(\xi=(p_c,\psi_c,V_c,\omega_c,h_c)\); \(\dot p_c=V_c\hat t(\psi_c)\), \(\dot\psi_c=\omega_c=g\tan\phi_c/V_c\) in turns.</li>
+          <li>\(\dot R(\psi)=\dot\psi R(\psi)J\), \(RJ=JR\), \(J^2=-I\).</li>
+          <li>Slot: \(p_i^d=p_c+Rr_i\); \(v_i^d=v_c+\omega_cRJr_i\); \(a_i^d=\dot V_c\hat t+\omega_cJv_c+\dot\omega_cRJr_i-\omega_c^2Rr_i\).</li>
+          <li>Slot speed \(V_i=\omega_cR_i=\sqrt{(V_c-\omega_cr_e)^2+(\omega_cr_n)^2}\); course offset \(\operatorname{atan2}(\omega_cr_n,V_c-\omega_cr_e)\); bank \(\arctan(V_i\omega_c/g)\).</li>
+          <li>Flyability: smallest positive root over slots of \(\|r_i\|^2\omega^2-2V_cr_{e,i}\omega+V_c^2-V_{\max/\min}^2=0\); the outermost/rearmost slot limits \(\phi_c\).</li>
+          <li>Synchronised structure = Part 8 estimator with the body model; rate \(k_\xi\lambda_{\min}(H)\); drift \(\tfrac12V\Delta\omega T^2\) between packets.</li>
+          <li>Formation feedback \(\dot p_c=v_c+k_f\sum\varepsilon_i\): body adapts to the slowest member, \(\varepsilon_{ss}=(V_{\max}-V_c)/k_f\); closes a loop through the reference.</li>
+        </ul>
+      </section>
+
+      <section id="references">
+        <h2>14. References</h2>
+        <ul>
+          <li>M. A. Lewis and K.-H. Tan, "High precision formation control of mobile robots using virtual structures," <em>Autonomous Robots</em> 4(4), 1997 — the original virtual-structure concept.</li>
+          <li>R. W. Beard, J. Lawton and F. Y. Hadaegh, "A coordination architecture for spacecraft formation control," <em>IEEE Trans. Control Systems Technology</em> 9(6), 2001 — formation feedback.</li>
+          <li>W. Ren and R. W. Beard, "Decentralized scheme for spacecraft formation flying via the virtual structure approach," <em>J. Guidance, Control, and Dynamics</em> 27(1), 2004 — synchronised local copies.</li>
+          <li>W. Ren and R. W. Beard, <em>Distributed Consensus in Multi-vehicle Cooperative Control</em>, Springer, 2008, Ch. 6–7.</li>
+          <li>M. Egerstedt and X. Hu, "Formation constrained multi-agent control," <em>IEEE Trans. Robotics and Automation</em> 17(6), 2001 — virtual leader.</li>
+          <li>N. E. Leonard and E. Fiorelli, "Virtual leaders, artificial potentials and coordinated control of groups," <em>Proc. IEEE CDC</em>, 2001.</li>
+          <li>R. W. Beard and T. W. McLain, <em>Small Unmanned Aircraft: Theory and Practice</em>, Princeton, 2012, Ch. 9 — coordinated-turn kinematics used for the body model.</li>
+          <li>K.-K. Oh, M.-C. Park and H.-S. Ahn, "A survey of multi-agent formation control," <em>Automatica</em> 53, 2015.</li>
+        </ul>
+      </section>
+
+      <div class="prevnext">
+        <a class="prev" href="12_formation_control.html"><span>&larr; Previous</span>Part 12: Formation Control</a>
+        <a class="next" href="14_flocking.html"><span>Next &rarr;</span>Part 14: Flocking</a>
+      </div>
+      <div class="done-box"><button id="done-btn" data-lesson="13">Mark Part 13 as complete</button></div>
+    </main>
+  </div>
+
+  <footer>Fixed-Wing Swarm Learning · Part 13 · Virtual Structures</footer>
+
+  <script>
+    (function () {
+      try {
+        var btn = document.getElementById('done-btn');
+        if (!btn) return;
+        var id = btn.getAttribute('data-lesson');
+        var key = 'fwswarm_done';
+        var done = JSON.parse(localStorage.getItem(key) || '[]');
+        function render() {
+          var is = done.indexOf(id) >= 0;
+          btn.textContent = is ? 'Completed ✓ (click to undo)' : 'Mark Part ' + id + ' as complete';
+          btn.className = is ? 'undone' : '';
+        }
+        btn.addEventListener('click', function () {
+          var i = done.indexOf(id);
+          if (i >= 0) done.splice(i, 1); else done.push(id);
+          localStorage.setItem(key, JSON.stringify(done));
+          render();
+        });
+        render();
+      } catch (e) { /* storage unavailable: ignore */ }
+    })();
+  </script>
+</body>
+</html>

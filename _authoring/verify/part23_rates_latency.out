@@ -1,0 +1,49 @@
+=== distance flown during one latency (m) ===
+V [m/s] |     10 ms     50 ms    100 ms    500 ms   1000 ms
+     20 |       0.2       1.0       2.0      10.0      20.0
+     60 |       0.6       3.0       6.0      30.0      60.0
+    150 |       1.5       7.5      15.0      75.0     150.0
+    250 |       2.5      12.5      25.0     125.0     250.0
+
+=== SwarmState message payload (bytes, before DDS/UDP/IP overhead) ===
+  uav_id                      1 B
+  timestamp_us                8 B
+  seq                         2 B
+  lat_deg                     8 B
+  lon_deg                     8 B
+  alt_amsl_m                  4 B
+  p_n,p_e,p_d (swarm NED)    12 B
+  v_n,v_e,v_d                12 B
+  course_rad                  4 B
+  heading_rad                 4 B
+  v_g                         4 B
+  v_a                         4 B
+  gamma_rad                   4 B
+  mode                        1 B
+  health                      1 B
+  payload total = 77 B
+N= 3 UAVs @  5.0 Hz:    15 msg/s,     2.7 kB/s =   21.2 kbit/s (payload 77 B + 100 B overhead)
+N= 3 UAVs @ 10.0 Hz:    30 msg/s,     5.3 kB/s =   42.5 kbit/s (payload 77 B + 100 B overhead)
+N= 3 UAVs @ 20.0 Hz:    60 msg/s,    10.6 kB/s =   85.0 kbit/s (payload 77 B + 100 B overhead)
+N=10 UAVs @  5.0 Hz:    50 msg/s,     8.8 kB/s =   70.8 kbit/s (payload 77 B + 100 B overhead)
+N=10 UAVs @ 10.0 Hz:   100 msg/s,    17.7 kB/s =  141.6 kbit/s (payload 77 B + 100 B overhead)
+N=10 UAVs @ 20.0 Hz:   200 msg/s,    35.4 kB/s =  283.2 kbit/s (payload 77 B + 100 B overhead)
+N=30 UAVs @  5.0 Hz:   150 msg/s,    26.6 kB/s =  212.4 kbit/s (payload 77 B + 100 B overhead)
+N=30 UAVs @ 10.0 Hz:   300 msg/s,    53.1 kB/s =  424.8 kbit/s (payload 77 B + 100 B overhead)
+N=30 UAVs @ 20.0 Hz:   600 msg/s,   106.2 kB/s =  849.6 kbit/s (payload 77 B + 100 B overhead)
+
+=== proof-of-life margin: PX4 needs OffboardControlMode at > 2 Hz ===
+publish at  5.0 Hz: period   200 ms, margin factor 2 over 2 Hz, lost packets tolerated before 500 ms gap: 1
+publish at 10.0 Hz: period   100 ms, margin factor 5 over 2 Hz, lost packets tolerated before 500 ms gap: 4
+publish at 20.0 Hz: period    50 ms, margin factor 10 over 2 Hz, lost packets tolerated before 500 ms gap: 9
+publish at 50.0 Hz: period    20 ms, margin factor 25 over 2 Hz, lost packets tolerated before 500 ms gap: 24
+
+=== loop rates used in the lesson (design choice) ===
+  swarm state broadcast                     10 Hz  (  100 ms)
+  coordination (consensus/formation)        10 Hz  (  100 ms)
+  guidance + safety filter + PX4 setpoint   20 Hz  (   50 ms)
+  task allocation (CBBA)                     1 Hz  ( 1000 ms)
+
+=== timestamp arithmetic ===
+ROS clock ns = 1700000000123456789 -> PX4-style us = 1700000000123456
+message age 250000 us = 0.250 s

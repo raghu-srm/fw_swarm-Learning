@@ -1,0 +1,9 @@
+    t=0: phase rates [0.0636 0.0897 0.0767], speeds [19.0938 26.9062 23.    ] m/s
+    splay: all shifted-phase differences < 1 deg at t = 188.0 s (2.29 orbits); speeds in [19.09, 26.91]; |p_theta| final = 0.0000; final relative phases [   0.  120. -120.]
+    t=0: phase rates [0.0791 0.0743 0.0767], speeds [23.7218 22.2782 23.    ] m/s
+    synchronise (offsets 0): converged < 1 deg at t = never (<1500 s); |p_theta| final = 0.9997; speeds in [18.20, 25.40]; final rel phases [0.     0.     2.8989]
+    initial order parameter |p_theta(0)| = 0.293
+    t=0: phase rates [0.0743 0.0791 0.0767], speeds [22.2782 23.7218 23.    ] m/s
+    balance (k_theta < 0, offsets 0): |p_theta| final = 0.0000; final relative phases [   0.  120. -120.]; speeds in [22.11, 23.89]
+  radius trick: V=23.0 fixed, rho=300.0 -> omega=0.0767 rad/s; rho*1.1 -> 0.0697 (-9.1%), rho*0.9 -> 0.0852 (+11.1%)
+  radius trick: V=150.0 fixed, rho=3000.0 -> omega=0.0500 rad/s; rho*1.1 -> 0.0455 (-9.1%), rho*0.9 -> 0.0556 (+11.1%)

@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fixed-Wing Swarm Learning — Leader–Follower Consensus</title>
+
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['\\(', '\\)']],
+        displayMath: [['\\[', '\\]'], ['$$', '$$']]
+      },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --card: #ffffff;
+      --text: #172033;
+      --muted: #5d687a;
+      --accent: #2457d6;
+      --accent-light: #eaf0ff;
+      --border: #dce2ec;
+      --code: #111827;
+      --success: #147a4b;
+      --warning: #c27b00;
+      --danger: #b42318;
+      --claw: #0f766e;
+      --claw-light: #e6f6f4;
+      --def: #6d28d9;
+      --def-light: #f3eefe;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+    }
+
+    header {
+      background: linear-gradient(135deg, #172554, #2457d6);
+      color: white;
+      padding: 56px 20px 44px;
+    }
+    header .wrap { max-width: 1320px; margin: auto; }
+    .topbar { margin-bottom: 18px; font-size: .95rem; }
+    .topbar a { color: #dbe6ff; }
+    .topbar a:hover { color: #fff; }
+
+    h1 { margin: 0 0 10px; font-size: clamp(2rem, 5vw, 3.2rem); }
+    h2 { margin-top: 0; font-size: 1.8rem; }
+    h3 { margin-top: 1.6rem; }
+    h4 { margin-top: 1.2rem; margin-bottom: .4rem; }
+
+    .subtitle { max-width: 820px; color: #dbe6ff; font-size: 1.08rem; }
+
+    nav, section, .callout {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px;
+      margin: 20px 0;
+      box-shadow: 0 3px 12px rgba(20, 35, 70, .05);
+    }
+    nav h2 { font-size: 1.35rem; }
+    nav ol { margin-bottom: 0; padding-left: 22px; }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    code { background: #eef1f6; padding: 2px 5px; border-radius: 5px; font-size: .92em; }
+    pre {
+      background: var(--code);
+      color: #e5e7eb;
+      padding: 18px;
+      border-radius: 10px;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+    pre code { background: none; padding: 0; color: inherit; font-size: .9rem; }
+
+    .formula {
+      background: var(--accent-light);
+      border-left: 4px solid var(--accent);
+      padding: 16px 18px;
+      margin: 16px 0;
+      overflow-x: auto;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+    }
+    .mini {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      background: #fbfcff;
+    }
+    .mini strong { display: block; margin-bottom: 5px; }
+
+    .success { border-left: 4px solid var(--success); background: #edf9f3; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .warning { border-left: 4px solid var(--warning); background: #fff8e8; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .danger  { border-left: 4px solid var(--danger);  background: #fdecec; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .note    { border-left: 4px solid var(--muted);   background: #f3f5f8; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .definition, .theorem {
+      border-left: 4px solid var(--def);
+      background: var(--def-light);
+      padding: 14px 18px;
+      border-radius: 8px;
+      margin: 14px 0;
+    }
+    .definition > strong:first-child, .theorem > strong:first-child { color: var(--def); }
+    .claw {
+      border: 1px solid #99d6cf;
+      border-left: 6px solid var(--claw);
+      background: var(--claw-light);
+      padding: 16px 20px;
+      border-radius: 10px;
+      margin: 18px 0;
+    }
+    .claw > strong:first-child { color: var(--claw); display: block; margin-bottom: 6px; font-size: 1.05rem; }
+
+    table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+    th, td { text-align: left; padding: 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    th { background: #f1f4f9; }
+
+    .tag {
+      display: inline-block;
+      background: #eaf0ff;
+      color: #204bb4;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: .82rem;
+      margin: 3px;
+    }
+
+    figure { margin: 18px 0; }
+    figure > svg { width: 100%; height: auto; display: block; background: #fbfcff; border: 1px solid var(--border); border-radius: 10px; }
+    figcaption { color: var(--muted); font-size: .92rem; margin-top: 6px; text-align: center; }
+
+    .exercise { border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; margin: 14px 0; background: #fbfcff; }
+    .exercise summary { cursor: pointer; color: var(--accent); font-weight: 600; margin-top: 8px; }
+    .exercise details { margin-top: 6px; }
+    .exercise .solution { border-top: 1px dashed var(--border); margin-top: 8px; padding-top: 8px; }
+
+    .demo { border: 1px solid var(--border); border-radius: 12px; padding: 14px; background: #fbfcff; margin: 16px 0; }
+    .demo canvas { width: 100%; height: auto; display: block; background: #ffffff; border: 1px solid var(--border); border-radius: 8px; }
+    .controls { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; margin: 10px 0; font-size: .95rem; }
+    .controls label { display: inline-flex; align-items: center; gap: 6px; }
+    .controls input[type=range] { width: 140px; }
+    .controls button, .btn {
+      background: var(--accent); color: #fff; border: 0; padding: 7px 14px; border-radius: 8px; cursor: pointer; font-size: .92rem;
+    }
+    .controls button:hover, .btn:hover { filter: brightness(1.08); }
+    .controls button.secondary { background: #e5e9f2; color: var(--text); }
+
+    .prevnext { display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin: 26px 0 0; }
+    .prevnext a { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; flex: 1 1 260px; }
+    .prevnext a span { display: block; color: var(--muted); font-size: .82rem; }
+    .prevnext a.next { text-align: right; }
+
+    .done-box { text-align: center; margin: 24px 0 0; }
+    .done-box button { background: var(--success); color: #fff; border: 0; padding: 9px 18px; border-radius: 8px; cursor: pointer; }
+    .done-box button.undone { background: #9aa5b5; }
+
+    footer { text-align: center; color: var(--muted); padding: 30px 20px 50px; }
+
+    .page-shell {
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      gap: 24px;
+      max-width: 1320px;
+      margin: 0 auto;
+      padding: 28px 20px 70px;
+      align-items: start;
+    }
+    .sidebar { grid-column: 1; position: sticky; top: 20px; }
+    .sidebar nav { position: sticky; top: 20px; max-height: calc(100vh - 40px); overflow-y: auto; }
+    .content { grid-column: 2; min-width: 0; }
+    @media (max-width: 960px) {
+      .page-shell { grid-template-columns: 1fr; }
+      .sidebar, .sidebar nav { position: static; max-height: none; }
+      .sidebar, .content { grid-column: 1; }
+    }
+    @media print {
+      nav { break-after: page; }
+      section { box-shadow: none; }
+      .demo, .done-box, .prevnext, .topbar { display: none; }
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <div class="wrap">
+      <div class="topbar"><a href="index.html">&larr; Course home</a> &nbsp;·&nbsp; Module B: Consensus</div>
+      <h1>Fixed-Wing Swarm Learning</h1>
+      <div class="subtitle">
+        Part 8: <strong>Leader–Follower Consensus</strong> — anchoring the swarm to a reference: pinning, the matrix \(H=L+B\),
+        the lag behind a moving leader, and the distributed leader-state estimator that the unified CLAW is built on.
+      </div>
+      <p>
+        <span class="tag">Pinning control</span>
+        <span class="tag">H = L + B</span>
+        <span class="tag">Dynamic leader</span>
+        <span class="tag">Distributed estimator</span>
+        <span class="tag">UAV Swarms</span>
+      </p>
+    </div>
+  </header>
+
+  <div class="page-shell">
+    <aside class="sidebar">
+      <nav id="index">
+        <h2>Index</h2>
+        <ol>
+          <li><a href="#why">Why this matters</a></li>
+          <li><a href="#static">Static leader and the matrix \(H=L+B\)</a></li>
+          <li><a href="#theorem">When is \(H\) positive definite?</a></li>
+          <li><a href="#rate">Convergence rate and the pinning bound</a></li>
+          <li><a href="#pinning">Worked example: whom to pin</a></li>
+          <li><a href="#dynamic">Dynamic leader: the lag</a></li>
+          <li><a href="#estimator">Distributed leader-state estimator</a></li>
+          <li><a href="#directed">Directed graphs and the augmented tree</a></li>
+          <li><a href="#fixed-wing">Fixed-wing interpretation</a></li>
+          <li><a href="#implementation">Implementation</a></li>
+          <li><a href="#pitfalls">Common pitfalls</a></li>
+          <li><a href="#exercises">Exercises</a></li>
+          <li><a href="#summary">Key takeaways &amp; formula sheet</a></li>
+          <li><a href="#references">References</a></li>
+        </ol>
+      </nav>
+    </aside>
+
+    <main class="content">
+
+      <section id="why">
+        <h2>1. Why This Matters</h2>
+        <p>
+          Consensus makes a swarm agree, but on a value nobody chose: the average, or a weighted average set by the topology (Part 7), drifting
+          under any biased disturbance (Part 6 §8). A mission needs the opposite — every aircraft converging to a <em>reference</em> that a mission
+          planner, a ground station or a lead aircraft dictates: a flight level, a speed, a formation centre, a turn. Leader–follower consensus adds
+          one term to the protocol and changes everything about its behaviour:
+        </p>
+        <div class="formula">
+          \[ \dot x_i=\sum_{j\in\mathcal N_i^{\mathrm{in}}}w_{ij}(x_j-x_i)\;+\;\underbrace{b_i\,(x_0-x_i)}_{\text{pinning term}},\qquad b_i\gt0\ \text{only if UAV } i \text{ hears the leader.} \]
+        </div>
+        <p>
+          The questions are the same as before — does it converge, how fast, to what — but a new one dominates the engineering: <strong>which aircraft should hear
+          the leader</strong>, and what happens when the leader moves. The answers lead directly to the estimator-plus-tracker structure that the capstone's
+          control law uses for its reference layer.
+        </p>
+        <div class="grid">
+          <div class="mini"><strong>Input</strong>Undirected consensus and its Lyapunov proof (<a href="5_continuous_time_consensus.html">Parts 5</a>–<a href="6_consensus_convergence_stability.html">6</a>); listening weights, spanning trees and \(\gamma\) (<a href="7_directed_graph_consensus.html">Part 7</a>).</div>
+          <div class="mini"><strong>Output</strong>Design a pinned set and gains for a given graph, predict the lag behind a moving reference, and implement a distributed reference estimator with a local tracker.</div>
+          <div class="mini"><strong>Used in</strong><a href="9_second_order_consensus.html">Part 9</a> (reference velocity), <a href="12_formation_control.html">Part 12</a> (absolute placement), <a href="13_virtual_structures.html">Part 13</a> (synchronised virtual structure), <a href="24_capstone_unified_swarm_claw.html">Part 24</a> layer L1.</div>
+        </div>
+      </section>
+
+      <section id="static">
+        <h2>2. Static Leader and the Matrix \(H=L+B\)</h2>
+        <p>Let the leader hold a constant value \(x_0\) (a commanded flight level, say). Followers run the pinned protocol above. Stack the followers' states and define the <strong>pinning matrix</strong> \(B=\operatorname{diag}(b_1,\dots,b_N)\):</p>
+        <div class="formula">
+          \[ \dot x=-Lx-B(x-x_0\mathbf 1)=-Lx-Bx+Bx_0\mathbf 1 . \]
+        </div>
+        <p>With the tracking error \(e=x-x_0\mathbf 1\) and \(L\mathbf 1=0\) (so \(Lx=Le\)):</p>
+        <div class="formula">
+          \[ \boxed{\;\dot e=-(L+B)\,e=-H\,e,\qquad H=L+B\;} \]
+        </div>
+        <p>This is the whole theory in one line. Unlike \(L\), the matrix \(H\) has <em>no</em> zero eigenvalue in the useful case: the pinning term removes the consensus direction \(\mathbf 1\) from the kernel, because \(H\mathbf 1=B\mathbf 1=b\ne0\). The error then decays to zero rather than to a common value — the followers converge to the leader, not merely to each other.</p>
+        <div class="success"><strong>Interpretation:</strong> \(L\) says "move toward your neighbours", \(B\) says "and the pinned aircraft also move toward the leader". Information about \(x_0\) enters at the pinned nodes and diffuses through the graph. If the graph is connected, everybody eventually feels it.</div>
+        <p>Vector states use \(\dot e=-(H\otimes I_n)e\); directed graphs use \(L=D_{\mathrm{in}}-W\) from Part 7 (Section 8 below).</p>
+      </section>
+
+      <section id="theorem">
+        <h2>3. When Is \(H\) Positive Definite?</h2>
+        <div class="theorem">
+          <strong>Theorem (undirected graphs).</strong> Let the follower graph be undirected with Laplacian \(L\), and \(B=\operatorname{diag}(b)\) with \(b\ge0\). Then
+          \(H=L+B\) is symmetric positive definite if and only if every connected component of the follower graph contains at least one pinned node
+          (\(b_i\gt0\)). In particular, for a connected graph one pinned aircraft suffices. Then \(e(t)=e^{-Ht}e(0)\to0\) exponentially.
+          <br><em>Proof.</em> For any \(x\),
+          \[ x^THx=x^TLx+x^TBx=\tfrac12\sum_{i,j}a_{ij}(x_i-x_j)^2+\sum_ib_ix_i^2\;\ge\;0 . \]
+          Equality requires every edge difference to vanish — \(x\) constant on each component — and \(x_i=0\) at every pinned node. If each component has a pinned node, the constant on it must be zero, so \(x=0\): \(H\succ0\). Conversely, a component with no pinned node admits \(x=\) its indicator vector with \(x^THx=0\). \(\square\)
+        </div>
+        <p>A random check of the identity on the path 1–2–3 with \(b=(1,0,0)\) gives \(x^THx=0.679086\) both ways.</p>
+        <p>The matrix \(H\) is often called a <strong>grounded</strong> or <strong>Dirichlet Laplacian</strong>: in the limit \(b_i\to\infty\) at the pinned nodes it becomes the Laplacian with those rows and columns deleted (the pinned nodes are "grounded" at \(x_0\)); Section 4 uses this limit.</p>
+      </section>
+
+      <section id="rate">
+        <h2>4. Convergence Rate and the Pinning Bound</h2>
+        <p>With \(H\succ0\) and symmetric, the same Lyapunov argument as Part 6 (\(V=\tfrac12e^Te\), \(\dot V=-e^THe\le-\lambda_{\min}(H)\|e\|^2\)) gives</p>
+        <div class="formula">
+          \[ \boxed{\;\|e(t)\|\le e^{-\lambda_{\min}(H)\,t}\|e(0)\|,\qquad t_{1\%}=\frac{\ln100}{\lambda_{\min}(H)}\;} \]
+        </div>
+        <p>So the design quantity is \(\lambda_{\min}(H)\), and it is small whenever few aircraft are pinned. The Rayleigh quotient at \(\mathbf 1\) gives an upper bound that no choice of graph can beat:</p>
+        <div class="formula">
+          \[ \boxed{\;\lambda_{\min}(H)\le\frac{\mathbf 1^TH\mathbf 1}{\mathbf 1^T\mathbf 1}=\frac{\sum_ib_i}{N}\;} \]
+        </div>
+        <p>because \(\mathbf 1^TL\mathbf 1=0\). <strong>Pinning one aircraft with gain 1 in a swarm of \(N\) caps the convergence rate at \(1/N\)</strong>, however well connected the followers are. Two levers remain:</p>
+        <ul>
+          <li><strong>Pin more aircraft.</strong> The bound grows with \(\sum_ib_i\) and the actual \(\lambda_{\min}\) grows with it — usually the better lever (Section 5).</li>
+          <li><strong>Raise \(b_i\).</strong> Helps, but saturates: as \(b_i\to\infty\) at the pinned set \(\mathcal P\), \(\lambda_{\min}(H)\to\lambda_{\min}(L_{\text{grounded}})\), the smallest eigenvalue of \(L\) with the rows and columns of \(\mathcal P\) removed (Pirani &amp; Sundaram 2016). On the path 1–2–3 pinned at node 2 that limit is 1: \(\lambda_{\min}(H)=0.268,\ 0.821,\ 0.980,\ 0.998\) for \(b_2=1,10,100,1000\).</li>
+        </ul>
+        <p>A useful corollary of the grounded limit: the rate is ultimately controlled by how far the <em>unpinned</em> aircraft are, in graph terms, from the pinned ones — the diffusion time through the follower graph.</p>
+      </section>
+
+      <section id="pinning">
+        <h2>5. Worked Example: Whom to Pin</h2>
+        <p>Three aircraft in trail exchange altitude commands with their neighbours (undirected path 1–2–3, \(L=\begin{bmatrix}1&-1&0\\-1&2&-1\\0&-1&1\end{bmatrix}\), \(\lambda(L)=\{0,1,3\}\)). One of them has the datalink to the ground station, which commands \(x_0=120\) m. Initial altitudes \(x(0)=[100,140,80]\) m.</p>
+        <table>
+          <thead><tr><th>pinned set</th><th>\(b\)</th><th>\(\lambda(H)\)</th><th>\(\lambda_{\min}\)</th><th>bound \(\sum b_i/N\)</th><th>\(t_{1\%}\)</th></tr></thead>
+          <tbody>
+            <tr><td>UAV 1 (end)</td><td>(1,0,0)</td><td>{0.198, 1.555, 3.247}</td><td>0.198</td><td>0.333</td><td>23.3 s</td></tr>
+            <tr><td>UAV 2 (centre)</td><td>(0,1,0)</td><td>{0.268, 1, 3.732}</td><td>0.268</td><td>0.333</td><td>17.2 s</td></tr>
+            <tr><td>UAV 3 (end)</td><td>(0,0,1)</td><td>{0.198, 1.555, 3.247}</td><td>0.198</td><td>0.333</td><td>23.3 s</td></tr>
+            <tr><td>UAVs 1 and 3</td><td>(1,0,1)</td><td>{0.586, 2, 3.414}</td><td>0.586</td><td>0.667</td><td>7.9 s</td></tr>
+            <tr><td>all three</td><td>(1,1,1)</td><td>{1, 2, 4}</td><td>1.000</td><td>1.000</td><td>4.6 s</td></tr>
+            <tr><td>UAV 2, \(b_2=10\)</td><td>(0,10,0)</td><td>{0.821, 1, 12.18}</td><td>0.821</td><td>3.333</td><td>5.6 s</td></tr>
+          </tbody>
+        </table>
+        <p>Pinning the centre beats pinning an end (every follower is one hop from the leader's entry point instead of two); pinning both ends beats either, and pinning everybody — a broadcast link to all — decouples the aircraft entirely (\(H=L+I\), every mode at least 1). Note the last row: a tenfold gain on one node buys less than a second pinned node with gain 1 would (\(\lambda_{\min}=0.821\) vs 0.586 — but with \(\lambda_{\max}=12.2\), which Section 7.3 will show costs sampling margin).</p>
+        <h3>Trajectories (pin 1 vs pin 2)</h3>
+        <table>
+          <thead><tr><th>\(t\)</th><th>pin 1: \(x(t)\)</th><th>\(\|e\|\) / bound</th><th>pin 2: \(x(t)\)</th><th>\(\|e\|\) / bound</th></tr></thead>
+          <tbody>
+            <tr><td>0</td><td>[100, 140, 80]</td><td>49.0</td><td>[100, 140, 80]</td><td>49.0</td></tr>
+            <tr><td>1 s</td><td>[114.98, 110.47, 102.92]</td><td>20.2 / 40.2</td><td>[109.71, 110.78, 102.35]</td><td>22.4 / 37.5</td></tr>
+            <tr><td>5 s</td><td>[117.05, 114.69, 113.37]</td><td>9.0 / 18.2</td><td>[115.38, 116.57, 115.25]</td><td>7.5 / 12.8</td></tr>
+            <tr><td>10 s</td><td>[118.90, 118.03, 117.54]</td><td>3.3 / 6.8</td><td>[118.77, 119.10, 118.77]</td><td>2.0 / 3.4</td></tr>
+            <tr><td>20 s</td><td>[119.85, 119.73, 119.66]</td><td>0.46 / 0.93</td><td>[119.92, 119.94, 119.92]</td><td>0.13 / 0.23</td></tr>
+            <tr><td>30 s</td><td>[119.98, 119.96, 119.95]</td><td>0.064 / 0.129</td><td>[119.99, 120.00, 119.99]</td><td>0.009 / 0.016</td></tr>
+          </tbody>
+        </table>
+        <p>The bound \(e^{-\lambda_{\min}t}\|e(0)\|\) holds with a factor of about two to spare: the initial error has most of its energy in the fast modes. The pinned aircraft always leads the approach; the farthest aircraft (UAV 3 when pinning 1) is always last.</p>
+      </section>
+
+      <section id="dynamic">
+        <h2>6. Dynamic Leader: the Lag</h2>
+        <p>Now let the reference move: \(\dot x_0=u_0(t)\), a climb at \(u_0=0.5\) m/s. With the <em>same</em> follower law, the error dynamics acquire a forcing term:</p>
+        <div class="formula">
+          \[ \dot e=\dot x-\dot x_0\mathbf 1=-He-\mathbf 1u_0 . \]
+        </div>
+        <p>For constant \(u_0\) the error settles not at zero but at the particular solution of \(He=-\mathbf 1u_0\):</p>
+        <div class="formula">
+          \[ \boxed{\;e_{ss}=-H^{-1}\mathbf 1\,u_0\;} \]
+        </div>
+        <p>The vector \(H^{-1}\mathbf 1\) deserves a name: its entries are <strong>lag times</strong>. UAV \(i\) sits \((H^{-1}\mathbf 1)_i\) seconds of leader motion behind the leader. Path 1–2–3:</p>
+        <table>
+          <thead><tr><th>pinned set</th><th>\(H^{-1}\mathbf 1\) [s]</th><th>\(e_{ss}\) for \(u_0=0.5\) m/s [m]</th><th>simulated \(e(40\,\mathrm s)\)</th></tr></thead>
+          <tbody>
+            <tr><td>UAV 1</td><td>(3, 5, 6)</td><td>(−1.5, −2.5, −3.0)</td><td>(−1.502, −2.504, −3.005)</td></tr>
+            <tr><td>UAV 2</td><td>(4, 3, 4)</td><td>(−2.0, −1.5, −2.0)</td><td>(−2.000, −1.500, −2.000)</td></tr>
+            <tr><td>all three</td><td>(1, 1, 1)</td><td>(−0.5, −0.5, −0.5)</td><td>(−0.5, −0.5, −0.5)</td></tr>
+          </tbody>
+        </table>
+        <p>With one pinned aircraft the last follower lags six seconds of leader motion. For a 0.5 m/s climb that is 3 m — tolerable. For a reference <em>heading</em> turning at \(0.1\) rad/s it would be \(0.6\) rad \(=34^\circ\), which is not (Section 9). The lag scales with \(u_0\) and with graph distance from the pinned set, and no finite gain removes it. Three cures:</p>
+        <ol>
+          <li><strong>Feedforward of \(u_0\).</strong> If every follower knows the leader's rate — it is broadcast, or it is a known mission profile — add it: \(\dot x_i=\dots+u_0\). Then \(\dot e=-He\) again and \(e\to0\) (simulated \(e(40)=(-0.003,-0.005,-0.007)\), the tail of the initial transient). Requires the leader's input, not just its state.</li>
+          <li><strong>A distributed estimator of the leader state</strong> (Section 7) — the general solution, because the followers can run it at a high gain.</li>
+          <li><strong>Integral action</strong> on \(e_i\) — removes constant lag, adds a state per aircraft and an oscillatory mode; used in Part 12 for formation offsets but not pursued here.</li>
+        </ol>
+      </section>
+
+      <section id="estimator">
+        <h2>7. Distributed Leader-State Estimator</h2>
+        <p>The lag arises because the <em>aircraft</em> is doing two jobs with one gain: finding out what the leader is doing, and flying there. Separate them. Each UAV keeps a local <strong>estimate</strong> \(\hat\xi_i\) of the leader state and runs consensus on the estimates — a pure computation, with no aircraft dynamics in the loop — then <strong>tracks its own estimate</strong> with a vehicle-limited gain:</p>
+        <div class="formula">
+          \[ \boxed{\;
+          \begin{aligned}
+            \dot{\hat\xi}_i&=u_0^{\text{model}}-k_\xi\Big[\sum_{j\in\mathcal N_i^{\mathrm{in}}}w_{ij}(\hat\xi_i-\hat\xi_j)+b_i(\hat\xi_i-x_0)\Big] && \text{(estimator: consensus on the reference)}\\
+            \dot x_i&=\dot{\hat\xi}_i-k_t\,(x_i-\hat\xi_i) && \text{(tracker: follow my own estimate)}
+          \end{aligned}\;}
+          \]
+        </div>
+        <p>Here \(u_0^{\text{model}}\) is whatever the follower knows about the leader's motion: the broadcast rate, a mission profile, or simply zero. Stacking the estimation errors \(\eta=\hat\xi-x_0\mathbf 1\):</p>
+        <div class="formula">
+          \[ \dot\eta=-k_\xi H\eta+(u_0^{\text{model}}-u_0)\mathbf 1\qquad\Longrightarrow\qquad \eta_{ss}=-\frac{H^{-1}\mathbf 1}{k_\xi}\,(u_0-u_0^{\text{model}}) . \]
+        </div>
+        <p>Two gains instead of one. The estimator's lag is the tracker's lag of Section 6 <em>divided by \(k_\xi\)</em>, and it vanishes altogether when the model is right. The tracker's error \(x_i-\hat\xi_i\) obeys a first-order lag at \(k_t\) driven by nothing but the initial condition, since the tracker feeds forward \(\dot{\hat\xi}_i\).</p>
+        <h3>7.1 Numbers (path 1–2–3, pin 1, \(u_0=0.5\) m/s, \(k_\xi=2\), \(k_t=1\))</h3>
+        <p>Estimator error rates are \(k_\xi\lambda(H)=\{0.396,\,3.11,\,6.49\}\ \mathrm{s^{-1}}\).</p>
+        <table>
+          <thead><tr><th>\(t\)</th><th>correct model (\(u_0^{\text{model}}=0.5\)): \(\eta\)</th><th>wrong model (\(u_0^{\text{model}}=0\)): \(\eta\)</th></tr></thead>
+          <tbody>
+            <tr><td>5 s</td><td>(−1.10, −1.97, −2.46)</td><td>(−1.75, −3.05, −3.75)</td></tr>
+            <tr><td>10 s</td><td>(−0.15, −0.27, −0.34)</td><td>(−0.89, −1.50, −1.81)</td></tr>
+            <tr><td>20 s</td><td>(−0.003, −0.005, −0.007)</td><td>(−0.75, −1.25, −1.51)</td></tr>
+            <tr><td>40 s</td><td>(0, 0, 0)</td><td>(−0.75, −1.25, −1.50) \(=-H^{-1}\mathbf 1\,u_0/k_\xi\)</td></tr>
+          </tbody>
+        </table>
+        <p>With the correct model the altitude error equals the estimator error after the tracker transient and goes to zero. With no model, \(k_\xi=2\) halves the lag of Section 6 (3 m → 1.5 m at UAV 3) and \(k_\xi=10\) cuts it to \((-0.15,-0.25,-0.30)\) m.</p>
+        <h3>7.2 Why \(k_\xi\) can be large and \(k_t\) cannot</h3>
+        <p>\(k_t\) multiplies a <em>position</em> error to produce a <em>velocity</em> command; it is limited by the aircraft's ability to realise that velocity — the autopilot bandwidth and the envelope (Parts 15–16). \(k_\xi\) multiplies a difference between two <em>numbers in memory</em>; nothing physical limits it. Its only limit is the discrete-time one of Part 6, at the communication period:</p>
+        <div class="formula">
+          \[ T_{\mathrm{comm}}\,k_\xi\,\lambda_{\max}(H)\lt2\qquad\text{(aim}\ \le0.5\text{)} . \]
+        </div>
+        <p>Path pinned at 1, \(T_{\mathrm{comm}}=0.1\) s, \(\lambda_{\max}(H)=3.247\): \(k_\xi\lt6.16\); the spectral radius of \(I-T_{\mathrm{comm}}k_\xi H\) is \(0.980,\ 0.901,\ 0.948\) for \(k_\xi=1,5,6\) and \(1.273\) (unstable) for \(k_\xi=7\). This is where a large pinning gain hurts: \(b_2=10\) gave \(\lambda_{\max}(H)=12.2\), which would cap \(k_\xi\) at 1.6.</p>
+        <h3>7.3 The structure in the CLAW</h3>
+        <p>Replace the scalar \(x_0\) by the virtual-structure state \(\xi=(p_c,\psi_c,V_c,\omega_c,h_c)\) of <a href="13_virtual_structures.html">Part 13</a>, and \(u_0^{\text{model}}\) by its kinematic model (\(\dot p_c=V_c(\cos\psi_c,\sin\psi_c)\), \(\dot\psi_c=\omega_c\)): that is layer L1 of the capstone. Replace the tracker by the formation guidance law of <a href="12_formation_control.html">Part 12</a>: that is layer L2. The model term is what lets every follower propagate the reference <em>between</em> packets and through packet loss, with consensus only correcting the drift.</p>
+      </section>
+
+      <section id="directed">
+        <h2>8. Directed Graphs and the Augmented Tree</h2>
+        <p>With one-way links use \(L=D_{\mathrm{in}}-W\) (Part 7). \(H=L+B\) is no longer symmetric, so "positive definite" is replaced by "\(-H\) is Hurwitz" (all eigenvalues of \(H\) in the open right half-plane), and the graph condition becomes the spanning-tree theorem applied to an enlarged graph:</p>
+        <div class="theorem">
+          <strong>Theorem (directed leader–follower).</strong> Add the leader as node 0 with transmit edges \(0\to i\) for every pinned \(i\). Then \(\dot e=-He\to0\) for all \(e(0)\) if and only if this <em>augmented</em> digraph has a directed spanning tree rooted at node 0.
+          <br><em>Proof sketch.</em> The augmented in-degree Laplacian is \(L_{\text{aug}}=\begin{bmatrix}0&0\\-b&H\end{bmatrix}\) (node 0 hears nobody). Its eigenvalues are \(0\) together with those of \(H\). By Part 7, zero is a simple eigenvalue of \(L_{\text{aug}}\) iff the augmented digraph has a spanning tree; and a spanning tree must be rooted at 0 because 0 has no in-neighbours. A simple zero for \(L_{\text{aug}}\) means \(H\) has no zero eigenvalue, and Gershgorin places all its eigenvalues in \(\operatorname{Re}\lambda\ge0\); the same imaginary-axis argument as in Part 7 excludes \(\operatorname{Re}\lambda=0\). \(\square\)
+        </div>
+        <p>Chain \(1\to2\to3\) (UAV 1 transmits to 2, 2 to 3):</p>
+        <table>
+          <thead><tr><th>leader heard by</th><th>\(H\)</th><th>\(\lambda(H)\)</th><th>augmented tree rooted at 0?</th><th>result</th></tr></thead>
+          <tbody>
+            <tr><td>UAV 1</td><td>\(\begin{bmatrix}1&0&0\\-1&1&0\\0&-1&1\end{bmatrix}\)</td><td>{1, 1, 1}</td><td>yes: 0→1→2→3</td><td>all converge; relay lag (Jordan block, Part 7)</td></tr>
+            <tr><td>UAV 2</td><td>\(\begin{bmatrix}0&0&0\\-1&2&0\\0&-1&1\end{bmatrix}\)</td><td>{0, 1, 2}</td><td>no: UAV 1 unreachable</td><td>UAV 1 never moves; 2 and 3 settle between \(x_1\) and \(x_0\)</td></tr>
+            <tr><td>UAV 3</td><td>\(\begin{bmatrix}0&0&0\\-1&1&0\\0&-1&2\end{bmatrix}\)</td><td>{0, 1, 2}</td><td>no: 1 and 2 unreachable</td><td>only UAV 3 follows the leader</td></tr>
+            <tr><td>UAV 2, plus link 2→1</td><td>\(\begin{bmatrix}1&-1&0\\-1&2&0\\0&-1&1\end{bmatrix}\)</td><td>{0.382, 1, 2.618}</td><td>yes: 0→2, 2→1, 2→3</td><td>all converge, rate 0.382</td></tr>
+          </tbody>
+        </table>
+        <p>The rule of thumb: pin the aircraft from which information <em>flows outward</em>. In a relay line that is the head of the line; pinning the tail is useless because nothing propagates upstream. Symmetry in the undirected case hid this completely (pinning either end of the path gave the same \(\lambda(H)\)).</p>
+      </section>
+
+      <section id="fixed-wing">
+        <h2>9. Fixed-Wing Interpretation</h2>
+        <h3>9.1 Who the leader is</h3>
+        <ul>
+          <li><strong>A lead aircraft</strong> broadcasting its state: \(x_0\) is its altitude, speed or (via Part 13) the formation reference derived from it; \(b_i\gt0\) for aircraft within its link.</li>
+          <li><strong>The ground station</strong> commanding a flight level or a mission reference: pinned aircraft are those with the long-range link, often one or two.</li>
+          <li><strong>A virtual leader</strong>: a reference trajectory computed on board the pinned aircraft (or on all of them from the same plan) — no aircraft has to fly it, which removes the single point of failure of a physical lead.</li>
+        </ul>
+        <h3>9.2 Heading references need the model term</h3>
+        <p>Suppose the reference is a <em>course</em> \(\psi_c\) that turns at \(\omega_c=0.1\) rad/s (a 25 m/s aircraft at \(14^\circ\) bank). Followers running the estimator of Section 7 with \(k_\xi=2\), pin 1, but with <em>no</em> model term (\(u_0^{\text{model}}=0\)) lag by \(-H^{-1}\mathbf 1\,\omega_c/k_\xi=(0.15,\,0.25,\,0.30)\) rad \(=(8.6^\circ,\,14.3^\circ,\,17.2^\circ)\). A \(0.15\) rad course error held for 10 s at 25 m/s is \(25\times10\times\sin0.15\approx37\) m of cross-track drift — the formation would smear out in every turn. Propagating \(\hat\psi_{c,i}\) with \(\hat\omega_{c,i}\) between corrections (the model term) removes the lag entirely, and consensus then only has to agree on the turn <em>rate</em>, which changes rarely.</p>
+        <h3>9.3 Stale leader data</h3>
+        <p>A leader position report that is 100 ms old is 2.5 m stale at 25 m/s and 6 m at 60 m/s; 150 ms at 150 m/s is 22.5 m. Pinned aircraft should dead-reckon \(x_0\) forward by \(V\tau\) before using it in the pinning term (Part 24 §4.4), exactly as the model term does for the estimate.</p>
+        <h3>9.4 Leader loss</h3>
+        <p>If the leader disappears, \(B\to0\) and the followers revert to plain consensus (Part 7): they agree on \(\gamma^T\hat\xi\), the weighted average of their current estimates, and keep propagating it with the model — the swarm continues its last known reference. That is a graceful default if the estimates had converged; it is dangerous if they had not. The capstone (Part 24 §14) re-elects a root with a ground link to restore pinning.</p>
+        <div class="note"><strong>High-speed note.</strong> With one pinned aircraft and \(k_\xi=1\) the estimator's 1 %-settling time on the 3-aircraft path is 23.3 s: 581 m at 25 m/s, 3.5 km at 150 m/s. A reference change announced that late is a formation that falls apart in the next turn. At high speed, therefore: pin at least two aircraft (both ends of a trail, or the centre of a vee); run \(k_\xi\) near the sampling margin (\(\approx0.5/(T_{\mathrm{comm}}\lambda_{\max}(H))\)); broadcast the <em>future</em> reference — turn start time, bank, speed — so that every copy switches simultaneously and consensus only corrects clock error; and never pin only the tail of a relay chain (Section 8).</div>
+        <div class="claw"><strong>Toward the CLAW</strong>
+          This part supplies layer L1 of the unified law and the proof behind it. The estimator \(\dot{\hat\xi}_i=f(\hat\xi_i)-k_\xi[\sum_jw_{ij}(\hat\xi_i\ominus\hat\xi_j)+b_i(\hat\xi_i\ominus\xi)]\) in Part 24 §6 is Section 7 with the virtual-structure model as \(u_0^{\text{model}}\); its convergence rate \(k_\xi\lambda_{\min}(H)\) and residual \(\|\varepsilon\|/(k_\xi\lambda_{\min}(H))\) are Sections 4 and 7; condition C2, "\(\operatorname{Re}\lambda_{\min}(H)\gt0\)", is Section 3 (undirected) and Section 8 (directed); and check D4, "choose the pinned set for \(\lambda_{\min}(H)\) and announce turns early", is Sections 5 and 9. The split into a high-gain estimator and a vehicle-limited tracker is the single most important architectural decision in the capstone.</div>
+      </section>
+
+      <section id="implementation">
+        <h2>10. Implementation</h2>
+        <p>Pure NumPy, Euler integration at 1 ms. Reproduces the pinning table, the static and dynamic-leader runs, the estimator-plus-tracker, and the directed chain.</p>
+<pre><code>import numpy as np
+np.set_printoptions(precision=4, suppress=True)
+
+# Undirected path 1-2-3 (course convention A[i,j]&gt;0 &lt;=&gt; i transmits to j; W = A^T)
+A = np.array([[0, 1, 0], [1, 0, 1], [0, 1, 0]], float)
+W = A.T
+L = np.diag(W.sum(axis=1)) - W
+
+def pinned_H(b):
+    """H = L + B for pinning gains b (b_i &gt; 0 &lt;=&gt; UAV i hears the leader)."""
+    return L + np.diag(b)
+
+def euler(f, z0, T, dt=1e-3):
+    z, t = z0.astype(float).copy(), 0.0
+    for _ in range(int(round(T / dt))):
+        z += dt * f(t, z); t += dt
+    return z
+
+x_init = np.array([100.0, 140.0, 80.0])   # initial altitudes [m]
+x0 = 120.0                                 # static leader altitude [m]
+
+print("Which UAV to pin?")
+for name, b in (("pin 1", [1, 0, 0]), ("pin 2", [0, 1, 0]), ("pin all", [1, 1, 1])):
+    H = pinned_H(b)
+    lam = np.linalg.eigvalsh(H)
+    print(f"  {name}: eig(H) = {lam}, 1%-settling ln(100)/lambda_min = {np.log(100)/lam[0]:.2f} s,"
+          f" bound sum(b)/N = {sum(b)/3:.3f}")
+
+# 1. static leader: x' = -L x - B (x - x0 1)  -&gt;  e' = -H e
+H = pinned_H([1, 0, 0])
+f_static = lambda t, x: -H @ (x - x0)
+for T in (10.0, 20.0):
+    print(f"static leader, pin 1, t={T:.0f}: x =", euler(f_static, x_init, T))
+
+# 2. dynamic leader x0(t) = 120 + u0 t with the SAME law -&gt; steady lag -H^-1 1 u0
+u0 = 0.5
+f_dyn = lambda t, x: -H @ (x - (x0 + u0 * t))
+x40 = euler(f_dyn, x_init, 40.0)
+print("dynamic leader, no feedforward, t=40: e =", x40 - (x0 + u0 * 40.0),
+      " predicted e_ss =", -np.linalg.solve(H, np.ones(3)) * u0)
+
+# 3. distributed leader-state estimator + local tracker (the CLAW structure)
+k_xi, k_t, u0_model = 2.0, 1.0, 0.5           # try u0_model = 0.0 to see the residual lag
+def f_est(t, z):
+    xi_hat, x = z[:3], z[3:]
+    xi0 = x0 + u0 * t
+    xi_hat_dot = u0_model - k_xi * (H @ (xi_hat - xi0))   # = L xi_hat + B (xi_hat - xi0)
+    x_dot = xi_hat_dot - k_t * (x - xi_hat)              # track my own estimate
+    return np.concatenate([xi_hat_dot, x_dot])
+z0 = np.concatenate([x_init, x_init])
+for T in (10.0, 20.0):
+    z = euler(f_est, z0, T)
+    xi0 = x0 + u0 * T
+    print(f"estimator+tracker, t={T:.0f}: estimate error = {z[:3] - xi0}, altitude error = {z[3:] - xi0}")
+print("slowest estimator rate k_xi*lambda_min(H) =", k_xi * np.linalg.eigvalsh(H)[0])
+
+# 4. directed chain 1-&gt;2-&gt;3 with the leader heard by UAV 1 only, or by UAV 3 only
+A_chain = np.array([[0, 1, 0], [0, 0, 1], [0, 0, 0]], float)
+Wc = A_chain.T; Lc = np.diag(Wc.sum(axis=1)) - Wc
+for name, b in (("leader-&gt;1", [1, 0, 0]), ("leader-&gt;3", [0, 0, 1])):
+    Hc = Lc + np.diag(b)
+    print(f"directed chain, {name}: eig(H) = {np.sort_complex(np.linalg.eigvals(Hc))}, det = {np.linalg.det(Hc):.2f}")
+</code></pre>
+<pre><code>Which UAV to pin?
+  pin 1: eig(H) = [0.1981 1.555  3.247 ], 1%-settling ln(100)/lambda_min = 23.25 s, bound sum(b)/N = 0.333
+  pin 2: eig(H) = [0.2679 1.     3.7321], 1%-settling ln(100)/lambda_min = 17.19 s, bound sum(b)/N = 0.333
+  pin all: eig(H) = [1. 2. 4.], 1%-settling ln(100)/lambda_min = 4.61 s, bound sum(b)/N = 1.000
+static leader, pin 1, t=10: x = [118.9042 118.0254 117.5377]
+static leader, pin 1, t=20: x = [119.8488 119.7276 119.6603]
+dynamic leader, no feedforward, t=40: e = [-1.5024 -2.5043 -3.0053]  predicted e_ss = [-1.5 -2.5 -3. ]
+estimator+tracker, t=10: estimate error = [-0.1511 -0.2723 -0.3396], altitude error = [-0.1511 -0.2723 -0.3396]
+estimator+tracker, t=20: estimate error = [-0.0029 -0.0052 -0.0065], altitude error = [-0.0029 -0.0052 -0.0065]
+slowest estimator rate k_xi*lambda_min(H) = 0.3961245283903233
+directed chain, leader-&gt;1: eig(H) = [1.+0.j 1.+0.j 1.+0.j], det = 1.00
+directed chain, leader-&gt;3: eig(H) = [0.+0.j 1.+0.j 2.+0.j], det = 0.00
+</code></pre>
+      </section>
+
+      <section id="pitfalls">
+        <h2>11. Common Pitfalls</h2>
+        <ul>
+          <li><strong>Pinning by convenience, not by graph position.</strong> The aircraft with the best radio is not necessarily the one that minimises the followers' graph distance to the leader. Compute \(\lambda_{\min}(H)\) for the candidates; it costs nothing.</li>
+          <li><strong>Raising \(b_i\) instead of pinning more aircraft.</strong> \(\lambda_{\min}(H)\) saturates at the grounded Laplacian's, while \(\lambda_{\max}(H)\) grows without bound and eats the sampling margin.</li>
+          <li><strong>Expecting zero error behind a moving leader.</strong> The lag \(-H^{-1}\mathbf 1u_0\) is structural; remove it with a model/feedforward term or the estimator, not with gain.</li>
+          <li><strong>One gain for two jobs.</strong> Using the vehicle tracking gain to also chase the reference couples estimator lag to aircraft dynamics. Split estimator (\(k_\xi\), high) and tracker (\(k_t\), vehicle-limited).</li>
+          <li><strong>Pinning the tail of a directed chain.</strong> Check the augmented spanning tree; symmetry intuition fails on digraphs.</li>
+          <li><strong>Differencing heading estimates without wrapping.</strong> \(\hat\psi_{c,i}-\hat\psi_{c,j}\) must be wrapped to \((-\pi,\pi]\) or a \(359^\circ\) vs \(1^\circ\) disagreement sends the estimator the long way round.</li>
+          <li><strong>Forgetting that leader loss turns \(H\) back into \(L\).</strong> Followers will still agree — on their own weighted average — and keep flying it; make sure that is acceptable or re-pin quickly.</li>
+        </ul>
+      </section>
+
+      <section id="exercises">
+        <h2>12. Exercises</h2>
+        <div class="exercise">
+          <strong>Exercise 1 (pinning a 4-aircraft trail).</strong> Undirected path 1–2–3–4. Compare pinning UAV 1, UAV 2, UAVs 2 and 3, and UAVs 1 and 4: \(\lambda_{\min}(H)\), the Rayleigh bound, and the lag-time vector \(H^{-1}\mathbf 1\).
+          <details><summary>Show solution</summary><div class="solution">pin 1: \(\lambda_{\min}=0.121\) (bound 0.25), \(H^{-1}\mathbf 1=(4,7,9,10)\) s; pin 2: \(0.173\) (0.25), \((5,4,6,7)\); pin 2 and 3: \(0.382\) (0.5), \((3,2,2,3)\); pin 1 and 4: \(0.382\) (0.5), \((2,3,3,2)\). Two pinned aircraft triple the rate and cut the worst lag from 10 s to 3 s; the two choices with two pins tie on \(\lambda_{\min}\) but distribute the lag differently (ends vs centre).</div></details>
+        </div>
+        <div class="exercise">
+          <strong>Exercise 2 (grounded limit).</strong> On the path 1–2–3 pinned at UAV 2, compute \(\lambda_{\min}(H)\) for \(b_2=1,10,100,1000\) and identify the limit from the grounded Laplacian.
+          <details><summary>Show solution</summary><div class="solution">\(0.268,\ 0.821,\ 0.980,\ 0.998\). Deleting node 2 leaves two isolated nodes, each with grounded Laplacian entry \(d_i=1\); the limit is \(\lambda_{\min}=1\): with UAV 2 nailed to \(x_0\), UAVs 1 and 3 each see a single edge of weight 1 to a fixed value, a first-order lag with rate 1.</div></details>
+        </div>
+        <div class="exercise">
+          <strong>Exercise 3 (lag budget).</strong> The leader climbs at \(2\) m/s and the followers have no model of it. With pin 1 on the path 1–2–3 and \(T_{\mathrm{comm}}=0.1\) s, what \(k_\xi\) keeps every estimator lag below \(0.5\) m, and is it admissible?
+          <details><summary>Show solution</summary><div class="solution">Lag \(=H^{-1}\mathbf 1\,u_0/k_\xi=(3,5,6)\cdot2/k_\xi\); the worst is \(12/k_\xi\le0.5\Rightarrow k_\xi\ge24\). The Euler limit is \(2/(0.1\cdot3.247)=6.16\), so no: at \(k_\xi=6\) the lag is still 2 m. Either supply the model term (then the lag is zero at any \(k_\xi\)) or pin more aircraft (pin all: \(H^{-1}\mathbf 1=(1,1,1)\), lag \(2/k_\xi\), fine at \(k_\xi=4\)).</div></details>
+        </div>
+        <div class="exercise">
+          <strong>Exercise 4 (directed fix).</strong> Chain \(1\to2\to3\) with the leader heard only by UAV 2 does not converge. Add a single follower link that fixes it, write \(H\), and give its eigenvalues.
+          <details><summary>Show solution</summary><div class="solution">Add \(2\to1\) (UAV 2 transmits back to UAV 1). \(L=\begin{bmatrix}1&-1&0\\-1&1&0\\0&-1&1\end{bmatrix}\), \(H=L+\operatorname{diag}(0,1,0)=\begin{bmatrix}1&-1&0\\-1&2&0\\0&-1&1\end{bmatrix}\), \(\lambda(H)=\{0.382,1,2.618\}\), \(\det H=1\); augmented tree \(0\to2\), \(2\to1\), \(2\to3\). Adding \(3\to1\) instead would also work (\(0\to2\to3\to1\)) but with a longer relay.</div></details>
+        </div>
+        <div class="exercise">
+          <strong>Exercise 5 (the pinning bound).</strong> Prove \(\lambda_{\min}(H)\le\sum_ib_i/N\) and show that equality holds iff \(\mathbf 1\) is an eigenvector of \(H\). When is that the case?
+          <details><summary>Show solution</summary><div class="solution">For symmetric \(H\), \(\lambda_{\min}\le x^THx/x^Tx\) for every \(x\ne0\) (Rayleigh); take \(x=\mathbf 1\): \(\mathbf 1^TH\mathbf 1=\mathbf 1^TL\mathbf 1+\mathbf 1^TB\mathbf 1=0+\sum b_i\). Equality in the Rayleigh bound holds iff \(x\) is an eigenvector for \(\lambda_{\min}\); \(H\mathbf 1=b\), so \(\mathbf 1\) is an eigenvector iff \(b=c\mathbf 1\) — all aircraft pinned with equal gain — and then \(\lambda_{\min}(H)=c\) exactly ("pin all" row of the table: \(\lambda_{\min}=1=\sum b_i/3\)).</div></details>
+        </div>
+      </section>
+
+      <section id="summary">
+        <h2>13. Key Takeaways &amp; Formula Sheet</h2>
+        <ul>
+          <li>Pinned protocol \(\dot x_i=\sum_jw_{ij}(x_j-x_i)+b_i(x_0-x_i)\); error \(e=x-x_0\mathbf 1\) obeys \(\dot e=-He\), \(H=L+B\).</li>
+          <li>Undirected: \(H\succ0\) iff every component has a pinned node (\(x^THx=\tfrac12\sum a_{ij}(x_i-x_j)^2+\sum b_ix_i^2\)). Directed: \(-H\) Hurwitz iff the augmented graph has a spanning tree rooted at the leader.</li>
+          <li>Rate \(\lambda_{\min}(H)\); \(\|e(t)\|\le e^{-\lambda_{\min}(H)t}\|e(0)\|\); bound \(\lambda_{\min}(H)\le\sum b_i/N\); \(b\to\infty\) limit = grounded Laplacian.</li>
+          <li>Moving leader \(\dot x_0=u_0\): steady lag \(e_{ss}=-H^{-1}\mathbf 1u_0\); \(H^{-1}\mathbf 1\) = lag times in seconds.</li>
+          <li>Estimator + tracker: \(\dot{\hat\xi}_i=u_0^{\text{model}}-k_\xi[\sum_jw_{ij}(\hat\xi_i-\hat\xi_j)+b_i(\hat\xi_i-x_0)]\), \(\dot x_i=\dot{\hat\xi}_i-k_t(x_i-\hat\xi_i)\); residual \(\eta_{ss}=-H^{-1}\mathbf 1(u_0-u_0^{\text{model}})/k_\xi\); \(k_\xi\) limited only by \(T_{\mathrm{comm}}k_\xi\lambda_{\max}(H)\lt2\).</li>
+          <li>Pin where information flows outward; pin more aircraft rather than raising \(b\); propagate heading references with the model term; dead-reckon stale leader data.</li>
+        </ul>
+      </section>
+
+      <section id="references">
+        <h2>14. References</h2>
+        <ul>
+          <li>W. Ren and R. W. Beard, <em>Distributed Consensus in Multi-vehicle Cooperative Control</em>, Springer, 2008, Ch. 3 — consensus with a reference state, static and dynamic leaders.</li>
+          <li>Y. Hong, J. Hu and L. Gao, "Tracking control for multi-agent consensus with an active leader and variable topology," <em>Automatica</em> 42(7), 2006 — leader–follower with a moving leader and distributed observers.</li>
+          <li>W. Ni and D. Cheng, "Leader-following consensus of multi-agent systems under fixed and switching topologies," <em>Systems &amp; Control Letters</em> 59(3–4), 2010.</li>
+          <li>X. F. Wang and G. Chen, "Pinning control of scale-free dynamical networks," <em>Physica A</em> 310(3–4), 2002 — origin of the pinning idea.</li>
+          <li>Z. Li, Z. Duan, G. Chen and L. Huang, "Consensus of multiagent systems and synchronization of complex networks: a unified viewpoint," <em>IEEE Trans. Circuits and Systems I</em> 57(1), 2010 — distributed observer-based tracking.</li>
+          <li>M. Pirani and S. Sundaram, "On the smallest eigenvalue of grounded Laplacian matrices," <em>IEEE Trans. Automatic Control</em> 61(2), 2016 — bounds on \(\lambda_{\min}\) of \(H\) and the grounded limit.</li>
+          <li>M. Mesbahi and M. Egerstedt, <em>Graph Theoretic Methods in Multiagent Networks</em>, Princeton, 2010, Ch. 10 — leader–follower structure, grounded Laplacian, controllability.</li>
+          <li>W. Ren and R. W. Beard, "Decentralized scheme for spacecraft formation flying via the virtual structure approach," <em>J. Guidance, Control, and Dynamics</em> 27(1), 2004 — synchronised local copies of a reference (the estimator idea applied to a virtual structure).</li>
+        </ul>
+      </section>
+
+      <div class="prevnext">
+        <a class="prev" href="7_directed_graph_consensus.html"><span>&larr; Previous</span>Part 7: Directed-Graph Consensus</a>
+        <a class="next" href="9_second_order_consensus.html"><span>Next &rarr;</span>Part 9: Second-Order Consensus</a>
+      </div>
+      <div class="done-box"><button id="done-btn" data-lesson="8">Mark Part 8 as complete</button></div>
+    </main>
+  </div>
+
+  <footer>Fixed-Wing Swarm Learning · Part 8 · Leader–Follower Consensus</footer>
+
+  <script>
+    (function () {
+      try {
+        var btn = document.getElementById('done-btn');
+        if (!btn) return;
+        var id = btn.getAttribute('data-lesson');
+        var key = 'fwswarm_done';
+        var done = JSON.parse(localStorage.getItem(key) || '[]');
+        function render() {
+          var is = done.indexOf(id) >= 0;
+          btn.textContent = is ? 'Completed ✓ (click to undo)' : 'Mark Part ' + id + ' as complete';
+          btn.className = is ? 'undone' : '';
+        }
+        btn.addEventListener('click', function () {
+          var i = done.indexOf(id);
+          if (i >= 0) done.splice(i, 1); else done.push(id);
+          localStorage.setItem(key, JSON.stringify(done));
+          render();
+        });
+        render();
+      } catch (e) { /* storage unavailable: ignore */ }
+    })();
+  </script>
+</body>
+</html>

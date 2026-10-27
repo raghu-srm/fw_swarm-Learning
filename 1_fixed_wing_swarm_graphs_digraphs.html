@@ -171,13 +171,25 @@
     .sidebar, .sidebar nav { position: static; }
     .sidebar, .content { grid-column: 1; }
   }
+
+  .topbar { margin-bottom: 18px; font-size: .95rem; }
+  .topbar a { color: #dbe6ff; }
+  .prevnext { display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin: 26px 0 0; }
+  .prevnext a { background: #fff; border: 1px solid #dce2ec; border-radius: 10px; padding: 12px 16px; flex: 1 1 260px; }
+  .prevnext a span { display: block; color: #5d687a; font-size: .82rem; }
+  .prevnext a.next { text-align: right; }
+  .done-box { text-align: center; margin: 24px 0 0; }
+  .done-box button { background: #147a4b; color: #fff; border: 0; padding: 9px 18px; border-radius: 8px; cursor: pointer; }
+  .done-box button.undone { background: #9aa5b5; }
+  @media print { .done-box, .prevnext, .topbar { display: none; } }
 </style>
 </head>
 
 <body>
 <header>
   <div class="wrap">
-    <h1>Fixed-Wing Swarm Learning</h1>
+    <div class="topbar"><a href="index.html">&larr; Course home</a> &nbsp;·&nbsp; Module A: Graph Foundations</div>
+<h1>Fixed-Wing Swarm Learning</h1>
     <div class="subtitle">
       Part 1: <strong>Graphs &amp; Digraphs</strong> —
       the mathematical foundation for distributed swarm control, consensus,
@@ -505,7 +517,7 @@ UAV 3 ---- UAV 4
 </section>
 
 <section id="summary">
-  <h2>11. Key Summary</h2>
+  <h2>10. Key Summary</h2>
   <ol>
     <li>A graph models relationships among agents.</li>
     <li><code>G = (V,E)</code> consists of nodes and edges.</li>
@@ -530,7 +542,7 @@ UAV 3 ---- UAV 4
 </section>
 
 <section id="next">
-  <h2>12. Next Topic</h2>
+  <h2>11. Next Topic</h2>
   <h3>Adjacency &amp; Degree Matrices</h3>
   <p>
     Next, we convert graph drawings into numerical matrices that can be
@@ -546,10 +558,40 @@ UAV 3 ---- UAV 4
     connect the mathematics to ROS 2, PX4, and Gazebo multi-vehicle control.
   </p>
 </section>
+
+<div class="prevnext">
+  <a class="prev" href="index.html"><span>&larr; Previous</span>Course home</a>
+  <a class="next" href="2_fixed_wing_swarm_adjacency_degree_matrices.html"><span>Next &rarr;</span>Part 2: Adjacency &amp; Degree Matrices</a>
+</div>
+<div class="done-box"><button id="done-btn" data-lesson="1">Mark Part 1 as complete</button></div>
 </main>
 </div>
 <footer>
   Fixed-Wing Swarm Learning · Part 1 · Graphs &amp; Digraphs
 </footer>
+
+  <script>
+    (function () {
+      try {
+        var btn = document.getElementById('done-btn');
+        if (!btn) return;
+        var id = btn.getAttribute('data-lesson');
+        var key = 'fwswarm_done';
+        var done = JSON.parse(localStorage.getItem(key) || '[]');
+        function render() {
+          var is = done.indexOf(id) >= 0;
+          btn.textContent = is ? 'Completed ✓ (click to undo)' : 'Mark Part ' + id + ' as complete';
+          btn.className = is ? 'undone' : '';
+        }
+        btn.addEventListener('click', function () {
+          var i = done.indexOf(id);
+          if (i >= 0) done.splice(i, 1); else done.push(id);
+          localStorage.setItem(key, JSON.stringify(done));
+          render();
+        });
+        render();
+      } catch (e) { /* storage unavailable: ignore */ }
+    })();
+  </script>
 </body>
 </html>

@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fixed-Wing Swarm Learning — TOPIC TITLE</title>
+
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['\\(', '\\)']],
+        displayMath: [['\\[', '\\]'], ['$$', '$$']]
+      },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --card: #ffffff;
+      --text: #172033;
+      --muted: #5d687a;
+      --accent: #2457d6;
+      --accent-light: #eaf0ff;
+      --border: #dce2ec;
+      --code: #111827;
+      --success: #147a4b;
+      --warning: #c27b00;
+      --danger: #b42318;
+      --claw: #0f766e;
+      --claw-light: #e6f6f4;
+      --def: #6d28d9;
+      --def-light: #f3eefe;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+    }
+
+    header {
+      background: linear-gradient(135deg, #172554, #2457d6);
+      color: white;
+      padding: 56px 20px 44px;
+    }
+    header .wrap { max-width: 1320px; margin: auto; }
+    .topbar { margin-bottom: 18px; font-size: .95rem; }
+    .topbar a { color: #dbe6ff; }
+    .topbar a:hover { color: #fff; }
+
+    h1 { margin: 0 0 10px; font-size: clamp(2rem, 5vw, 3.2rem); }
+    h2 { margin-top: 0; font-size: 1.8rem; }
+    h3 { margin-top: 1.6rem; }
+    h4 { margin-top: 1.2rem; margin-bottom: .4rem; }
+
+    .subtitle { max-width: 820px; color: #dbe6ff; font-size: 1.08rem; }
+
+    nav, section, .callout {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px;
+      margin: 20px 0;
+      box-shadow: 0 3px 12px rgba(20, 35, 70, .05);
+    }
+    nav h2 { font-size: 1.35rem; }
+    nav ol { margin-bottom: 0; padding-left: 22px; }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    code { background: #eef1f6; padding: 2px 5px; border-radius: 5px; font-size: .92em; }
+    pre {
+      background: var(--code);
+      color: #e5e7eb;
+      padding: 18px;
+      border-radius: 10px;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+    pre code { background: none; padding: 0; color: inherit; font-size: .9rem; }
+
+    .formula {
+      background: var(--accent-light);
+      border-left: 4px solid var(--accent);
+      padding: 16px 18px;
+      margin: 16px 0;
+      overflow-x: auto;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+    }
+    .mini {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      background: #fbfcff;
+    }
+    .mini strong { display: block; margin-bottom: 5px; }
+
+    .success { border-left: 4px solid var(--success); background: #edf9f3; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .warning { border-left: 4px solid var(--warning); background: #fff8e8; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .danger  { border-left: 4px solid var(--danger);  background: #fdecec; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .note    { border-left: 4px solid var(--muted);   background: #f3f5f8; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .definition, .theorem {
+      border-left: 4px solid var(--def);
+      background: var(--def-light);
+      padding: 14px 18px;
+      border-radius: 8px;
+      margin: 14px 0;
+    }
+    .definition > strong:first-child, .theorem > strong:first-child { color: var(--def); }
+    .claw {
+      border: 1px solid #99d6cf;
+      border-left: 6px solid var(--claw);
+      background: var(--claw-light);
+      padding: 16px 20px;
+      border-radius: 10px;
+      margin: 18px 0;
+    }
+    .claw > strong:first-child { color: var(--claw); display: block; margin-bottom: 6px; font-size: 1.05rem; }
+
+    table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+    th, td { text-align: left; padding: 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    th { background: #f1f4f9; }
+
+    .tag {
+      display: inline-block;
+      background: #eaf0ff;
+      color: #204bb4;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: .82rem;
+      margin: 3px;
+    }
+
+    figure { margin: 18px 0; }
+    figure > svg { width: 100%; height: auto; display: block; background: #fbfcff; border: 1px solid var(--border); border-radius: 10px; }
+    figcaption { color: var(--muted); font-size: .92rem; margin-top: 6px; text-align: center; }
+
+    .exercise { border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; margin: 14px 0; background: #fbfcff; }
+    .exercise summary { cursor: pointer; color: var(--accent); font-weight: 600; margin-top: 8px; }
+    .exercise details { margin-top: 6px; }
+    .exercise .solution { border-top: 1px dashed var(--border); margin-top: 8px; padding-top: 8px; }
+
+    .demo { border: 1px solid var(--border); border-radius: 12px; padding: 14px; background: #fbfcff; margin: 16px 0; }
+    .demo canvas { width: 100%; height: auto; display: block; background: #ffffff; border: 1px solid var(--border); border-radius: 8px; }
+    .controls { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; margin: 10px 0; font-size: .95rem; }
+    .controls label { display: inline-flex; align-items: center; gap: 6px; }
+    .controls input[type=range] { width: 140px; }
+    .controls button, .btn {
+      background: var(--accent); color: #fff; border: 0; padding: 7px 14px; border-radius: 8px; cursor: pointer; font-size: .92rem;
+    }
+    .controls button:hover, .btn:hover { filter: brightness(1.08); }
+    .controls button.secondary { background: #e5e9f2; color: var(--text); }
+
+    .prevnext { display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin: 26px 0 0; }
+    .prevnext a { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; flex: 1 1 260px; }
+    .prevnext a span { display: block; color: var(--muted); font-size: .82rem; }
+    .prevnext a.next { text-align: right; }
+
+    .done-box { text-align: center; margin: 24px 0 0; }
+    .done-box button { background: var(--success); color: #fff; border: 0; padding: 9px 18px; border-radius: 8px; cursor: pointer; }
+    .done-box button.undone { background: #9aa5b5; }
+
+    footer { text-align: center; color: var(--muted); padding: 30px 20px 50px; }
+
+    .page-shell {
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      gap: 24px;
+      max-width: 1320px;
+      margin: 0 auto;
+      padding: 28px 20px 70px;
+      align-items: start;
+    }
+    .sidebar { grid-column: 1; position: sticky; top: 20px; }
+    .sidebar nav { position: sticky; top: 20px; max-height: calc(100vh - 40px); overflow-y: auto; }
+    .content { grid-column: 2; min-width: 0; }
+    @media (max-width: 960px) {
+      .page-shell { grid-template-columns: 1fr; }
+      .sidebar, .sidebar nav { position: static; max-height: none; }
+      .sidebar, .content { grid-column: 1; }
+    }
+    @media print {
+      nav { break-after: page; }
+      section { box-shadow: none; }
+      .demo, .done-box, .prevnext, .topbar { display: none; }
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <div class="wrap">
+      <div class="topbar"><a href="index.html">&larr; Course home</a> &nbsp;·&nbsp; Module X: MODULE NAME</div>
+      <h1>Fixed-Wing Swarm Learning</h1>
+      <div class="subtitle">
+        Part N: <strong>TOPIC TITLE</strong> — one sentence saying what this lesson gives the reader.
+      </div>
+      <p>
+        <span class="tag">Tag 1</span>
+        <span class="tag">Tag 2</span>
+        <span class="tag">UAV Swarms</span>
+      </p>
+    </div>
+  </header>
+
+  <div class="page-shell">
+    <aside class="sidebar">
+      <nav id="index">
+        <h2>Index</h2>
+        <ol>
+          <li><a href="#why">Why this matters</a></li>
+          <li><a href="#theory">Theory section</a></li>
+          <li><a href="#example">Worked example</a></li>
+          <li><a href="#fixed-wing">Fixed-wing interpretation</a></li>
+          <li><a href="#implementation">Implementation</a></li>
+          <li><a href="#pitfalls">Common pitfalls</a></li>
+          <li><a href="#exercises">Exercises</a></li>
+          <li><a href="#summary">Key takeaways</a></li>
+          <li><a href="#references">References</a></li>
+        </ol>
+      </nav>
+    </aside>
+
+    <main class="content">
+
+      <section id="why">
+        <h2>1. Why This Matters</h2>
+        <p>Open with the problem the swarm engineer faces, and where this topic sits in the pipeline:</p>
+        <div class="formula">
+          \[ \text{Graph topology} \rightarrow \text{consensus} \rightarrow \text{formation} \rightarrow \text{vehicle guidance} \rightarrow \text{autopilot} \]
+        </div>
+        <div class="grid">
+          <div class="mini"><strong>Input</strong>What the reader should already know (link to earlier parts).</div>
+          <div class="mini"><strong>Output</strong>What the reader can do after this lesson.</div>
+          <div class="mini"><strong>Used in</strong>Which later parts build on it.</div>
+        </div>
+      </section>
+
+      <section id="theory">
+        <h2>2. Theory Section</h2>
+        <div class="definition">
+          <strong>Definition.</strong> Use this box for definitions.
+        </div>
+        <div class="theorem">
+          <strong>Theorem (name, year).</strong> Statement. <em>Proof sketch:</em> short derivation.
+        </div>
+        <div class="formula">
+          \[ \boxed{\dot{x} = -Lx} \]
+        </div>
+        <div class="success"><strong>Interpretation:</strong> plain-language meaning of the boxed result.</div>
+        <div class="warning"><strong>Caution:</strong> convention or assumption that is easy to get wrong.</div>
+        <div class="note"><strong>Note:</strong> side remark.</div>
+        <figure>
+          <svg viewBox="0 0 600 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="example figure">
+            <circle cx="120" cy="110" r="22" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/>
+            <text x="120" y="115" text-anchor="middle" font-size="14" fill="#172033">UAV 1</text>
+            <line x1="142" y1="110" x2="258" y2="110" stroke="#2457d6" stroke-width="2" marker-end="url(#arrow)"/>
+            <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2457d6"/></marker></defs>
+            <circle cx="280" cy="110" r="22" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/>
+            <text x="280" y="115" text-anchor="middle" font-size="14" fill="#172033">UAV 2</text>
+          </svg>
+          <figcaption>Figure 1. Inline SVG figures scale with the page and print cleanly.</figcaption>
+        </figure>
+      </section>
+
+      <section id="example">
+        <h2>3. Worked Example</h2>
+        <p>Numbers here must be verified by running the Python in the implementation section.</p>
+      </section>
+
+      <section id="fixed-wing">
+        <h2>4. Fixed-Wing Interpretation</h2>
+        <p>What changes because the agents are fixed-wing aircraft (minimum speed, turn-rate limit, speed envelope, high-speed scaling).</p>
+        <div class="claw">
+          <strong>Toward the CLAW</strong>
+          Exactly which block of the final unified control law this lesson supplies, and which signal it produces/consumes.
+        </div>
+      </section>
+
+      <section id="implementation">
+        <h2>5. Implementation</h2>
+<pre><code>import numpy as np
+# escape &lt; &gt; &amp; inside pre blocks
+</code></pre>
+        <div class="demo">
+          <strong>Interactive demo (optional)</strong>
+          <div class="controls">
+            <label>Gain <input type="range" id="demo-k" min="0.1" max="3" step="0.1" value="1"></label>
+            <button id="demo-run">Run</button>
+            <button class="secondary" id="demo-reset">Reset</button>
+          </div>
+          <canvas id="demo-canvas" width="900" height="360"></canvas>
+        </div>
+      </section>
+
+      <section id="pitfalls">
+        <h2>6. Common Pitfalls</h2>
+        <ul><li>…</li></ul>
+      </section>
+
+      <section id="exercises">
+        <h2>7. Exercises</h2>
+        <div class="exercise">
+          <strong>Exercise 1.</strong> Statement.
+          <details><summary>Show solution</summary><div class="solution">Solution.</div></details>
+        </div>
+      </section>
+
+      <section id="summary">
+        <h2>8. Key Takeaways &amp; Formula Sheet</h2>
+        <ul><li>…</li></ul>
+      </section>
+
+      <section id="references">
+        <h2>9. References</h2>
+        <ul><li>Author, <em>Title</em>, Publisher/Journal, Year.</li></ul>
+      </section>
+
+      <div class="prevnext">
+        <a class="prev" href="PREV_FILE.html"><span>&larr; Previous</span>Part N−1: Previous title</a>
+        <a class="next" href="NEXT_FILE.html"><span>Next &rarr;</span>Part N+1: Next title</a>
+      </div>
+      <div class="done-box"><button id="done-btn" data-lesson="N">Mark Part N as complete</button></div>
+    </main>
+  </div>
+
+  <footer>Fixed-Wing Swarm Learning · Part N · TOPIC TITLE</footer>
+
+  <script>
+    (function () {
+      try {
+        var btn = document.getElementById('done-btn');
+        if (!btn) return;
+        var id = btn.getAttribute('data-lesson');
+        var key = 'fwswarm_done';
+        var done = JSON.parse(localStorage.getItem(key) || '[]');
+        function render() {
+          var is = done.indexOf(id) >= 0;
+          btn.textContent = is ? 'Completed ✓ (click to undo)' : 'Mark Part ' + id + ' as complete';
+          btn.className = is ? 'undone' : '';
+        }
+        btn.addEventListener('click', function () {
+          var i = done.indexOf(id);
+          if (i >= 0) done.splice(i, 1); else done.push(id);
+          localStorage.setItem(key, JSON.stringify(done));
+          render();
+        });
+        render();
+      } catch (e) { /* storage unavailable: ignore */ }
+    })();
+  </script>
+  <script>
+    // Demo script (optional). Keep everything inside try/catch so a demo failure never breaks the lesson.
+    (function () {
+      try {
+        var c = document.getElementById('demo-canvas');
+        if (!c) return;
+        var ctx = c.getContext('2d');
+        ctx.fillStyle = '#eaf0ff'; ctx.fillRect(0, 0, c.width, c.height);
+      } catch (e) { console.error('demo failed', e); }
+    })();
+  </script>
+</body>
+</html>

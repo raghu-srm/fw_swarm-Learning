@@ -1,0 +1,35 @@
+=== gain limit k_path <= pi*omega_max/(2*chi_inf*V_g), chi_inf = pi/2, phi_max = 45 deg ===
+  V= 20: omega_max=0.4905 rad/s (28.10 deg/s)  k_max=0.024525 1/m  1/k_max=40.8 m  R_min=40.8 m  L1_min=2R_min=81.5 m
+  V= 60: omega_max=0.1635 rad/s ( 9.37 deg/s)  k_max=0.002725 1/m  1/k_max=367.0 m  R_min=367.0 m  L1_min=2R_min=733.9 m
+  V=200: omega_max=0.0490 rad/s ( 2.81 deg/s)  k_max=0.000245 1/m  1/k_max=4077.5 m  R_min=4077.5 m  L1_min=2R_min=8154.9 m
+  perfect-tracking factor: max x/(1+x^2)^1.5 = 0.3849 at x = 0.7071 (1/sqrt2 = 0.7071)
+  -> worst-case bound is conservative by factor 2.60
+
+=== straight-line following, chi_q = 0, UAV starts e0 to the east flying parallel (chi0 = 0) ===
+  V= 20 e0=   100 m b_chi=1.5 k=0.024525 (1x k_max): |e|<5% at t=8.0 s, along-path 120 m, max|chi_dot|=28.10 deg/s (omega_max 28.10), overshoot min e=-0.09 m, saturated 0.4% of steps
+  V= 20 e0=   100 m b_chi=1.5 k=0.073575 (3x k_max): |e|<5% at t=6.2 s, along-path 65 m, max|chi_dot|=28.10 deg/s (omega_max 28.10), overshoot min e=-6.71 m, saturated 1.1% of steps
+  V= 60 e0=   367 m b_chi=1.0 k=0.002725 (1x k_max): |e|<5% at t=19.1 s, along-path 1071 m, max|chi_dot|=9.37 deg/s (omega_max 9.37), overshoot min e=-0.00 m, saturated 0.8% of steps
+  V= 60 e0=   367 m b_chi=1.0 k=0.008175 (3x k_max): |e|<5% at t=10.4 s, along-path 489 m, max|chi_dot|=9.37 deg/s (omega_max 9.37), overshoot min e=-21.12 m, saturated 2.6% of steps
+  V=200 e0=  4077 m b_chi=0.5 k=0.000245 (1x k_max): |e|<5% at t=67.5 s, along-path 12671 m, max|chi_dot|=2.81 deg/s (omega_max 2.81), overshoot min e=0.00 m, saturated 3.0% of steps
+  V=200 e0=  4077 m b_chi=0.5 k=0.000736 (3x k_max): |e|<5% at t=35.4 s, along-path 5601 m, max|chi_dot|=2.81 deg/s (omega_max 2.81), overshoot min e=-107.40 m, saturated 9.0% of steps
+
+  reference case V=20, e0=100, k=k_max=0.02452: chi_d(0) = -67.82 deg, |e|<5 m at t=7.96 s after 119.5 m along the path; max rate 28.10 deg/s; min e -0.093 m
+  linearised rate kappa = (2/pi) chi_inf k V = 0.4905 1/s -> time constant 2.04 s, spatial constant V/kappa = 40.77 m
+  same with slow course loop b_chi=0.3: |e|<5 m at t=8.24 s, min e -16.94 m (overshoot)
+  starting antiparallel (chi0=180 deg): |e|<5 m at t=7.45 s, max rate 28.10 deg/s, sat 1.0%
+
+=== orbit following: V=20, rho=150 m, k_orb=2, lambda=+1 (clockwise), start 300 m north of centre heading north ===
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-ragupathi-dev-study-fw-swarm-Learning/c2969d82-b15d-413b-b0cf-4b548e942418/scratchpad/verify/part18_vector_field.py", line 107, in <module>
+    print(f"  feedforward={ff}: |d-rho|<2 m at t={r['t_reach']:.1f} s, max rate {np.degrees(r['max_rate']):.2f} deg/s, "
+                                                 ^^^^^^^^^^^^^^^^^^
+TypeError: unsupported format string passed to NoneType.__format__
+
+=== extra ===
+  V= 20: time constant 1/kappa = 1/(k_max V) = 1/omega_max = 2.04 s; course-loop check b_chi*chi_inf vs omega_max: b=1.5 -> 2.356 rad/s, b=0.5 -> 0.785 rad/s vs 0.4905
+  V= 60: time constant 1/kappa = 1/(k_max V) = 1/omega_max = 6.12 s; course-loop check b_chi*chi_inf vs omega_max: b=1.5 -> 2.356 rad/s, b=0.5 -> 0.785 rad/s vs 0.1635
+  V=200: time constant 1/kappa = 1/(k_max V) = 1/omega_max = 20.39 s; course-loop check b_chi*chi_inf vs omega_max: b=1.5 -> 2.356 rad/s, b=0.5 -> 0.785 rad/s vs 0.0490
+  exercise: V=100, phi_max=30: omega_max=0.05664 rad/s (3.25 deg/s), k_max=5.664e-04 1/m, 1/k=1766 m, R_min=1766 m
+  chi_d - chi_q at e=100 m, k=0.02452: -67.82 deg; at e=20 m: -26.13 deg; at e=1/k: -45 deg by construction
+  check atan identity: angle of (1, -k e) = -42.221 deg, -arctan(k e) = -42.221 deg
+  orbit example start: d=300, phi=0 (north of centre): chi_d = 90 + atan(k (d-rho)/rho) = 153.43 deg

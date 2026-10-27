@@ -1,0 +1,34 @@
+=== turn envelope, phi_max = 30 deg ===
+V =  25.0 m/s : R_min =   110.3 m, omega_max = 12.98 deg/s
+V =  60.0 m/s : R_min =   635.6 m, omega_max =  5.41 deg/s
+V = 150.0 m/s : R_min =  3972.6 m, omega_max =  2.16 deg/s
+
+=== shortest arc+straight (CS) path to a point d m directly behind, free arrival heading ===
+V =  25.0 m/s, R =   110.3 m: straight-line 1000 m (40.0 s) vs CS path  1370.9 m (54.8 s), ratio 1.37
+V = 150.0 m/s, R =  3972.6 m: straight-line 1000 m (6.7 s) vs CS path 24001.2 m (160.0 s), ratio 24.00
+
+=== path durations of the CBBA solution (V_g = 25 m/s) ===
+UAV 1 path [2, 1]: length   2288 m, duration  91.5 s (1.53 min)
+UAV 2 path [5]: length   2002 m, duration  80.1 s (1.33 min)
+UAV 3 path [3, 4]: length   3869 m, duration 154.8 s (2.58 min)
+endurance 40 min = 2400 s -> all paths feasible
+
+=== time and distance of a re-allocation (5 CBBA iterations) ===
+comm 10.0 Hz: 5 iterations = 0.5 s ->     12 m flown at  25.0 m/s
+comm 10.0 Hz: 5 iterations = 0.5 s ->     75 m flown at 150.0 m/s
+comm  2.0 Hz: 5 iterations = 2.5 s ->     62 m flown at  25.0 m/s
+comm  2.0 Hz: 5 iterations = 2.5 s ->    375 m flown at 150.0 m/s
+
+=== Hungarian slot assignment (3 UAVs -> 3 slots), cost = straight distance ===
+[[203.961 200.    203.961]
+ [223.607 208.806 200.998]
+ [200.998 208.806 223.607]]
+optimal slots: {1: 2, 2: 3, 3: 1} total 602.0 m  vs identity 636.4 m
+ [200.998 208.806 223.607]]
+optimal slots: {1: 2, 2: 3, 3: 1} total 602.0 m  vs identity 636.4 m
+
+=== Dubins (six words) minimised over the free arrival heading ===
+sanity: (0,0,0)->(5R,0,0): LSL length 500.0 (expect 500.0)
+sanity: half circle (0,0,0)->(0,2R,pi): LSL length 314.2 (expect pi*R = 314.2)
+V =  25.0 m/s, R =   110.3 m: shortest Dubins path to a point 1000 m behind =  1370.9 m (RSL, arrival heading 168 deg), 54.8 s, ratio to straight line 1.37
+V = 150.0 m/s, R =  3972.6 m: shortest Dubins path to a point 1000 m behind = 24001.2 m (RSR, arrival heading 28 deg), 160.0 s, ratio to straight line 24.00

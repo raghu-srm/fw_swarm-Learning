@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fixed-Wing Swarm Learning — Course Home</title>
+  <style>
+    :root {
+      --bg: #f6f8fb; --card: #ffffff; --text: #172033; --muted: #5d687a;
+      --accent: #2457d6; --accent-light: #eaf0ff; --border: #dce2ec; --code: #111827;
+      --success: #147a4b; --warning: #c27b00; --claw: #0f766e; --claw-light: #e6f6f4;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { margin: 0; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); line-height: 1.65; }
+    header { background: linear-gradient(135deg, #172554, #2457d6); color: white; padding: 60px 20px 48px; }
+    .wrap { max-width: 1200px; margin: auto; }
+    h1 { margin: 0 0 10px; font-size: clamp(2.1rem, 5vw, 3.4rem); }
+    h2 { font-size: 1.7rem; margin: 0 0 12px; }
+    h3 { margin: 18px 0 8px; }
+    .subtitle { max-width: 860px; color: #dbe6ff; font-size: 1.12rem; }
+    .tag { display: inline-block; background: rgba(255,255,255,.14); color: #eaf0ff; padding: 3px 10px; border-radius: 999px; font-size: .82rem; margin: 3px; }
+    main { max-width: 1200px; margin: auto; padding: 28px 20px 70px; }
+    section { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 26px; margin: 22px 0; box-shadow: 0 3px 12px rgba(20,35,70,.05); }
+    a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: underline; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
+    .mini { border: 1px solid var(--border); border-radius: 10px; padding: 16px; background: #fbfcff; }
+    .mini strong { display: block; margin-bottom: 5px; }
+    .module { margin: 24px 0 8px; }
+    .module h3 { font-size: 1.25rem; margin-bottom: 4px; }
+    .module .desc { color: var(--muted); margin: 0 0 10px; }
+    .lessons { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 12px; }
+    .lesson { display: flex; gap: 12px; align-items: flex-start; border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; background: #fbfcff; color: var(--text); position: relative; }
+    .lesson:hover { border-color: var(--accent); text-decoration: none; background: #f4f7ff; }
+    .lesson .num { flex: 0 0 38px; height: 38px; border-radius: 9px; background: var(--accent-light); color: #204bb4; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+    .lesson .t { font-weight: 600; }
+    .lesson .d { color: var(--muted); font-size: .9rem; }
+    .lesson.done .num { background: #e3f5ec; color: var(--success); }
+    .lesson.done::after { content: "✓"; position: absolute; right: 12px; top: 10px; color: var(--success); font-weight: 700; }
+    .lesson.missing { opacity: .55; }
+    .progress { height: 12px; background: #e5e9f2; border-radius: 999px; overflow: hidden; margin: 10px 0 4px; }
+    .progress > div { height: 100%; background: linear-gradient(90deg, #2457d6, #0f766e); width: 0%; transition: width .4s; }
+    .claw { border: 1px solid #99d6cf; border-left: 6px solid var(--claw); background: var(--claw-light); padding: 16px 20px; border-radius: 10px; margin: 16px 0; }
+    .claw strong { color: var(--claw); }
+    .success { border-left: 4px solid var(--success); background: #edf9f3; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .warning { border-left: 4px solid var(--warning); background: #fff8e8; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    table { width: 100%; border-collapse: collapse; margin: 14px 0; }
+    th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    th { background: #f1f4f9; }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    code { background: #eef1f6; padding: 2px 5px; border-radius: 5px; font-size: .92em; }
+    pre { background: var(--code); color: #e5e7eb; padding: 16px; border-radius: 10px; overflow-x: auto; }
+    figure { margin: 16px 0; }
+    figure > svg { width: 100%; height: auto; display: block; background: #fbfcff; border: 1px solid var(--border); border-radius: 10px; }
+    figcaption { color: var(--muted); font-size: .92rem; text-align: center; margin-top: 6px; }
+    .btn { display: inline-block; background: var(--accent); color: #fff; padding: 9px 16px; border-radius: 8px; font-weight: 600; }
+    .btn:hover { filter: brightness(1.08); text-decoration: none; }
+    .btn.secondary { background: #e5e9f2; color: var(--text); }
+    footer { text-align: center; color: var(--muted); padding: 30px 20px 50px; }
+    @media (max-width: 600px) { .lessons { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>Fixed-Wing Swarm Learning</h1>
+    <div class="subtitle">
+      A self-contained, mathematics-first course on distributed control of fixed-wing UAV swarms —
+      from graphs and consensus, through formation, guidance and safety, to a <strong>unified swarm control law (CLAW)</strong>
+      that you can implement on PX4 + ROS&nbsp;2, including high-speed aircraft.
+    </div>
+    <p>
+      <span class="tag">Graph theory</span><span class="tag">Consensus</span><span class="tag">Formation control</span>
+      <span class="tag">Fixed-wing dynamics</span><span class="tag">Guidance</span><span class="tag">CBF safety</span>
+      <span class="tag">Distributed MPC</span><span class="tag">Task allocation</span><span class="tag">PX4 + ROS 2</span>
+    </p>
+    <p style="margin-top:14px">
+      <a class="btn" href="1_fixed_wing_swarm_graphs_digraphs.html">Start with Part 1 &rarr;</a>
+      &nbsp; <a class="btn secondary" href="24_capstone_unified_swarm_claw.html">Jump to the capstone CLAW</a>
+    </p>
+  </div>
+</header>
+
+<main>
+  <section id="goal">
+    <h2>What this course is for</h2>
+    <p>
+      The end goal is a single engineering capability: <strong>design, analyse and implement a control law that makes a
+      group of fixed-wing aircraft behave as one coordinated system</strong> — agreeing on references, holding and
+      manoeuvring formations, following paths cooperatively, staying safe, dividing tasks, and doing all of this
+      with the speed envelope, turn-rate limits and communication latency of real aircraft.
+    </p>
+    <div class="grid">
+      <div class="mini"><strong>Who it is for</strong>Engineers with calculus, linear algebra and basic control, new to multi-agent systems.</div>
+      <div class="mini"><strong>How it teaches</strong>Every part derives the mathematics, verifies it numerically, and ends with a "Toward the CLAW" box that says exactly which block of the final law it supplies.</div>
+      <div class="mini"><strong>What you build</strong>By Part 24 you assemble a layered CLAW (estimation → formation → safety → vehicle command) and run it in the included Python simulator.</div>
+    </div>
+    <div class="claw">
+      <strong>The CLAW pipeline.</strong> Every lesson feeds one of these blocks. Keep this picture in mind as you study.
+    </div>
+    <figure>
+      <svg viewBox="0 0 1180 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="CLAW pipeline diagram">
+        <defs>
+          <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#2457d6"/></marker>
+        </defs>
+        <g font-family="system-ui, sans-serif" font-size="13" fill="#172033">
+          <!-- top row blocks -->
+          <rect x="20" y="40" width="170" height="78" rx="10" fill="#fff" stroke="#2457d6" stroke-width="2"/>
+          <text x="105" y="65" text-anchor="middle" font-weight="700">Mission &amp; tasking</text>
+          <text x="105" y="84" text-anchor="middle" fill="#5d687a">task allocation, slots</text>
+          <text x="105" y="103" text-anchor="middle" fill="#204bb4">Parts 10, 22</text>
+
+          <rect x="215" y="40" width="170" height="78" rx="10" fill="#fff" stroke="#2457d6" stroke-width="2"/>
+          <text x="300" y="65" text-anchor="middle" font-weight="700">Reference</text>
+          <text x="300" y="84" text-anchor="middle" fill="#5d687a">virtual structure, paths</text>
+          <text x="300" y="103" text-anchor="middle" fill="#204bb4">Parts 13, 17, 19</text>
+
+          <rect x="410" y="40" width="170" height="78" rx="10" fill="#fff" stroke="#2457d6" stroke-width="2"/>
+          <text x="495" y="65" text-anchor="middle" font-weight="700">Distributed estimation</text>
+          <text x="495" y="84" text-anchor="middle" fill="#5d687a">leader–follower consensus</text>
+          <text x="495" y="103" text-anchor="middle" fill="#204bb4">Parts 5–8</text>
+
+          <rect x="605" y="40" width="170" height="78" rx="10" fill="#fff" stroke="#2457d6" stroke-width="2"/>
+          <text x="690" y="65" text-anchor="middle" font-weight="700">Formation guidance</text>
+          <text x="690" y="84" text-anchor="middle" fill="#5d687a">slot tracking + coupling</text>
+          <text x="690" y="103" text-anchor="middle" fill="#204bb4">Parts 9–14, 18, 19, 21</text>
+
+          <rect x="800" y="40" width="170" height="78" rx="10" fill="#fff" stroke="#0f766e" stroke-width="2"/>
+          <text x="885" y="65" text-anchor="middle" font-weight="700">Safety filter</text>
+          <text x="885" y="84" text-anchor="middle" fill="#5d687a">CBF-QP, de-confliction</text>
+          <text x="885" y="103" text-anchor="middle" fill="#0f766e">Part 20</text>
+
+          <rect x="995" y="40" width="165" height="78" rx="10" fill="#fff" stroke="#2457d6" stroke-width="2"/>
+          <text x="1077" y="65" text-anchor="middle" font-weight="700">Vehicle command</text>
+          <text x="1077" y="84" text-anchor="middle" fill="#5d687a">course, speed, altitude</text>
+          <text x="1077" y="103" text-anchor="middle" fill="#204bb4">Parts 15, 16, 23</text>
+
+          <line x1="190" y1="79" x2="213" y2="79" stroke="#2457d6" stroke-width="2" marker-end="url(#ar)"/>
+          <line x1="385" y1="79" x2="408" y2="79" stroke="#2457d6" stroke-width="2" marker-end="url(#ar)"/>
+          <line x1="580" y1="79" x2="603" y2="79" stroke="#2457d6" stroke-width="2" marker-end="url(#ar)"/>
+          <line x1="775" y1="79" x2="798" y2="79" stroke="#2457d6" stroke-width="2" marker-end="url(#ar)"/>
+          <line x1="970" y1="79" x2="993" y2="79" stroke="#2457d6" stroke-width="2" marker-end="url(#ar)"/>
+
+          <!-- bottom row: foundations -->
+          <rect x="20" y="170" width="560" height="78" rx="10" fill="#eaf0ff" stroke="#2457d6" stroke-width="1.5" stroke-dasharray="6 4"/>
+          <text x="300" y="196" text-anchor="middle" font-weight="700">Communication graph &amp; its algebra</text>
+          <text x="300" y="215" text-anchor="middle" fill="#5d687a">who hears whom, Laplacian, eigenvalues, convergence, delays</text>
+          <text x="300" y="234" text-anchor="middle" fill="#204bb4">Parts 1–7, Appendix A1</text>
+
+          <rect x="605" y="170" width="555" height="78" rx="10" fill="#e6f6f4" stroke="#0f766e" stroke-width="1.5" stroke-dasharray="6 4"/>
+          <text x="882" y="196" text-anchor="middle" font-weight="700">Aircraft envelope &amp; autopilot</text>
+          <text x="882" y="215" text-anchor="middle" fill="#5d687a">speed limits, turn radius ∝ V², roll lag, latency × speed, PX4 loops</text>
+          <text x="882" y="234" text-anchor="middle" fill="#0f766e">Parts 15, 16, 23</text>
+
+          <line x1="300" y1="170" x2="300" y2="120" stroke="#2457d6" stroke-width="1.5" marker-end="url(#ar)"/>
+          <line x1="495" y1="170" x2="495" y2="120" stroke="#2457d6" stroke-width="1.5" marker-end="url(#ar)"/>
+          <line x1="690" y1="170" x2="690" y2="120" stroke="#0f766e" stroke-width="1.5" marker-end="url(#ar)"/>
+          <line x1="885" y1="170" x2="885" y2="120" stroke="#0f766e" stroke-width="1.5" marker-end="url(#ar)"/>
+          <line x1="1077" y1="170" x2="1077" y2="120" stroke="#0f766e" stroke-width="1.5" marker-end="url(#ar)"/>
+          <text x="590" y="285" text-anchor="middle" fill="#5d687a">Part 24 assembles all blocks into one control law and verifies it in simulation.</text>
+        </g>
+      </svg>
+      <figcaption>The unified CLAW as a signal pipeline. Dashed boxes are the two foundations every block relies on.</figcaption>
+    </figure>
+  </section>
+
+  <section id="progress">
+    <h2>Your progress</h2>
+    <p>Each lesson has a "Mark as complete" button at the end. Progress is stored in this browser only.</p>
+    <div class="progress"><div id="progress-bar"></div></div>
+    <div id="progress-text" style="color:var(--muted)">0 of 25 completed</div>
+  </section>
+
+  <section id="curriculum">
+    <h2>Curriculum</h2>
+    <p>Study the parts in order; each one assumes the previous ones. Typical effort is 2–4 hours per part (about 80 hours in total).</p>
+
+    <div class="module">
+      <h3>Module A — Graph Foundations</h3>
+      <p class="desc">The language for "who talks to whom" and the matrix objects every distributed law is built from.</p>
+      <div class="lessons">
+        <a class="lesson" data-id="1" href="1_fixed_wing_swarm_graphs_digraphs.html"><div class="num">1</div><div><div class="t">Graphs &amp; Digraphs</div><div class="d">Nodes, edges, neighbours, directed information flow.</div></div></a>
+        <a class="lesson" data-id="2" href="2_fixed_wing_swarm_adjacency_degree_matrices.html"><div class="num">2</div><div><div class="t">Adjacency &amp; Degree Matrices</div><div class="d">Topology as numbers; the course convention \(a_{ij}>0 \Leftrightarrow i\to j\).</div></div></a>
+        <a class="lesson" data-id="3" href="3_fixed_wing_swarm_graph_laplacian.html"><div class="num">3</div><div><div class="t">Graph Laplacian</div><div class="d">\(L=D-A\) as a disagreement operator; the quadratic form.</div></div></a>
+        <a class="lesson" data-id="4" href="4_Laplacian_Eigenvalues.html"><div class="num">4</div><div><div class="t">Laplacian Eigenvalues</div><div class="d">Algebraic connectivity, decay rates, discrete-time step bound.</div></div></a>
+      </div>
+    </div>
+
+    <div class="module">
+      <h3>Module B — Consensus</h3>
+      <p class="desc">How a swarm agrees on a value with only neighbour-to-neighbour communication, and when it fails.</p>
+      <div class="lessons">
+        <a class="lesson" data-id="5" href="5_continuous_time_consensus.html"><div class="num">5</div><div><div class="t">Continuous-Time Consensus</div><div class="d">\(\dot x=-Lx\), average consensus, modal solution, interactive demo.</div></div></a>
+        <a class="lesson" data-id="6" href="6_consensus_convergence_stability.html"><div class="num">6</div><div><div class="t">Convergence &amp; Stability</div><div class="d">Lyapunov proof, discrete time, switching topologies, delays, packet loss.</div></div></a>
+        <a class="lesson" data-id="7" href="7_directed_graph_consensus.html"><div class="num">7</div><div><div class="t">Directed-Graph Consensus</div><div class="d">In-degree Laplacian, spanning trees, who decides the consensus value.</div></div></a>
+        <a class="lesson" data-id="8" href="8_leader_follower_consensus.html"><div class="num">8</div><div><div class="t">Leader–Follower Consensus</div><div class="d">Pinning, \(H=L+B\), distributed reference estimation.</div></div></a>
+        <a class="lesson" data-id="9" href="9_second_order_consensus.html"><div class="num">9</div><div><div class="t">Second-Order Consensus</div><div class="d">Position + velocity agreement, damping and gain design.</div></div></a>
+      </div>
+    </div>
+
+    <div class="module">
+      <h3>Module C — Formation &amp; Flocking</h3>
+      <p class="desc">Turning agreement into geometry: specifying, holding and manoeuvring shapes; emergent flocking.</p>
+      <div class="lessons">
+        <a class="lesson" data-id="10" href="10_formation_specification.html"><div class="num">10</div><div><div class="t">Formation Specification</div><div class="d">Displacement / distance / bearing specs; feasibility in coordinated turns.</div></div></a>
+        <a class="lesson" data-id="11" href="11_graph_framework_rigidity.html"><div class="num">11</div><div><div class="t">Graph &amp; Framework Rigidity</div><div class="d">Rigidity matrix, Laman's theorem, when distances fix a shape.</div></div></a>
+        <a class="lesson" data-id="12" href="12_formation_control.html"><div class="num">12</div><div><div class="t">Formation Control</div><div class="d">Displacement and distance laws, feedforward, lag at high speed.</div></div></a>
+        <a class="lesson" data-id="13" href="13_virtual_structures.html"><div class="num">13</div><div><div class="t">Virtual Structures</div><div class="d">Rigid-body reference, synchronised copies, formation feedback.</div></div></a>
+        <a class="lesson" data-id="14" href="14_flocking.html"><div class="num">14</div><div><div class="t">Flocking</div><div class="d">Olfati-Saber's framework adapted to aircraft with minimum speed.</div></div></a>
+      </div>
+    </div>
+
+    <div class="module">
+      <h3>Module D — Fixed-Wing Vehicle &amp; Guidance</h3>
+      <p class="desc">What an aircraft can actually do, and how to turn a swarm-level command into something it can fly.</p>
+      <div class="lessons">
+        <a class="lesson" data-id="15" href="15_fixed_wing_kinematics.html"><div class="num">15</div><div><div class="t">Fixed-Wing Kinematics</div><div class="d">Frames, wind triangle, command-level model, envelope table.</div></div></a>
+        <a class="lesson" data-id="16" href="16_coordinated_turn_high_speed.html"><div class="num">16</div><div><div class="t">Coordinated Turns &amp; High-Speed Flight</div><div class="d">Turn geometry, V–n diagram, scaling with speed, design rules.</div></div></a>
+        <a class="lesson" data-id="17" href="17_dubins_paths.html"><div class="num">17</div><div><div class="t">Dubins Paths</div><div class="d">Shortest turn-constrained paths; 3-D airplane extension; demo.</div></div></a>
+        <a class="lesson" data-id="18" href="18_vector_field_guidance.html"><div class="num">18</div><div><div class="t">Vector-Field Guidance</div><div class="d">Line and orbit fields, gain limits from the envelope, L1/NPFG.</div></div></a>
+        <a class="lesson" data-id="19" href="19_coordinated_path_following.html"><div class="num">19</div><div><div class="t">Coordinated Path Following</div><div class="d">Time coordination, along-path spacing, phase on circles.</div></div></a>
+      </div>
+    </div>
+
+    <div class="module">
+      <h3>Module E — Safety, Optimisation &amp; Decision</h3>
+      <p class="desc">Guarantees and decisions on top of the formation layer.</p>
+      <div class="lessons">
+        <a class="lesson" data-id="20" href="20_collision_avoidance_cbf.html"><div class="num">20</div><div><div class="t">Collision Avoidance &amp; CBF</div><div class="d">Safety filters as quadratic programs; latency inflation; demo.</div></div></a>
+        <a class="lesson" data-id="21" href="21_distributed_mpc.html"><div class="num">21</div><div><div class="t">Distributed MPC</div><div class="d">Predictive control with neighbours' plans; feasibility and stability.</div></div></a>
+        <a class="lesson" data-id="22" href="22_task_allocation_cbba.html"><div class="num">22</div><div><div class="t">Task Allocation &amp; CBBA</div><div class="d">Assignment, auctions, consensus-based bundle algorithm.</div></div></a>
+      </div>
+    </div>
+
+    <div class="module">
+      <h3>Module F — Implementation &amp; Integration</h3>
+      <p class="desc">Putting it on real software, then assembling the unified law.</p>
+      <div class="lessons">
+        <a class="lesson" data-id="23" href="23_px4_ros2_multi_vehicle.html"><div class="num">23</div><div><div class="t">PX4 + ROS 2 Multi-Vehicle</div><div class="d">SITL fleets, offboard interfaces, the per-UAV swarm stack.</div></div></a>
+        <a class="lesson" data-id="24" href="24_capstone_unified_swarm_claw.html"><div class="num">24</div><div><div class="t">Capstone: The Unified Swarm CLAW</div><div class="d">All blocks assembled, analysed, tuned and simulated.</div></div></a>
+        <a class="lesson" data-id="A1" href="A1_math_toolbox.html"><div class="num">A1</div><div><div class="t">Appendix: Math Toolbox</div><div class="d">Linear algebra, Lyapunov theory, Kronecker products, NumPy cheat-sheet.</div></div></a>
+      </div>
+    </div>
+  </section>
+
+  <section id="how">
+    <h2>How to study</h2>
+    <ol>
+      <li><strong>Read with pen and paper.</strong> Re-derive every boxed equation yourself before moving on.</li>
+      <li><strong>Run the code.</strong> Every part ends with a NumPy snippet that reproduces its worked example. Change the numbers; watch what breaks.</li>
+      <li><strong>Do the exercises.</strong> Solutions are hidden behind "Show solution"; attempt first.</li>
+      <li><strong>Keep the pipeline picture.</strong> After each part, say in one sentence which CLAW block it supplies (the "Toward the CLAW" box checks you).</li>
+      <li><strong>Finish with the simulator.</strong> The <code>sim/</code> package implements the capstone law; read it next to Part 24 and modify it.</li>
+    </ol>
+    <table>
+      <thead><tr><th>Week</th><th>Parts</th><th>Milestone</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>1–4, A1</td><td>Build \(A\), \(D\), \(L\) for any topology and compute \(\lambda_2\) in NumPy.</td></tr>
+        <tr><td>2</td><td>5–7</td><td>Simulate consensus with packet loss and delays; explain the consensus value of a digraph.</td></tr>
+        <tr><td>3</td><td>8–9</td><td>Design pinning gains and a second-order consensus with chosen damping.</td></tr>
+        <tr><td>4</td><td>10–12</td><td>Specify a formation, check turn feasibility, hold it with a displacement law.</td></tr>
+        <tr><td>5</td><td>13–16</td><td>Fly a virtual structure through a racetrack within the envelope of a 150 m/s aircraft.</td></tr>
+        <tr><td>6</td><td>17–19</td><td>Dubins + vector-field guidance with time coordination for three aircraft.</td></tr>
+        <tr><td>7</td><td>20–22</td><td>Add a CBF safety filter; compare with DMPC; allocate tasks with CBBA.</td></tr>
+        <tr><td>8</td><td>23–24</td><td>Run the capstone CLAW in the simulator; map it onto PX4 + ROS 2.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="conventions">
+    <h2>Conventions used throughout</h2>
+    <div class="warning"><strong>Adjacency convention.</strong> \(a_{ij}>0\) means UAV \(i\) transmits to UAV \(j\). For directed graphs the controller of UAV \(i\) uses the <em>listening weights</em> \(w_{ij}=a_{ji}\) (Part 7). Most textbooks define \(A\) the other way round; check before copying a formula.</div>
+    <div class="grid">
+      <div class="mini"><strong>Frames</strong>NED inertial frame; heading \(\psi\) and course \(\chi\) clockwise from north; altitude \(h=-p_d\).</div>
+      <div class="mini"><strong>Speeds</strong>\(V_a\) airspeed, \(V_g\) ground speed (always subscripted). \(V(x)\) with an argument is a Lyapunov function.</div>
+      <div class="mini"><strong>Turns</strong>\(\dot\chi = g\tan\phi/V_g\), \(R = V_g^2/(g\tan\phi)\), load factor \(n_z=1/\cos\phi\).</div>
+      <div class="mini"><strong>Stacked vectors</strong>\(x=\mathrm{col}(x_1,\dots,x_N)\), \(\dot x=-(L\otimes I_n)x\).</div>
+    </div>
+  </section>
+
+  <section id="sim">
+    <h2>Reference simulator</h2>
+    <p>The repository ships a pure-NumPy implementation of the capstone CLAW (<code>sim/</code>) with two presets — a 25 m/s small UAV swarm and a 150 m/s high-speed swarm — plus communication latency and packet loss. See <code>sim/README.md</code>.</p>
+<pre><code>python3 tests/test_sim.py
+python3 -m sim.run --preset small --duration 400 --out sim_out_small
+python3 -m sim.run --preset high  --duration 600 --out sim_out_high
+python3 -m sim.run --preset small --no-feedforward   # see the lag discussed in Part 12
+python3 -m sim.run --preset small --no-cbf           # see why the safety filter exists</code></pre>
+  </section>
+
+  <section id="refs">
+    <h2>Core references</h2>
+    <ul>
+      <li>M. Mesbahi and M. Egerstedt, <em>Graph Theoretic Methods in Multiagent Networks</em>, Princeton, 2010.</li>
+      <li>W. Ren and R. W. Beard, <em>Distributed Consensus in Multi-vehicle Cooperative Control</em>, Springer, 2008.</li>
+      <li>R. Olfati-Saber, J. A. Fax and R. M. Murray, "Consensus and cooperation in networked multi-agent systems," <em>Proc. IEEE</em>, 2007.</li>
+      <li>F. Bullo, <em>Lectures on Network Systems</em>, 2022 (free online).</li>
+      <li>R. W. Beard and T. W. McLain, <em>Small Unmanned Aircraft: Theory and Practice</em>, Princeton, 2012.</li>
+      <li>K.-K. Oh, M.-C. Park and H.-S. Ahn, "A survey of multi-agent formation control," <em>Automatica</em>, 2015.</li>
+      <li>A. D. Ames et al., "Control barrier functions: theory and applications," <em>ECC</em>, 2019.</li>
+      <li>H.-L. Choi, L. Brunet and J. P. How, "Consensus-based decentralized auctions for robust task allocation," <em>IEEE T-RO</em>, 2009.</li>
+      <li>PX4 User Guide and Developer Guide, <a href="https://docs.px4.io/main/">docs.px4.io</a>.</li>
+    </ul>
+  </section>
+</main>
+
+<footer>Fixed-Wing Swarm Learning · Course Home</footer>
+
+<script>
+  window.MathJax = { tex: { inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']] }, svg: { fontCache: 'global' } };
+</script>
+<script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+<script>
+  (function () {
+    try {
+      var done = JSON.parse(localStorage.getItem('fwswarm_done') || '[]');
+      var cards = document.querySelectorAll('.lesson');
+      var n = 0;
+      cards.forEach(function (c) {
+        if (done.indexOf(c.getAttribute('data-id')) >= 0) { c.classList.add('done'); n++; }
+      });
+      var pct = cards.length ? Math.round(100 * n / cards.length) : 0;
+      document.getElementById('progress-bar').style.width = pct + '%';
+      document.getElementById('progress-text').textContent = n + ' of ' + cards.length + ' completed (' + pct + '%)';
+    } catch (e) { /* storage unavailable */ }
+  })();
+</script>
+</body>
+</html>

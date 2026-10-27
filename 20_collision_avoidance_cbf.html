@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fixed-Wing Swarm Learning — Collision Avoidance &amp; Control Barrier Functions</title>
+
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['\\(', '\\)']],
+        displayMath: [['\\[', '\\]'], ['$$', '$$']]
+      },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --card: #ffffff;
+      --text: #172033;
+      --muted: #5d687a;
+      --accent: #2457d6;
+      --accent-light: #eaf0ff;
+      --border: #dce2ec;
+      --code: #111827;
+      --success: #147a4b;
+      --warning: #c27b00;
+      --danger: #b42318;
+      --claw: #0f766e;
+      --claw-light: #e6f6f4;
+      --def: #6d28d9;
+      --def-light: #f3eefe;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+    }
+
+    header {
+      background: linear-gradient(135deg, #172554, #2457d6);
+      color: white;
+      padding: 56px 20px 44px;
+    }
+    header .wrap { max-width: 1320px; margin: auto; }
+    .topbar { margin-bottom: 18px; font-size: .95rem; }
+    .topbar a { color: #dbe6ff; }
+    .topbar a:hover { color: #fff; }
+
+    h1 { margin: 0 0 10px; font-size: clamp(2rem, 5vw, 3.2rem); }
+    h2 { margin-top: 0; font-size: 1.8rem; }
+    h3 { margin-top: 1.6rem; }
+    h4 { margin-top: 1.2rem; margin-bottom: .4rem; }
+
+    .subtitle { max-width: 820px; color: #dbe6ff; font-size: 1.08rem; }
+
+    nav, section, .callout {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px;
+      margin: 20px 0;
+      box-shadow: 0 3px 12px rgba(20, 35, 70, .05);
+    }
+    nav h2 { font-size: 1.35rem; }
+    nav ol { margin-bottom: 0; padding-left: 22px; }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    code { background: #eef1f6; padding: 2px 5px; border-radius: 5px; font-size: .92em; }
+    pre {
+      background: var(--code);
+      color: #e5e7eb;
+      padding: 18px;
+      border-radius: 10px;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+    pre code { background: none; padding: 0; color: inherit; font-size: .9rem; }
+
+    .formula {
+      background: var(--accent-light);
+      border-left: 4px solid var(--accent);
+      padding: 16px 18px;
+      margin: 16px 0;
+      overflow-x: auto;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+    }
+    .mini {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      background: #fbfcff;
+    }
+    .mini strong { display: block; margin-bottom: 5px; }
+
+    .success { border-left: 4px solid var(--success); background: #edf9f3; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .warning { border-left: 4px solid var(--warning); background: #fff8e8; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .danger  { border-left: 4px solid var(--danger);  background: #fdecec; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .note    { border-left: 4px solid var(--muted);   background: #f3f5f8; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .definition, .theorem {
+      border-left: 4px solid var(--def);
+      background: var(--def-light);
+      padding: 14px 18px;
+      border-radius: 8px;
+      margin: 14px 0;
+    }
+    .definition > strong:first-child, .theorem > strong:first-child { color: var(--def); }
+    .claw {
+      border: 1px solid #99d6cf;
+      border-left: 6px solid var(--claw);
+      background: var(--claw-light);
+      padding: 16px 20px;
+      border-radius: 10px;
+      margin: 18px 0;
+    }
+    .claw > strong:first-child { color: var(--claw); display: block; margin-bottom: 6px; font-size: 1.05rem; }
+
+    table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+    th, td { text-align: left; padding: 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    th { background: #f1f4f9; }
+
+    .tag {
+      display: inline-block;
+      background: #eaf0ff;
+      color: #204bb4;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: .82rem;
+      margin: 3px;
+    }
+
+    figure { margin: 18px 0; }
+    figure > svg { width: 100%; height: auto; display: block; background: #fbfcff; border: 1px solid var(--border); border-radius: 10px; }
+    figcaption { color: var(--muted); font-size: .92rem; margin-top: 6px; text-align: center; }
+
+    .exercise { border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; margin: 14px 0; background: #fbfcff; }
+    .exercise summary { cursor: pointer; color: var(--accent); font-weight: 600; margin-top: 8px; }
+    .exercise details { margin-top: 6px; }
+    .exercise .solution { border-top: 1px dashed var(--border); margin-top: 8px; padding-top: 8px; }
+
+    .demo { border: 1px solid var(--border); border-radius: 12px; padding: 14px; background: #fbfcff; margin: 16px 0; }
+    .demo canvas { width: 100%; height: auto; display: block; background: #ffffff; border: 1px solid var(--border); border-radius: 8px; }
+    .controls { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; margin: 10px 0; font-size: .95rem; }
+    .controls label { display: inline-flex; align-items: center; gap: 6px; }
+    .controls input[type=range] { width: 140px; }
+    .controls button, .btn {
+      background: var(--accent); color: #fff; border: 0; padding: 7px 14px; border-radius: 8px; cursor: pointer; font-size: .92rem;
+    }
+    .controls button:hover, .btn:hover { filter: brightness(1.08); }
+    .controls button.secondary { background: #e5e9f2; color: var(--text); }
+
+    .prevnext { display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin: 26px 0 0; }
+    .prevnext a { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; flex: 1 1 260px; }
+    .prevnext a span { display: block; color: var(--muted); font-size: .82rem; }
+    .prevnext a.next { text-align: right; }
+
+    .done-box { text-align: center; margin: 24px 0 0; }
+    .done-box button { background: var(--success); color: #fff; border: 0; padding: 9px 18px; border-radius: 8px; cursor: pointer; }
+    .done-box button.undone { background: #9aa5b5; }
+
+    footer { text-align: center; color: var(--muted); padding: 30px 20px 50px; }
+
+    .page-shell {
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      gap: 24px;
+      max-width: 1320px;
+      margin: 0 auto;
+      padding: 28px 20px 70px;
+      align-items: start;
+    }
+    .sidebar { grid-column: 1; position: sticky; top: 20px; }
+    .sidebar nav { position: sticky; top: 20px; max-height: calc(100vh - 40px); overflow-y: auto; }
+    .content { grid-column: 2; min-width: 0; }
+    @media (max-width: 960px) {
+      .page-shell { grid-template-columns: 1fr; }
+      .sidebar, .sidebar nav { position: static; max-height: none; }
+      .sidebar, .content { grid-column: 1; }
+    }
+    @media print {
+      nav { break-after: page; }
+      section { box-shadow: none; }
+      .demo, .done-box, .prevnext, .topbar { display: none; }
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <div class="wrap">
+      <div class="topbar"><a href="index.html">&larr; Course home</a> &nbsp;·&nbsp; Module E: Safety, Optimisation &amp; Decision</div>
+      <h1>Fixed-Wing Swarm Learning</h1>
+      <div class="subtitle">
+        Part 20: <strong>Collision Avoidance &amp; Control Barrier Functions</strong> — how to wrap any formation or guidance command in a
+        provably safe, decentralised, one-line-of-algebra filter, and what changes when the vehicles cannot stop or turn sharply.
+      </div>
+      <p>
+        <span class="tag">Control barrier functions</span>
+        <span class="tag">Safety filter</span>
+        <span class="tag">CBF-QP</span>
+        <span class="tag">Collision avoidance</span>
+        <span class="tag">UAV Swarms</span>
+      </p>
+    </div>
+  </header>
+
+  <div class="page-shell">
+    <aside class="sidebar">
+      <nav id="index">
+        <h2>Index</h2>
+        <ol>
+          <li><a href="#why">Why this matters</a></li>
+          <li><a href="#safe-sets">Safe sets, invariance, Nagumo</a></li>
+          <li><a href="#cbf">Control barrier functions &amp; the CBF-QP</a></li>
+          <li><a href="#pairwise">Pairwise barrier, decentralised split, closed form</a></li>
+          <li><a href="#hocbf">Double integrators: high-order CBF</a></li>
+          <li><a href="#example">Worked example: two UAVs head-on</a></li>
+          <li><a href="#fixed-wing">Fixed-wing interpretation</a></li>
+          <li><a href="#implementation">Implementation &amp; demo</a></li>
+          <li><a href="#pitfalls">Common pitfalls</a></li>
+          <li><a href="#exercises">Exercises</a></li>
+          <li><a href="#summary">Key takeaways</a></li>
+          <li><a href="#references">References</a></li>
+        </ol>
+      </nav>
+    </aside>
+
+    <main class="content">
+
+      <section id="why">
+        <h2>1. Why This Matters</h2>
+        <p>
+          Everything the swarm layer has produced so far — consensus (Parts 5–9), formation laws (Parts 12–13), flocking (Part 14),
+          vector-field and coordinated path following (Parts 18–19) — was designed for <em>performance</em>: converge to the slot, hold
+          the spacing, arrive on time. None of it carries a hard guarantee that two aircraft will never come closer than a safety distance
+          \(d_s\). The repulsion term of flocking is a soft potential; a displacement-based formation law happily drives two UAVs through each
+          other during a reconfiguration; a guidance law has no idea the neighbour exists. In a fixed-wing swarm a near miss is a
+          mid-air collision, so we need a <strong>last line of defence</strong> that is cheap enough to run at the guidance rate on every aircraft,
+          decentralised, and provable.
+        </p>
+        <div class="formula">
+          \[ \text{nominal command } u_i^{\mathrm{nom}} \ \text{(formation / guidance)} \rightarrow
+             \boxed{\text{safety filter (CBF-QP)}} \rightarrow u_i^\ast \rightarrow \text{vehicle command mapping } (V_g^c,\chi^c) \rightarrow \text{autopilot} \]
+        </div>
+        <p>
+          The tool is the <strong>control barrier function</strong> (CBF). It turns "stay at least \(d_s\) apart" into a linear inequality on the
+          input, and the safety filter into a tiny quadratic programme (QP) that changes the nominal command by the smallest amount that keeps the
+          inequality true. For a single pair of aircraft the QP has a closed-form solution — one dot product and one <code>max</code>.
+        </p>
+        <div class="grid">
+          <div class="mini"><strong>Input</strong>Double-integrator models and the acceleration-to-command projection
+            (<a href="9_second_order_consensus.html">Part 9</a>), formation commands (<a href="12_formation_control.html">Part 12</a>),
+            fixed-wing kinematics and the turn envelope (<a href="15_fixed_wing_kinematics.html">Part 15</a>,
+            <a href="16_coordinated_turn_high_speed.html">Part 16</a>), QP standard form and KKT conditions (<a href="A1_math_toolbox.html">Appendix A1</a>).</div>
+          <div class="mini"><strong>Output</strong>You can state and prove why a CBF constraint keeps a set invariant, derive the pairwise
+            constraint for single and double integrators, implement the decentralised filter in a few lines, and adapt it to a vehicle with
+            minimum speed and bounded turn rate.</div>
+          <div class="mini"><strong>Used in</strong><a href="21_distributed_mpc.html">Part 21</a> (collision half-planes in distributed MPC),
+            <a href="23_px4_ros2_multi_vehicle.html">Part 23</a> (the safety node), and the safety block of the unified CLAW in
+            <a href="24_capstone_unified_swarm_claw.html">Part 24</a>.</div>
+        </div>
+      </section>
+
+      <section id="safe-sets">
+        <h2>2. Safe Sets, Forward Invariance and Nagumo's Theorem</h2>
+        <p>Consider a control-affine system with state \(x\in\mathbb R^n\) and input \(u\in U\subseteq\mathbb R^m\),</p>
+        <div class="formula">\[ \dot x = f(x) + g(x)\,u, \]</div>
+        <p>with \(f,g\) locally Lipschitz. Safety is encoded as a set the state must never leave.</p>
+        <div class="definition">
+          <strong>Definition (safe set).</strong> Let \(h:\mathbb R^n\to\mathbb R\) be continuously differentiable. The <em>safe set</em> is
+          \[ \mathcal C=\{x: h(x)\ge 0\},\qquad \partial\mathcal C=\{x:h(x)=0\},\qquad \operatorname{Int}\mathcal C=\{x:h(x)\gt 0\}. \]
+          \(\mathcal C\) is <em>forward invariant</em> under a feedback \(u=k(x)\) if \(x(0)\in\mathcal C\) implies \(x(t)\in\mathcal C\) for all \(t\ge 0\).
+        </div>
+        <p>
+          For a pair of UAVs the natural choice is \(h_{ij}=\|p_i-p_j\|^2-d_s^2\): the state is safe exactly when the pair is at least \(d_s\) apart.
+          The question is: which inputs keep the state inside \(\mathcal C\)? The classical answer only looks at the boundary.
+        </p>
+        <div class="theorem">
+          <strong>Theorem (Nagumo, 1942; see Blanchini 1999).</strong> Let \(\dot x=F(x)\) with \(F\) locally Lipschitz, let \(\mathcal C=\{h\ge0\}\)
+          be closed with \(\nabla h(x)\neq0\) on \(\partial\mathcal C\). Then \(\mathcal C\) is forward invariant if and only if
+          \[ \dot h(x)=\nabla h(x)^T F(x)\ \ge\ 0\qquad\text{for all } x\in\partial\mathcal C . \]
+          <em>Proof idea:</em> if \(\dot h\lt0\) at a boundary point, the solution through it has \(h(t)\lt0\) for small \(t\gt0\) and leaves
+          \(\mathcal C\). Conversely, if the vector field never points outward on the boundary (it lies in the tangent cone), no trajectory can cross it;
+          the "if" direction uses uniqueness of solutions and is the substantive part of Nagumo's work.
+        </div>
+        <div class="success">
+          <strong>Interpretation:</strong> safety is a statement about the boundary only. Inside the safe set you may do anything;
+          on the boundary the velocity must not point outward. CBFs extend this to a condition that is <em>active before</em> the boundary is reached,
+          so that bounded inputs have time to act.
+        </div>
+        <figure>
+          <svg viewBox="0 0 600 230" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="safe set with inward vector field on the boundary">
+            <defs><marker id="arr20" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2457d6"/></marker>
+            <marker id="arrR20" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#b42318"/></marker></defs>
+            <ellipse cx="230" cy="118" rx="160" ry="85" fill="#eaf0ff" stroke="#2457d6" stroke-width="2.5"/>
+            <text x="230" y="112" text-anchor="middle" font-size="16" fill="#172033">C = { x : h(x) ≥ 0 }</text>
+            <text x="230" y="134" text-anchor="middle" font-size="13" fill="#5d687a">safe set (forward invariant)</text>
+            <text x="470" y="60" font-size="14" fill="#b42318">h(x) &lt; 0 : unsafe</text>
+            <text x="320" y="40" font-size="13" fill="#2457d6">∂C : h(x) = 0</text>
+            <line x1="390" y1="118" x2="350" y2="118" stroke="#2457d6" stroke-width="2.5" marker-end="url(#arr20)"/>
+            <text x="398" y="140" font-size="12" fill="#2457d6">allowed: ḣ ≥ 0</text>
+            <line x1="230" y1="33" x2="230" y2="63" stroke="#2457d6" stroke-width="2.5" marker-end="url(#arr20)"/>
+            <line x1="92" y1="160" x2="130" y2="150" stroke="#2457d6" stroke-width="2.5" marker-end="url(#arr20)"/>
+            <line x1="150" y1="40" x2="190" y2="35" stroke="#2457d6" stroke-width="2.5" marker-end="url(#arr20)"/>
+            <text x="100" y="30" font-size="12" fill="#2457d6">tangent: ḣ = 0 (allowed)</text>
+            <line x1="330" y1="185" x2="372" y2="212" stroke="#b42318" stroke-width="2.5" marker-end="url(#arrR20)"/>
+            <text x="380" y="222" font-size="12" fill="#b42318">forbidden: ḣ &lt; 0 on ∂C</text>
+          </svg>
+          <figcaption>Figure 1. Nagumo's condition: on the boundary of the safe set the closed-loop vector field may point inward or along the boundary, never outward.</figcaption>
+        </figure>
+      </section>
+
+      <section id="cbf">
+        <h2>3. Control Barrier Functions and the CBF-QP</h2>
+        <p>Along the control-affine system, the derivative of \(h\) is affine in the input. With the Lie-derivative notation
+          \(L_fh=\nabla h^Tf\) and \(L_gh=\nabla h^Tg\) (a row vector of length \(m\)),</p>
+        <div class="formula">\[ \dot h(x,u)=L_fh(x)+L_gh(x)\,u . \]</div>
+        <div class="definition">
+          <strong>Definition (control barrier function; Ames, Xu, Grizzle &amp; Tabuada 2017).</strong> Let \(\mathcal C=\{h\ge0\}\subseteq\mathcal D\)
+          with \(\mathcal D\) open. \(h\) is a <em>control barrier function</em> on \(\mathcal D\) if there exists an extended class-\(\mathcal K_\infty\)
+          function \(\alpha\) (continuous, strictly increasing, \(\alpha(0)=0\)) such that
+          \[ \sup_{u\in U}\big[L_fh(x)+L_gh(x)\,u\big]\ \ge\ -\alpha\big(h(x)\big)\qquad\forall x\in\mathcal D . \]
+          The set of inputs that satisfy the inequality at \(x\) is \(K_{\mathrm{cbf}}(x)=\{u\in U: L_fh+L_gh\,u\ge-\alpha(h)\}\).
+        </div>
+        <p>
+          Read the inequality as a <em>speed limit on leaving the safe set</em>: \(h\) may decrease, but no faster than \(\alpha(h)\), and the
+          allowed rate shrinks to zero exactly on the boundary. That is what makes the condition enforceable with bounded inputs: the braking starts early.
+        </p>
+        <div class="theorem">
+          <strong>Theorem (Ames et al. 2017, Thm. 2).</strong> If \(h\) is a CBF on \(\mathcal D\) and \(\nabla h\neq0\) on \(\partial\mathcal C\),
+          then any locally Lipschitz feedback \(u=k(x)\) with \(k(x)\in K_{\mathrm{cbf}}(x)\) renders \(\mathcal C\) forward invariant.
+          If moreover \(\mathcal D\supset\mathcal C\), then \(\mathcal C\) is asymptotically stable in \(\mathcal D\) (trajectories that start slightly unsafe return).
+          <br><em>Proof sketch for the linear choice \(\alpha(h)=\gamma h\), \(\gamma\gt0\):</em> along the closed loop \(\dot h\ge-\gamma h\).
+          By the comparison lemma \(h(t)\ge h(0)e^{-\gamma t}\). If \(h(0)\ge0\) then \(h(t)\ge0\) for all \(t\): \(\mathcal C\) is invariant.
+          If \(h(0)\lt0\) then \(h(t)\to0^-\) exponentially: \(\mathcal C\) is attractive. On the boundary the condition reduces to \(\dot h\ge0\), i.e. Nagumo.
+        </div>
+        <h3>3.1 The CBF-QP safety filter</h3>
+        <p>
+          A nominal controller \(u^{\mathrm{nom}}(x)\) (formation, guidance, a pilot) is given. We want the closest input that is safe:
+        </p>
+        <div class="formula">
+          \[ \boxed{\;u^\ast(x)=\arg\min_{u\in U}\ \tfrac12\|u-u^{\mathrm{nom}}(x)\|^2
+             \quad\text{s.t.}\quad L_fh(x)+L_gh(x)\,u\ \ge\ -\alpha\big(h(x)\big)\;} \]
+        </div>
+        <p>
+          With box input bounds \(U=\{u_{\min}\le u\le u_{\max}\}\) this is a strictly convex QP with \(m\) variables and \(1+2m\) linear constraints,
+          one per barrier plus the bounds (Ames et al. 2017; tutorial in Ames et al. 2019). Several barriers (several neighbours, obstacles,
+          a geofence) simply add rows. The solution \(u^\ast(x)\) is Lipschitz wherever the QP is feasible, so the theorem applies.
+        </p>
+        <div class="success">
+          <strong>Interpretation:</strong> the filter is <em>minimally invasive</em>. Far from danger the constraint is slack and \(u^\ast=u^{\mathrm{nom}}\);
+          the formation law is untouched. The constraint only bites when \(h\) is about to decrease faster than \(\alpha(h)\) allows, and then it
+          changes the command by the smallest vector that restores the inequality.
+        </div>
+        <div class="warning">
+          <strong>Two assumptions that are easy to forget.</strong> (i) The barrier must have <em>relative degree one</em>: \(L_gh\neq0\), otherwise the
+          constraint does not contain \(u\) at all (Section 5 fixes this for double integrators and Section 7 for turn-rate inputs).
+          (ii) With input bounds the QP can be <em>infeasible</em>; the definition requires the supremum over \(U\) to satisfy the inequality everywhere in
+          \(\mathcal D\), which is a design condition on \(\alpha\) and \(d_s\), not something the solver checks for you.
+        </div>
+      </section>
+
+      <section id="pairwise">
+        <h2>4. The Pairwise Barrier: Decentralised Split and Closed-Form Filter</h2>
+        <h3>4.1 Single-integrator UAVs</h3>
+        <p>Take velocity-commanded UAVs \(\dot p_i=u_i\), \(p_i\in\mathbb R^2\), and the pair barrier</p>
+        <div class="formula">
+          \[ h_{ij}(p)=\|p_i-p_j\|^2-d_s^2,\qquad
+             \dot h_{ij}=2(p_i-p_j)^T(\dot p_i-\dot p_j)=2(p_i-p_j)^T(u_i-u_j). \]
+        </div>
+        <p>Here \(f=0\), \(L_gh_{ij}=[\,2(p_i-p_j)^T,\ -2(p_i-p_j)^T\,]\) acting on \((u_i,u_j)\). The centralised CBF constraint with \(\alpha(h)=\gamma h\) is</p>
+        <div class="formula">\[ 2(p_i-p_j)^T(u_i-u_j)\ \ge\ -\gamma\,h_{ij}. \]</div>
+        <p>
+          A centralised solver could impose this on the pair. On board UAV \(i\) we only control \(u_i\), and we do not know what \(u_j\) will be this
+          sample. The fix of Wang, Ames &amp; Egerstedt (2017) is to <strong>split the budget in half</strong>: each UAV promises to supply half of the required rate.
+        </p>
+        <div class="formula">
+          \[ \boxed{\;2(p_i-p_j)^Tu_i\ \ge\ -\tfrac12\gamma\,h_{ij}\;}\qquad\text{and}\qquad
+             2(p_j-p_i)^Tu_j\ \ge\ -\tfrac12\gamma\,h_{ij}. \]
+        </div>
+        <p>
+          Adding the two decentralised constraints gives back the centralised one, so if both UAVs satisfy their own half the pair is safe —
+          <em>without any communication of commands</em>; UAV \(i\) only needs \(p_j\) (from the state broadcast of
+          <a href="15_fixed_wing_kinematics.html">Part 15</a>). The split is conservative: both might be able to do more. Wang et al. use
+          \(\alpha(h)=\gamma h^3\), which is less restrictive far away and sharper near the boundary; the linear \(\gamma h\) used here is simpler to tune.
+        </p>
+        <div class="warning">
+          <strong>Convention.</strong> The constraint for UAV \(i\) is written as \(a_{ij}^Tu_i\ge b_{ij}\) with
+          \(a_{ij}=2(p_i-p_j)\) and \(b_{ij}=-\tfrac12\gamma h_{ij}\). Note \(a_{ij}\) points <em>away</em> from the neighbour; the inequality forbids
+          moving toward the neighbour faster than \(\gamma h_{ij}/(4\|p_i-p_j\|)\). Do not confuse this \(a_{ij}\) with the adjacency weight of Part 2.
+        </div>
+        <h3>4.2 Closed-form solution with one active constraint</h3>
+        <p>For one neighbour the filter is the Euclidean projection of \(u^{\mathrm{nom}}\) onto the half-space \(\{u:a^Tu\ge b\}\). Derive it from the KKT conditions
+          (<a href="A1_math_toolbox.html">A1</a>): with multiplier \(\lambda\ge0\),</p>
+        <div class="formula">
+          \[ u-u^{\mathrm{nom}}-\lambda a=0,\qquad \lambda\,(a^Tu-b)=0,\qquad a^Tu\ge b. \]
+          If \(a^Tu^{\mathrm{nom}}\ge b\) take \(\lambda=0\). Otherwise the constraint is active, \(a^T(u^{\mathrm{nom}}+\lambda a)=b\), so
+          \(\lambda=(b-a^Tu^{\mathrm{nom}})/\|a\|^2\gt0\). Both cases:
+          \[ \boxed{\;u^\ast=u^{\mathrm{nom}}+\frac{\max\big(0,\ b-a^Tu^{\mathrm{nom}}\big)}{\|a\|^2}\,a\;} \]
+        </div>
+        <div class="success">
+          <strong>Interpretation:</strong> the correction is always along \(a\), i.e. directly away from the neighbour, and its size is the constraint
+          violation divided by \(\|a\|^2\). Nothing is added to the component of \(u^{\mathrm{nom}}\) perpendicular to the line of sight.
+        </div>
+        <figure>
+          <svg viewBox="0 0 600 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="half-space constraint and projection of the nominal input">
+            <defs><marker id="arrB" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2457d6"/></marker>
+            <marker id="arrD" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#b42318"/></marker>
+            <marker id="arrG" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#147a4b"/></marker></defs>
+            <circle cx="120" cy="150" r="14" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/><text x="120" y="155" text-anchor="middle" font-size="13">i</text>
+            <circle cx="300" cy="60" r="14" fill="#fdecec" stroke="#b42318" stroke-width="2"/><text x="300" y="65" text-anchor="middle" font-size="13">j</text>
+            <line x1="286" y1="67" x2="140" y2="140" stroke="#5d687a" stroke-width="1.5" stroke-dasharray="5 4"/>
+            <text x="190" y="92" font-size="12" fill="#5d687a">Δp = p_i − p_j</text>
+            <circle cx="300" cy="60" r="60" fill="none" stroke="#b42318" stroke-dasharray="4 4"/><text x="365" y="40" font-size="12" fill="#b42318">d_s</text>
+            <rect x="400" y="20" width="185" height="200" fill="#fbfcff" stroke="#dce2ec"/>
+            <text x="492" y="40" text-anchor="middle" font-size="12" fill="#5d687a">input space of UAV i</text>
+            <line x1="420" y1="200" x2="570" y2="100" stroke="#2457d6" stroke-width="2"/>
+            <text x="540" y="128" font-size="11" fill="#2457d6">aᵀu = b</text>
+            <line x1="470" y1="167" x2="505" y2="219" stroke="#2457d6" stroke-width="1.5" marker-end="url(#arrB)"/>
+            <text x="455" y="212" font-size="11" fill="#2457d6">a</text>
+            <circle cx="520" cy="80" r="3" fill="#172033"/>
+            <line x1="520" y1="80" x2="488" y2="130" stroke="#b42318" stroke-width="2" marker-end="url(#arrD)"/>
+            <text x="440" y="132" font-size="11" fill="#b42318">u_nom</text>
+            <line x1="520" y1="80" x2="513" y2="147" stroke="#147a4b" stroke-width="2" marker-end="url(#arrG)"/>
+            <text x="520" y="162" font-size="11" fill="#147a4b">u* (projection)</text>
+            <text x="432" y="62" font-size="11" fill="#5d687a">feasible side aᵀu ≥ b</text>
+          </svg>
+          <figcaption>Figure 2. Left: the pair geometry. Right: in the input space of UAV \(i\) the barrier is a half-plane with normal \(a=2(p_i-p_j)\);
+            the filter projects \(u^{\mathrm{nom}}\) onto it along \(a\).</figcaption>
+        </figure>
+        <h3>4.3 Several neighbours</h3>
+        <p>
+          With \(|\mathcal N_i|\) neighbours the QP has \(|\mathcal N_i|\) half-plane rows (plus bounds) and no closed form, but it stays a two- or
+          three-variable strictly convex QP. Any QP solver works (OSQP, quadprog; cvxpy for prototyping). The pure-NumPy fallback used in Section 8 is
+          Hildreth's dual coordinate ascent (Hildreth 1957): write \(u=u^{\mathrm{nom}}+\sum_k\lambda_ka_k\), then sweep
+          \(\lambda_k\leftarrow\max\{0,\lambda_k+(b_k-a_k^Tu)/\|a_k\|^2\}\) until the multipliers stop changing. Each sweep is one projection per
+          constraint, so it reduces to the closed form above when only one row is active; for three crossing UAVs it matched SciPy's SLSQP solution to
+          \(10^{-8}\) in the verification run.
+        </p>
+        <h3>4.4 When does the filter switch on?</h3>
+        <p>For an exact head-on encounter at speed \(V\) each, the closing rate is \(2V\), \(\dot h=-4Vr\) at range \(r\), and the constraint
+          \(\dot h\ge-\gamma h\) first becomes active at</p>
+        <div class="formula">\[ 4Vr=\gamma\,(r^2-d_s^2)\quad\Longrightarrow\quad r_{\mathrm{act}}=\frac{2V}{\gamma}+\sqrt{\frac{4V^2}{\gamma^2}+d_s^2}. \]</div>
+        <p>For \(V=20\) m/s, \(\gamma=0.5\) s\(^{-1}\), \(d_s=50\) m this gives \(r_{\mathrm{act}}=174\) m: a small \(\gamma\) means an early, gentle intervention; a large
+          \(\gamma\) means a late, hard one. Section 7 turns this into a design rule for aircraft that cannot brake.</p>
+      </section>
+
+      <section id="hocbf">
+        <h2>5. Double Integrators: the High-Order CBF</h2>
+        <p>With acceleration inputs, \(\dot p_i=v_i,\ \dot v_i=u_i\) (the model of <a href="9_second_order_consensus.html">Part 9</a>), write
+          \(\Delta p=p_i-p_j\), \(\Delta v=v_i-v_j\), \(\Delta u=u_i-u_j\). The same barrier gives</p>
+        <div class="formula">
+          \[ \dot h=2\Delta p^T\Delta v\quad(\text{no input: relative degree }2),\qquad
+             \ddot h=2\|\Delta v\|^2+2\Delta p^T\Delta u . \]
+        </div>
+        <p>
+          \(L_gh=0\), so the CBF condition of Section 3 is empty. The remedy (exponential CBFs, Nguyen &amp; Sreenath 2016; high-order CBFs,
+          Xiao &amp; Belta 2019/2022) is to make the <em>first-order condition itself</em> a barrier:
+        </p>
+        <div class="formula">
+          \[ \psi_0=h,\qquad \psi_1=\dot\psi_0+\alpha_1\psi_0=2\Delta p^T\Delta v+\alpha_1h,\qquad
+             \text{require}\quad \dot\psi_1\ \ge\ -\alpha_2\,\psi_1 . \]
+        </div>
+        <div class="theorem">
+          <strong>Theorem (high-order CBF, Xiao &amp; Belta 2022, Thm. 4, specialised to relative degree 2 and linear class-\(\mathcal K\) functions).</strong>
+          Let \(\mathcal C_0=\{\psi_0\ge0\}\), \(\mathcal C_1=\{\psi_1\ge0\}\). If \(x(0)\in\mathcal C_0\cap\mathcal C_1\) and the input satisfies
+          \(\dot\psi_1\ge-\alpha_2\psi_1\) for all \(t\), then \(\mathcal C_0\cap\mathcal C_1\) is forward invariant; in particular \(h(t)\ge0\).
+          <em>Proof sketch:</em> apply the comparison lemma twice. \(\dot\psi_1\ge-\alpha_2\psi_1\) and \(\psi_1(0)\ge0\) give \(\psi_1(t)\ge0\), i.e.
+          \(\dot h\ge-\alpha_1h\); with \(h(0)\ge0\) this gives \(h(t)\ge0\).
+        </div>
+        <p>Now expand the condition. Since \(\dot\psi_1=\ddot h+\alpha_1\dot h\),</p>
+        <div class="formula">
+          \[ 2\|\Delta v\|^2+2\Delta p^T\Delta u+2\alpha_1\Delta p^T\Delta v\ \ge\ -\alpha_2\big(2\Delta p^T\Delta v+\alpha_1h\big), \]
+          \[ \boxed{\;2\Delta p^T(u_i-u_j)\ \ge\ -2\|\Delta v\|^2-2(\alpha_1+\alpha_2)\,\Delta p^T\Delta v-\alpha_1\alpha_2\,h\;} \]
+        </div>
+        <p>and the decentralised half for UAV \(i\) (same argument as Section 4):</p>
+        <div class="formula">
+          \[ \boxed{\;2\Delta p^Tu_i\ \ge\ -\|\Delta v\|^2-(\alpha_1+\alpha_2)\,\Delta p^T\Delta v-\tfrac12\alpha_1\alpha_2\,h\;} \]
+        </div>
+        <div class="success">
+          <strong>Interpretation of the three terms.</strong> \(-\|\Delta v\|^2\) is the "centrifugal" term: relative motion of any kind makes
+          \(\ddot h\) positive, so it <em>relaxes</em> the constraint (the pair is sliding past each other). \(-(\alpha_1+\alpha_2)\Delta p^T\Delta v\) is positive when
+          closing (\(\Delta p^T\Delta v\lt0\)) and demands deceleration proportional to the closing rate. \(-\tfrac12\alpha_1\alpha_2h\) is the usual slack that
+          vanishes on the boundary. The constraint is again linear in \(u_i\) with normal \(a=2\Delta p\), so the closed form of Section 4.2 applies unchanged
+          — only \(b\) is different.
+        </div>
+        <div class="warning">
+          <strong>Initial condition.</strong> The theorem needs \(\psi_1(0)\ge0\): the pair must not already be closing faster than \(\alpha_1h/(2\|\Delta p\|)\).
+          If the filter is switched on in a state with \(\psi_1\lt0\), the constraint still pushes \(\psi_1\) back toward zero (attractivity), but \(h\ge0\) is not
+          guaranteed during the recovery. Choose \(\alpha_1\) so that \(\psi_1\ge0\) holds at the communication range for the largest expected closing speed.
+        </div>
+        <h3>5.1 The braking-distance barrier</h3>
+        <p>
+          An alternative that encodes the input bound explicitly (Wang, Ames &amp; Egerstedt 2017, Sec. IV; also Borrmann et al. 2015) asks that the
+          relative stopping distance fits in the gap. If each UAV can decelerate at \(a_{\max}\), the relative deceleration is \(2a_{\max}\) and a closing speed
+          \(v_c=-\Delta p^T\Delta v/\|\Delta p\|\) needs \(v_c^2/(4a_{\max})\) metres to stop. Hence
+        </p>
+        <div class="formula">
+          \[ h_{\mathrm{br}}=\sqrt{4a_{\max}\big(\|\Delta p\|-d_s\big)}+\frac{\Delta p^T\Delta v}{\|\Delta p\|}\ \ge 0
+             \iff \|\Delta p\|-d_s\ \ge\ \frac{v_c^2}{4a_{\max}}. \]
+        </div>
+        <p>This \(h_{\mathrm{br}}\) depends on \(\Delta v\), so it has relative degree one in \(u\) and the ordinary CBF-QP applies. For the
+          example below (\(a_{\max}=5\) m/s\(^2\), closing at 40 m/s) the stopping distance is 80 m, so at 120 m range the braking barrier is already
+          violated (\(h_{\mathrm{br}}=-2.58\)); a filter must act well before that, which is exactly what the HOCBF does.</p>
+      </section>
+
+      <section id="example">
+        <h2>6. Worked Example: Two UAVs Head-On</h2>
+        <h3>6.1 Velocity-commanded (single integrator)</h3>
+        <p>
+          UAV 1 starts at \(p_1=(0,0)\) (north, east, metres) flying north at \(V=20\) m/s toward \((800,0)\); UAV 2 starts at \(p_2=(400,5)\) flying south
+          toward \((-400,5)\). The 5 m lateral offset breaks the symmetry. Parameters: \(d_s=50\) m, \(\gamma=0.5\) s\(^{-1}\), sample time \(T_s=0.05\) s,
+          decentralised half-split filter with the closed form of Section 4.2. All numbers below come from <code>part20_headon.py</code>.
+        </p>
+        <ul>
+          <li>The filter stays inactive until \(t=5.65\) s, when the range is \(r=174\) m (Section 4.4 predicts 174 m for the exact head-on case).
+            At that instant \(a=2(p_1-p_2)=(-348,-10)\), \(h=27{,}801\), \(b=-\tfrac12\gamma h=-6950\), \(a^Tu^{\mathrm{nom}}=-6960\lt b\), so
+            \(\lambda=(b-a^Tu^{\mathrm{nom}})/\|a\|^2=8.0\times10^{-5}\) and \(u_1^\ast=(19.97,\,-0.0008)\) m/s: a 3 cm/s correction.</li>
+          <li>The correction grows as the range shrinks; the table shows UAV 1's command (UAV 2 is mirror-symmetric).</li>
+        </ul>
+        <table>
+          <tr><th>\(t\) (s)</th><th>\(r\) (m)</th><th>\(h\)</th><th>\(u_1^{\mathrm{nom}}\) (m/s)</th><th>\(u_1^\ast\) (m/s)</th><th>\(\|u_1^\ast\|\)</th><th>\(\lambda\)</th></tr>
+          <tr><td>5.0</td><td>200.1</td><td>37,525</td><td>(20.00, 0.00)</td><td>(20.00, 0.00)</td><td>20.00</td><td>0</td></tr>
+          <tr><td>7.0</td><td>128.8</td><td>14,088</td><td>(20.00, 0.00)</td><td>(13.70, −0.26)</td><td>13.70</td><td>0.0245</td></tr>
+          <tr><td>9.0</td><td>87.4</td><td>5,143</td><td>(20.00, 0.04)</td><td>(7.47, −1.05)</td><td>7.55</td><td>0.0719</td></tr>
+          <tr><td>11.0</td><td>66.2</td><td>1,877</td><td>(20.00, 0.17)</td><td>(4.55, −3.64)</td><td>5.83</td><td>0.120</td></tr>
+          <tr><td>13.0</td><td>56.6</td><td>707</td><td>(19.99, 0.58)</td><td>(11.28, −8.58)</td><td>14.17</td><td>0.112</td></tr>
+        </table>
+        <p>
+          The closest approach is <strong>54.2 m at \(t=14.25\) s</strong>, never below \(d_s=50\) m, and the maximum lateral deviation is 24.7 m.
+          Along the whole run \(h(t)\ge h(0)e^{-\gamma t}\) held with margin (minimum of the difference: 0), as the comparison lemma promises.
+          Notice <em>what</em> the filter did: because \(a\) is almost along-track, the minimal-norm correction is mostly a <strong>slow-down</strong>
+          (\(\|u_1^\ast\|\) drops from 20 to 5.8 m/s), with only a modest sideways push. A single integrator can do that. An aircraft cannot — Section 7.
+        </p>
+        <div class="danger">
+          <strong>Exact head-on = deadlock.</strong> With zero lateral offset the same simulation ends after 40 s with the two UAVs stationary at exactly
+          50.00 m, speeds \(0.000\) m/s: the filter is safe but the mission is dead. Symmetry must be broken by the nominal controller (a right-of-way bias;
+          Exercise 5) or by a different barrier.
+        </div>
+        <h3>6.2 Acceleration-commanded (double integrator, HOCBF)</h3>
+        <p>
+          Same geometry (UAV 2 now at \((400,-5)\)), initial velocities \((\pm20,0)\) m/s, nominal controller \(u_i^{\mathrm{nom}}=k_v(V\hat d_i-v_i)\) with
+          \(k_v=0.5\) s\(^{-1}\) tracking the straight-line velocity, half-split HOCBF with \(\alpha_1=0.3\), \(\alpha_2=1.0\) s\(^{-1}\), and a box
+          \(|u_{i,n}|,|u_{i,e}|\le a_{\max}=5\) m/s\(^2\) solved with the Hildreth routine (<code>part20_hocbf.py</code>).
+        </p>
+        <ul>
+          <li>Finite-difference check of the derivation: \(\dot\psi_1\) computed numerically \(195.3549\) versus the formula \(2\|\Delta v\|^2+2\Delta p^T\Delta u+2\alpha_1\Delta p^T\Delta v=195.3549\) at a random state.</li>
+          <li>The constraint activates at \(t=1.98\) s, \(r=321\) m, where \(\psi_1=4467\) and \(b=15.95\): with \(u^{\mathrm{nom}}=0\) the required
+            correction is \(u_1^\ast=(-0.025,\,0.0004)\) m/s\(^2\). For exact head-on \(\psi_1=0\) is reached at \(r=276\) m, where keeping \(\dot\psi_1\ge0\)
+            needs a relative deceleration of \(\alpha_1v_c-v_c^2/r=6.20\) m/s\(^2\), i.e. 3.10 m/s\(^2\) per UAV — comfortably inside the 5 m/s\(^2\) bound.</li>
+          <li>Thereafter the filter rides the \(\psi_1=0\) surface: at \(t=7\) s, \(r=162\) m, \(\psi_1=30.4\), \(u_1^\ast=(-1.75,\,0.10)\) m/s\(^2\) against a nominal
+            \((4.53,-0.14)\) that wants to re-accelerate; at \(t=10\) s, \(r=110\) m, \(\|v_1\|=6.67\) m/s.</li>
+          <li>Minimum distance <strong>58.0 m</strong>, minimum \(\psi_1=0.87\ge0\), largest acceleration component 4.52 m/s\(^2\) (bound never active).</li>
+        </ul>
+      </section>
+
+      <section id="fixed-wing">
+        <h2>7. Fixed-Wing Interpretation</h2>
+        <h3>7.1 Relative degree and the look-ahead point</h3>
+        <p>
+          The command-level aircraft model of <a href="15_fixed_wing_kinematics.html">Part 15</a> in the horizontal plane is
+          \(\dot p_i=V_{g,i}\hat t_i\), \(\dot\chi_i=\omega_i\), with \(\hat t_i=(\cos\chi_i,\sin\chi_i)\) and \(\hat n_i=(-\sin\chi_i,\cos\chi_i)\).
+          For the pair barrier \(\dot h=2\Delta p^T(V_{g,i}\hat t_i-V_{g,j}\hat t_j)\): the <em>speed</em> enters directly (relative degree one) but the
+          <em>turn rate</em> does not (relative degree two). Since speed is the input we can least afford to use, the barrier must be made to see \(\omega\).
+          The standard trick is to control a <strong>look-ahead point</strong> \(\tilde p_i=p_i+\ell\hat t_i\) a distance \(\ell\) ahead of the nose
+          (Olfati-Saber's near-identity diffeomorphism, 2002). Using \(\mathrm d\hat t/\mathrm dt=\omega\hat n\),
+        </p>
+        <div class="formula">
+          \[ \dot{\tilde p}_i=V_{g,i}\hat t_i+\ell\,\omega_i\hat n_i=R(\chi_i)\begin{bmatrix}V_{g,i}\\ \ell\,\omega_i\end{bmatrix}
+             \quad\Longrightarrow\quad \tilde u_i:=\dot{\tilde p}_i\ \text{is a free 2-D vector.} \]
+        </div>
+        <p>
+          (Verified numerically in <code>part20_fixedwing.py</code>.) So apply the single-integrator filter of Section 4 to the look-ahead points with inflated
+          distance \(\tilde d_s=d_s+2\ell\) — because \(\|p_i-p_j\|\ge\|\tilde p_i-\tilde p_j\|-\ell\|\hat t_i-\hat t_j\|\ge\|\tilde p_i-\tilde p_j\|-2\ell\) —
+          and map back: \(V_{g,i}^c=\hat t_i^T\tilde u_i\), \(\omega_i^c=\hat n_i^T\tilde u_i/\ell\). The speed envelope and turn-rate limit become a box on
+          \(z=(V_g,\ell\omega)\), and since \(\|R(\chi)z-\tilde u^{\mathrm{nom}}\|=\|z-R(\chi)^T\tilde u^{\mathrm{nom}}\|\) the QP in \(z\) is still a two-variable
+          box-constrained QP with one half-plane per neighbour.
+        </p>
+        <h3>7.2 Turn-rate-only filter and the cost of saturation</h3>
+        <p>
+          If speed is held at its nominal value and only \(\omega\) is filtered, the constraint \(a^T\tilde u\ge b\) becomes scalar:
+          \(c\,\omega\ge b'\) with \(c=\ell\,a^T\hat n\), \(b'=b-V_ga^T\hat t\), and the closed form of Section 4.2 in one dimension is
+          \(\omega^\ast=\omega^{\mathrm{nom}}+\max(0,b'-c\,\omega^{\mathrm{nom}})\,c/c^2\), followed by clipping to \(\pm\omega_{\max}\). Clipping is where the
+          guarantee can be lost. In <code>part20_fixedwing.py</code> the head-on encounter of Section 6 was rerun with this filter (\(V_g=20\) m/s, \(\phi_{\max}=30^\circ\) so
+          \(\omega_{\max}=16.2^\circ\)/s, \(\ell=20\) m, \(\tilde d_s=90\) m, UAV 2 at 5 m to UAV 1's left so both turn right):
+        </p>
+        <table>
+          <tr><th>\(\gamma\) (s\(^{-1}\))</th><th>activation range (look-ahead points)</th><th>time at \(\omega_{\max}\)</th><th>min look-ahead distance (\(\tilde d_s=90\))</th><th>min true distance (\(d_s=50\))</th></tr>
+          <tr><td>0.5</td><td>200 m</td><td>3.3 s</td><td>99.8 m — barrier held</td><td>96.4 m</td></tr>
+          <tr><td>1.0</td><td>138 m</td><td>4.7 s</td><td>83.1 m — violated</td><td>82.3 m</td></tr>
+          <tr><td>2.0</td><td>112 m</td><td>5.5 s</td><td>63.5 m — violated</td><td>68.9 m</td></tr>
+          <tr><td>4.0</td><td>100 m</td><td>5.9 s</td><td>55.5 m — violated</td><td>60.9 m</td></tr>
+        </table>
+        <p>
+          With \(\gamma=0.5\) the barrier on the look-ahead points is respected even though the turn rate saturated for 3.3 s, because activation happened early.
+          With \(\gamma\ge1\) the requested turn rate exceeded \(\omega_{\max}\) and the look-ahead barrier was crossed; the true distance stayed above 50 m only
+          because of the \(2\ell=40\) m inflation. The lesson: <strong>for a vehicle with bounded turn rate, \(\gamma\) and \(d_s\) must be chosen so that the
+          constraint activates outside the turn reaction distance</strong>, computed next.
+        </p>
+        <h3>7.3 Reaction distance, latency inflation and the high-speed note</h3>
+        <p>
+          Two aircraft head-on, each turning right at \(\omega_{\max}\) from range \(D\): with lateral acceleration \(a_{\mathrm{lat}}=g\tan\phi_{\max}\) and
+          turn radius \(R=V_g^2/a_{\mathrm{lat}}\) (<a href="16_coordinated_turn_high_speed.html">Part 16</a>), the lateral separation after turning through
+          angle \(\theta\) is \(2R(1-\cos\theta)\approx R\theta^2\) while the along-track gap closes as \(D-2R\theta\). Requiring the lateral separation to reach
+          \(d_s\) when the along-track gap vanishes gives the small-angle estimate
+        </p>
+        <div class="formula">\[ D_{\mathrm{react}}\approx 2\sqrt{R\,d_s}=2V_g\sqrt{\frac{d_s}{g\tan\phi_{\max}}}\ \propto\ V_g . \]</div>
+        <table>
+          <tr><th>\(V_g\) (m/s)</th><th>limit</th><th>\(R\) (m)</th><th>\(\omega_{\max}\) (°/s)</th><th>\(d_s\) (m)</th><th>\(D_{\mathrm{react}}\) small-angle</th><th>\(D_{\mathrm{react}}\) exact (sim.)</th></tr>
+          <tr><td>20</td><td>\(\phi_{\max}=30^\circ\)</td><td>70.6</td><td>16.2</td><td>50</td><td>119 m</td><td>129 m</td></tr>
+          <tr><td>60</td><td>\(\phi_{\max}=30^\circ\)</td><td>636</td><td>5.41</td><td>50</td><td>357 m</td><td>360 m</td></tr>
+          <tr><td>60</td><td>\(\phi_{\max}=45^\circ\)</td><td>367</td><td>9.37</td><td>50</td><td>271 m</td><td>276 m</td></tr>
+          <tr><td>150</td><td>\(n_{z,\max}=3\)</td><td>811</td><td>10.6</td><td>100</td><td>570 m</td><td>578 m</td></tr>
+          <tr><td>200</td><td>\(n_{z,\max}=4\)</td><td>1053</td><td>10.9</td><td>100</td><td>649 m</td><td>657 m</td></tr>
+        </table>
+        <p>
+          <strong>Latency inflation.</strong> The neighbour position used in \(h_{ij}\) is \(\tau\) seconds old (communication plus processing). In the worst case
+          the pair closed by \(V_{\mathrm{closing}}\tau\) metres in the meantime, so the only safe fix is to inflate the safety distance:
+        </p>
+        <div class="formula">\[ \boxed{\;d_s\leftarrow d_s+V_{\mathrm{closing}}\,\tau,\qquad V_{\mathrm{closing}}=2V_g\ \text{head-on}\;} \]</div>
+        <table>
+          <tr><th>\(V_g\) (m/s)</th><th>head-on closing speed</th><th>\(\tau=0.1\) s</th><th>\(\tau=0.5\) s</th><th>\(\tau=1\) s</th></tr>
+          <tr><td>20</td><td>40 m/s</td><td>4 m</td><td>20 m</td><td>40 m</td></tr>
+          <tr><td>60</td><td>120 m/s</td><td>12 m</td><td>60 m</td><td>120 m</td></tr>
+          <tr><td>150</td><td>300 m/s</td><td>30 m</td><td>150 m</td><td>300 m</td></tr>
+          <tr><td>200</td><td>400 m/s</td><td>40 m</td><td>200 m</td><td>400 m</td></tr>
+        </table>
+        <div class="note">
+          <strong>High-speed note.</strong> Three quantities scale differently with speed. The latency inflation grows like \(V_g\); the turn reaction distance
+          grows like \(V_g\) at fixed bank but the turn radius grows like \(V_g^2\); and at high speed the structural limit \(n_{z,\max}\) rather than the bank angle sets
+          \(a_{\mathrm{lat}}=g\sqrt{n_{z,\max}^2-1}\) (Part 16). At 200 m/s with 1 s of latency the effective \(d_s\) is 100 + 400 = 500 m and the filter must activate
+          beyond 657 + 400 ≈ 1.1 km. A barrier tuned for a 20 m/s quadrotor-class vehicle (\(d_s=50\), \(\gamma=0.5\)) activates at 174 m, which is already <em>inside</em>
+          the reaction distance of a 60 m/s aircraft: <strong>\(\gamma\) must be scheduled with \(V_g\)</strong>, e.g. \(\gamma\propto 1/V_g\) so that \(r_{\mathrm{act}}\propto V_g^2\) tracks \(R\).
+        </div>
+        <h3>7.4 Collision cone, feasibility, right-of-way and altitude</h3>
+        <ul>
+          <li><strong>Collision-cone barrier.</strong> For constant velocities a collision occurs iff \(\Delta v\) lies in the cone of half-angle
+            \(\beta=\arcsin(d_s/\|\Delta p\|)\) around \(-\Delta p\). The function \(h_{\mathrm{cc}}=\Delta p^T\Delta v+\|\Delta p\|\|\Delta v\|\cos\beta\) is non-negative
+            outside the cone and has relative degree one in both acceleration and turn-rate inputs because \(\Delta v\) depends on \(\chi\) (Thontepu et al. 2022). It avoids
+            the look-ahead inflation but is non-smooth at \(\Delta v=0\) and is not a barrier for a pair that is already inside the cone.</li>
+          <li><strong>Feasibility.</strong> With \(V_{\min}\gt0\) the "stop" solution of Section 6.1 is outside \(U\). Always check the QP for infeasibility and
+            have a fallback (hold the previous safe command, climb, or a priority rule); a soft version adds a slack \(\delta\ge0\) to the barrier row with a large
+            penalty \(\rho\delta^2\) so the QP is always solvable and \(\delta\gt0\) is logged as a safety-margin breach.</li>
+          <li><strong>Deadlock and right-of-way.</strong> Symmetric encounters stall any symmetric filter. Give the nominal command a deterministic bias toward the
+            right (the aviation convention) when the pair is nearly head-on, or assign priorities by index so the lower-priority aircraft takes the whole correction
+            (set \(b_{ij}\leftarrow 2b_{ij}\) for it and \(0\) for the other).</li>
+          <li><strong>Altitude is the cheap axis.</strong> Vertical separation needs no bank. A barrier \(h^{\mathrm{alt}}_{ij}=(h_i-h_j)^2-d_{s,\mathrm{alt}}^2\) is relative
+            degree one in the climb-rate command. Climbing 15 m at \(\gamma=5^\circ\) takes \(15/\sin5^\circ=172\) m of track at <em>any</em> speed (8.6 s at 20 m/s,
+            0.86 s at 200 m/s): for high-speed aircraft altitude is the only de-confliction that does not scale badly.</li>
+        </ul>
+        <h3>7.5 Velocity obstacles and ORCA, briefly</h3>
+        <p>
+          Velocity obstacles (Fiorini &amp; Shiller 1998) forbid the set of velocities that lead to collision within a time horizon; reciprocal versions
+          (RVO; ORCA, van den Berg et al. 2011) split the avoidance effort between the two agents through a half-plane in velocity space, which is formally very
+          close to the half-split CBF of Section 4. The differences: ORCA is a geometric construction with a finite time horizon and no invariance proof; the CBF
+          is an invariance condition with a tunable approach rate and works unchanged with acceleration inputs through the HOCBF. Both reduce to "one half-plane per
+          neighbour, then a small QP".
+        </p>
+        <h3>7.6 The safety-filter architecture</h3>
+        <figure>
+          <svg viewBox="0 0 640 170" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="safety filter architecture">
+            <defs><marker id="arrA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#172033"/></marker></defs>
+            <rect x="10" y="50" width="140" height="60" rx="8" fill="#eaf0ff" stroke="#2457d6"/><text x="80" y="76" text-anchor="middle" font-size="12">formation / guidance</text><text x="80" y="94" text-anchor="middle" font-size="11" fill="#5d687a">Parts 12, 18, 19</text>
+            <line x1="150" y1="80" x2="200" y2="80" stroke="#172033" stroke-width="2" marker-end="url(#arrA)"/><text x="175" y="70" text-anchor="middle" font-size="11">u_nom</text>
+            <rect x="200" y="40" width="150" height="80" rx="8" fill="#e6f6f4" stroke="#0f766e" stroke-width="2"/><text x="275" y="72" text-anchor="middle" font-size="13" fill="#0f766e">CBF-QP filter</text><text x="275" y="92" text-anchor="middle" font-size="11" fill="#5d687a">one row per neighbour</text><text x="275" y="108" text-anchor="middle" font-size="11" fill="#5d687a">+ speed / turn-rate box</text>
+            <line x1="275" y1="10" x2="275" y2="40" stroke="#172033" stroke-width="2" marker-end="url(#arrA)"/><text x="290" y="22" font-size="11">p_j, v_j (broadcast, age τ)</text>
+            <line x1="350" y1="80" x2="400" y2="80" stroke="#172033" stroke-width="2" marker-end="url(#arrA)"/><text x="375" y="70" text-anchor="middle" font-size="11">u*</text>
+            <rect x="400" y="50" width="120" height="60" rx="8" fill="#eaf0ff" stroke="#2457d6"/><text x="460" y="76" text-anchor="middle" font-size="12">command mapping</text><text x="460" y="94" text-anchor="middle" font-size="11" fill="#5d687a">(V_g^c, χ^c) or (ω^c, h^c)</text>
+            <line x1="520" y1="80" x2="570" y2="80" stroke="#172033" stroke-width="2" marker-end="url(#arrA)"/>
+            <rect x="570" y="50" width="60" height="60" rx="8" fill="#fff8e8" stroke="#c27b00"/><text x="600" y="84" text-anchor="middle" font-size="12">autopilot</text>
+            <text x="275" y="150" text-anchor="middle" font-size="11" fill="#5d687a">infeasible QP → fallback (hold / climb / priority) and log</text>
+          </svg>
+          <figcaption>Figure 3. The safety filter sits between the coordination layer and the vehicle command mapping; it consumes neighbour states and the nominal command and emits the filtered command.</figcaption>
+        </figure>
+        <div class="claw">
+          <strong>Toward the CLAW</strong>
+          This lesson supplies the <em>safety block</em> of the unified control law. It consumes the nominal acceleration or velocity command
+          \(u_i^{\mathrm{nom}}\) produced by the formation/guidance blocks (Parts 12, 18, 19), the latest neighbour states \((p_j,v_j)\) with their age \(\tau\),
+          and the envelope \([V_{\min},V_{\max}]\), \(\omega_{\max}(V_g)\) from Part 16. It produces the filtered command \(u_i^\ast\) (closed form for one neighbour,
+          a 2–3 variable QP otherwise), which is then mapped to \((V_g^c,\chi^c)\) exactly as in Part 9. Its parameters in the CLAW are \(d_s\) (inflated by
+          \(V_{\mathrm{closing}}\tau\)), \(\gamma\) or \((\alpha_1,\alpha_2)\) scheduled with \(V_g\), the look-ahead \(\ell\), and the altitude barrier distance
+          \(d_{s,\mathrm{alt}}\). It is the only block that is allowed to override every other block.
+        </div>
+      </section>
+
+      <section id="implementation">
+        <h2>8. Implementation</h2>
+        <p>The script below reproduces Section 6.1 (closed-form filter for one neighbour, Hildreth's dual ascent for several). It needs only NumPy.</p>
+<pre><code>import numpy as np
+# --- Part 20: decentralised CBF safety filter, single-integrator UAVs, (north, east) in metres
+ds, gamma, V, Ts = 50.0, 0.5, 20.0, 0.05       # safety distance, alpha(h)=gamma*h, speed, sample time
+
+def hildreth(unom, G, w, iters=2000, tol=1e-10):
+    """min 0.5||u-unom||^2  s.t.  G u &lt;= w   (dual coordinate ascent, Hildreth 1957).
+    u = unom - G^T lam, lam &gt;= 0. Exact for one constraint; converges for several."""
+    u = unom.copy()
+    if np.all(G @ u &lt;= w + 1e-12): return u, np.zeros(len(w))
+    P = G @ G.T; d = w - G @ unom; lam = np.zeros(len(w))
+    for _ in range(iters):
+        old = lam.copy()
+        for i in range(len(w)):
+            lam[i] = max(0.0, -(d[i] + P[i] @ lam - P[i, i] * lam[i]) / P[i, i])
+        if np.max(np.abs(lam - old)) &lt; tol: break
+    return unom - G.T @ lam, lam
+
+def cbf_rows(pi, others):
+    """One half-split row per neighbour:  2(pi-pj)^T u &gt;= -gamma/2 * h_ij  -&gt;  G u &lt;= w."""
+    G, w = [], []
+    for pj in others:
+        dp = pi - pj; h = dp @ dp - ds**2
+        G.append(-2.0 * dp); w.append(0.5 * gamma * h)
+    return np.array(G), np.array(w)
+
+def filt(unom, pi, others):
+    G, w = cbf_rows(pi, others)
+    if len(others) == 1:                                   # closed form: projection on a half-space
+        a, b = -G[0], -w[0]
+        lam = max(0.0, b - a @ unom) / (a @ a)
+        return unom + lam * a, lam
+    return hildreth(unom, G, w)
+
+def nominal(p, goal):                                      # straight to the goal at speed V
+    d = goal - p; return V * d / np.linalg.norm(d)
+
+p = [np.array([0.0, 0.0]), np.array([400.0, 5.0])]        # UAV 1 flies north, UAV 2 flies south
+goal = [np.array([800.0, 0.0]), np.array([-400.0, 5.0])]
+t, dmin, t_act = 0.0, np.inf, None
+while t &lt; 25.0:
+    unom = [nominal(p[i], goal[i]) for i in range(2)]
+    u, lam = zip(*[filt(unom[i], p[i], [p[1 - i]]) for i in range(2)])
+    r = np.linalg.norm(p[0] - p[1])
+    if lam[0] &gt; 0 and t_act is None:
+        t_act = t; print(f"filter active from t={t:.2f}s, r={r:.2f} m, u1_nom={unom[0]}, u1*={np.round(u[0],3)}")
+    if abs(t - round(t)) &lt; 1e-9 and 6 &lt;= t &lt;= 13:
+        print(f"t={t:4.1f} r={r:7.2f} u1*=({u[0][0]:6.2f},{u[0][1]:6.2f}) |u1*|={np.linalg.norm(u[0]):5.2f} lam={lam[0]:.4f}")
+    dmin = min(dmin, r)
+    p = [p[i] + Ts * u[i] for i in range(2)]; t += Ts
+print(f"minimum distance {dmin:.2f} m (d_s = {ds})")</code></pre>
+        <p>Expected output: activation at \(t=5.65\) s and \(r=174.07\) m, the table rows of Section 6.1, and <code>minimum distance 54.22 m</code>.
+          For production use replace <code>hildreth</code> by OSQP (<code>osqp</code> package) or <code>quadprog</code>; both solve a 2-variable QP in microseconds.</p>
+        <div class="demo">
+          <strong>Interactive demo: four UAVs crossing, with and without the CBF filter</strong>
+          <div class="controls">
+            <label><input type="checkbox" id="cbf-filter" checked> CBF filter on</label>
+            <label>\(\gamma\) <input type="range" id="cbf-gamma" min="0.1" max="3" step="0.1" value="0.5"> <span id="cbf-gamma-val">0.5</span></label>
+            <label>\(d_s\) (m) <input type="range" id="cbf-ds" min="10" max="120" step="5" value="50"> <span id="cbf-ds-val">50</span></label>
+            <button id="cbf-run">Play / pause</button>
+            <button class="secondary" id="cbf-reset">Reset</button>
+            <span id="cbf-info" style="color:var(--muted)"></span>
+          </div>
+          <canvas id="cbf-canvas" width="900" height="360"></canvas>
+          <p style="margin:8px 0 0;color:var(--muted);font-size:.9rem">Single-integrator UAVs at 20 m/s, 1000 × 400 m world, half-split constraints for every pair solved by Hildreth's method.
+            Circles have radius \(d_s/2\), so touching circles means the pair is exactly at \(d_s\). Switch the filter off to see the crossing conflict.</p>
+        </div>
+      </section>
+
+      <section id="pitfalls">
+        <h2>9. Common Pitfalls</h2>
+        <ul>
+          <li><strong>Sign of \(a\).</strong> \(a_{ij}=2(p_i-p_j)\) points from the neighbour to <em>you</em>. Using \(p_j-p_i\) silently turns the filter into a collision seeker.</li>
+          <li><strong>Forgetting the half.</strong> If both UAVs impose the full centralised constraint the pair is over-conservative; if neither halves it and each assumes the other does nothing, the sum is still safe — but if each assumes the other does <em>all</em> the work, it is not.</li>
+          <li><strong>Relative degree.</strong> A barrier that depends on position only has no \(u\) in \(\dot h\) for double-integrator or turn-rate inputs; the QP constraint row is \(0\ge b\) and the solver either ignores it or reports infeasibility. Use the HOCBF or the look-ahead point.</li>
+          <li><strong>Sampling.</strong> The invariance proof is continuous-time. With sample time \(T_s\) the state can overshoot by up to \(\|u\|T_s\) per step; inflate \(d_s\) by the worst-case step and keep \(\gamma T_s\ll1\) (here \(0.5\times0.05=0.025\)).</li>
+          <li><strong>Stale neighbour data.</strong> Not inflating \(d_s\) by \(V_{\mathrm{closing}}\tau\) is the most common field failure: at 60 m/s with 1 s of latency the pair is 120 m closer than the filter thinks.</li>
+          <li><strong>Gain not scheduled with speed.</strong> A \(\gamma\) tuned at 20 m/s activates far inside the turn reaction distance at 60 m/s (174 m versus 360 m).</li>
+          <li><strong>Trusting the filter to pick a side.</strong> Symmetric geometry gives deadlock or a last-moment flip; add the right-of-way bias in \(u^{\mathrm{nom}}\), not in the barrier.</li>
+          <li><strong>Angle wrap.</strong> When mapping \(u^\ast\) to \(\chi^c\) use <code>atan2</code> and wrap \(\chi^c-\chi\) to \((-\pi,\pi]\) before forming the turn-rate command (Part 15).</li>
+        </ul>
+      </section>
+
+      <section id="exercises">
+        <h2>10. Exercises</h2>
+        <div class="exercise">
+          <strong>Exercise 1 (derivation).</strong> Show that for a general positive-definite weighting \(M\), the filter \(\min\tfrac12(u-u^{\mathrm{nom}})^TM(u-u^{\mathrm{nom}})\) s.t. \(a^Tu\ge b\) has the solution
+          \(u^\ast=u^{\mathrm{nom}}+\max(0,b-a^Tu^{\mathrm{nom}})\,M^{-1}a/(a^TM^{-1}a)\). Why would you weight the along-track direction more heavily than the cross-track direction for an aircraft?
+          <details><summary>Show solution</summary><div class="solution">KKT: \(M(u-u^{\mathrm{nom}})=\lambda a\) gives \(u=u^{\mathrm{nom}}+\lambda M^{-1}a\); the active constraint \(a^Tu=b\) gives \(\lambda=(b-a^Tu^{\mathrm{nom}})/(a^TM^{-1}a)\), clipped at zero. A large along-track weight makes speed changes "expensive", so the projection prefers a lateral (turning) correction, which is what a fixed-wing aircraft can actually deliver.</div></details>
+        </div>
+        <div class="exercise">
+          <strong>Exercise 2 (numeric).</strong> Two UAVs head-on at 30 m/s each, \(d_s=40\) m, \(\gamma=1\) s\(^{-1}\). At what range does the filter activate?
+          <details><summary>Show solution</summary><div class="solution">\(r_{\mathrm{act}}=2V/\gamma+\sqrt{(2V/\gamma)^2+d_s^2}=60+\sqrt{3600+1600}=132\) m (132.1 m).</div></details>
+        </div>
+        <div class="exercise">
+          <strong>Exercise 3 (numeric).</strong> Two aircraft at 150 m/s head-on exchange states with 0.3 s latency. By how much must \(d_s\) be inflated? And with 0.1 s?
+          <details><summary>Show solution</summary><div class="solution">\(V_{\mathrm{closing}}\tau=300\times0.3=90\) m; with 0.1 s, 30 m.</div></details>
+        </div>
+        <div class="exercise">
+          <strong>Exercise 4 (numeric, HOCBF).</strong> \(\Delta p=(-150,-10)\) m, \(\Delta v=(20,0)\) m/s, \(d_s=50\) m, \(\alpha_1=0.3\), \(\alpha_2=1.0\), nominal \(u_i^{\mathrm{nom}}=0\).
+          Compute \(h\), \(\psi_1\), the right-hand side \(b\) of the half-split constraint and the filtered acceleration.
+          <details><summary>Show solution</summary><div class="solution">\(h=22{,}600-2{,}500=20{,}100\); \(\Delta p^T\Delta v=-3000\) so \(\psi_1=-6000+0.3\times20{,}100=30\ge0\) (just inside \(\mathcal C_1\));
+            \(b=-\|\Delta v\|^2-(\alpha_1+\alpha_2)\Delta p^T\Delta v-\tfrac12\alpha_1\alpha_2h=-400+3900-3015=485\); \(a=2\Delta p=(-300,-20)\), \(\|a\|^2=90{,}400\);
+            \(a^Tu^{\mathrm{nom}}=0\lt485\) so \(\lambda=485/90{,}400=5.37\times10^{-3}\) and \(u_i^\ast=\lambda a=(-1.61,\,-0.107)\) m/s\(^2\): brake along the line of sight.</div></details>
+        </div>
+        <div class="exercise">
+          <strong>Exercise 5 (code).</strong> Rerun the Section 6.1 simulation with zero lateral offset (exact head-on) and add a right-of-way bias: whenever the range is below 250 m, add \(+\beta\) m/s to the east component of UAV 1's nominal velocity and \(-\beta\) to UAV 2's (each turns to its own right), then renormalise to \(V\). Report the minimum distance and the minimum filtered speed for \(\beta=0,2,5\) m/s.
+          <details><summary>Show solution</summary><div class="solution">From <code>part20_exercises.py</code>: \(\beta=0\): minimum distance 50.00 m but minimum speed 0.00 m/s (deadlock); \(\beta=2\): 61.4 m, minimum speed 10.5 m/s; \(\beta=5\): 73.6 m, minimum speed 15.6 m/s. A small deterministic bias removes the deadlock and keeps the speed inside a fixed-wing envelope.</div></details>
+        </div>
+        <div class="exercise">
+          <strong>Exercise 6 (numeric).</strong> Two aircraft at 100 m/s, \(\phi_{\max}=45^\circ\), \(d_s=100\) m. Estimate the turn reaction distance for a head-on encounter and the turn radius.
+          <details><summary>Show solution</summary><div class="solution">\(a_{\mathrm{lat}}=g\tan45^\circ=9.81\) m/s\(^2\), \(R=V_g^2/a_{\mathrm{lat}}=1019\) m, \(D_{\mathrm{react}}\approx2V_g\sqrt{d_s/a_{\mathrm{lat}}}=639\) m (small-angle estimate; the exact value is a few per cent larger, as in the table of Section 7.3).</div></details>
+        </div>
+      </section>
+
+      <section id="summary">
+        <h2>11. Key Takeaways &amp; Formula Sheet</h2>
+        <ul>
+          <li>Safety = forward invariance of \(\mathcal C=\{h\ge0\}\); Nagumo: \(\dot h\ge0\) on the boundary suffices.</li>
+          <li>CBF condition: \(\sup_u[L_fh+L_ghu]\ge-\alpha(h)\); any Lipschitz \(u\in K_{\mathrm{cbf}}\) keeps \(\mathcal C\) invariant; with \(\alpha(h)=\gamma h\), \(h(t)\ge h(0)e^{-\gamma t}\).</li>
+          <li>CBF-QP: \(u^\ast=\arg\min\tfrac12\|u-u^{\mathrm{nom}}\|^2\) s.t. \(L_fh+L_ghu\ge-\alpha(h)\), \(u\in U\).</li>
+          <li>Pair barrier \(h_{ij}=\|p_i-p_j\|^2-d_s^2\); decentralised half: \(2(p_i-p_j)^Tu_i\ge-\tfrac12\gamma h_{ij}\).</li>
+          <li>Closed form: \(u^\ast=u^{\mathrm{nom}}+\max(0,b-a^Tu^{\mathrm{nom}})\,a/\|a\|^2\).</li>
+          <li>Activation range (head-on): \(r_{\mathrm{act}}=2V/\gamma+\sqrt{4V^2/\gamma^2+d_s^2}\).</li>
+          <li>HOCBF (double integrator): \(2\Delta p^Tu_i\ge-\|\Delta v\|^2-(\alpha_1+\alpha_2)\Delta p^T\Delta v-\tfrac12\alpha_1\alpha_2h\), requires \(\psi_1(0)=2\Delta p^T\Delta v+\alpha_1h\ge0\).</li>
+          <li>Braking barrier: \(h_{\mathrm{br}}=\sqrt{4a_{\max}(\|\Delta p\|-d_s)}+\Delta p^T\Delta v/\|\Delta p\|\).</li>
+          <li>Look-ahead point: \(\dot{\tilde p}=R(\chi)[V_g,\ \ell\omega]^T\), inflate \(\tilde d_s=d_s+2\ell\).</li>
+          <li>Reaction distance \(D_{\mathrm{react}}\approx2V_g\sqrt{d_s/(g\tan\phi_{\max})}\); latency inflation \(d_s\leftarrow d_s+V_{\mathrm{closing}}\tau\) (60 m/s head-on, 1 s: 120 m).</li>
+          <li>Schedule \(\gamma\) with \(V_g\); altitude is the de-confliction axis whose cost does not grow with speed.</li>
+        </ul>
+      </section>
+
+      <section id="references">
+        <h2>12. References</h2>
+        <ul>
+          <li>A. D. Ames, X. Xu, J. W. Grizzle, P. Tabuada, "Control Barrier Function Based Quadratic Programs for Safety Critical Systems," <em>IEEE Transactions on Automatic Control</em> 62(8), 2017.</li>
+          <li>A. D. Ames, S. Coogan, M. Egerstedt, G. Notomista, K. Sreenath, P. Tabuada, "Control Barrier Functions: Theory and Applications," <em>European Control Conference</em>, 2019.</li>
+          <li>L. Wang, A. D. Ames, M. Egerstedt, "Safety Barrier Certificates for Collisions-Free Multirobot Systems," <em>IEEE Transactions on Robotics</em> 33(3), 2017.</li>
+          <li>W. Xiao, C. Belta, "High-Order Control Barrier Functions," <em>IEEE Transactions on Automatic Control</em> 67(7), 2022 (conference version: CDC 2019).</li>
+          <li>Q. Nguyen, K. Sreenath, "Exponential Control Barrier Functions for Enforcing High Relative-Degree Safety-Critical Constraints," <em>American Control Conference</em>, 2016.</li>
+          <li>F. Blanchini, "Set invariance in control," <em>Automatica</em> 35(11), 1999 (survey covering Nagumo's 1942 theorem).</li>
+          <li>R. Olfati-Saber, "Near-Identity Diffeomorphisms and Exponential ε-Tracking and ε-Stabilization of First-Order Nonholonomic SE(2) Vehicles," <em>American Control Conference</em>, 2002.</li>
+          <li>P. Fiorini, Z. Shiller, "Motion Planning in Dynamic Environments Using Velocity Obstacles," <em>International Journal of Robotics Research</em> 17(7), 1998; J. van den Berg, S. J. Guy, M. Lin, D. Manocha, "Reciprocal n-Body Collision Avoidance," <em>Robotics Research (STAR vol. 70)</em>, Springer, 2011.</li>
+          <li>P. Thontepu, B. G. Goswami, M. Tayal, N. Singh, S. S. M. G., S. Sundaram, V. Katewa, S. Kolathaya, "Collision Cone Control Barrier Functions for Kinematic Obstacle Avoidance in UGVs," arXiv:2209.11524, 2022.</li>
+          <li>C. Hildreth, "A quadratic programming procedure," <em>Naval Research Logistics Quarterly</em> 4(1), 1957.</li>
+        </ul>
+      </section>
+
+      <div class="prevnext">
+        <a class="prev" href="19_coordinated_path_following.html"><span>&larr; Previous</span>Part 19: Coordinated Path Following &amp; Time Coordination</a>
+        <a class="next" href="21_distributed_mpc.html"><span>Next &rarr;</span>Part 21: Distributed MPC</a>
+      </div>
+      <div class="done-box"><button id="done-btn" data-lesson="20">Mark Part 20 as complete</button></div>
+    </main>
+  </div>
+
+  <footer>Fixed-Wing Swarm Learning · Part 20 · Collision Avoidance &amp; Control Barrier Functions</footer>
+
+  <script>
+    (function () {
+      try {
+        var btn = document.getElementById('done-btn');
+        if (!btn) return;
+        var id = btn.getAttribute('data-lesson');
+        var key = 'fwswarm_done';
+        var done = JSON.parse(localStorage.getItem(key) || '[]');
+        function render() {
+          var is = done.indexOf(id) >= 0;
+          btn.textContent = is ? 'Completed ✓ (click to undo)' : 'Mark Part ' + id + ' as complete';
+          btn.className = is ? 'undone' : '';
+        }
+        btn.addEventListener('click', function () {
+          var i = done.indexOf(id);
+          if (i >= 0) done.splice(i, 1); else done.push(id);
+          localStorage.setItem(key, JSON.stringify(done));
+          render();
+        });
+        render();
+      } catch (e) { /* storage unavailable: ignore */ }
+    })();
+  </script>
+  <script>
+    // CBF crossing demo. Everything inside try/catch so a failure never breaks the lesson.
+    (function () {
+      try {
+        var c = document.getElementById('cbf-canvas'); if (!c) return;
+        var ctx = c.getContext('2d');
+        var elFilter = document.getElementById('cbf-filter'), elGamma = document.getElementById('cbf-gamma'), elDs = document.getElementById('cbf-ds');
+        var elGv = document.getElementById('cbf-gamma-val'), elDv = document.getElementById('cbf-ds-val'), elInfo = document.getElementById('cbf-info');
+        var V = 20, Ts = 0.05, S = 0.9;             // m/s, s, px per metre (world 1000 x 400 m)
+        var agents, t, running = false, timer = null, dminAll;
+        var cols = ['#2457d6', '#b42318', '#147a4b', '#c27b00'];
+        function reset() {
+          agents = [
+            { p: [40, 200], g: [960, 200], trail: [] },
+            { p: [960, 212], g: [40, 212], trail: [] },
+            { p: [520, 20], g: [520, 380], trail: [] },
+            { p: [300, 375], g: [700, 25], trail: [] } ];
+          t = 0; dminAll = Infinity; draw();
+        }
+        function nominal(a) {
+          var dx = a.g[0] - a.p[0], dy = a.g[1] - a.p[1], n = Math.hypot(dx, dy);
+          return n < 2 ? [0, 0] : [V * dx / n, V * dy / n];
+        }
+        // min 0.5|u-un|^2 s.t. a_k^T u >= b_k  (Hildreth dual ascent, u = un + sum lam_k a_k)
+        function filter(un, rows) {
+          var m = rows.length, lam = [], i, j, it;
+          for (i = 0; i < m; i++) lam.push(0);
+          var u = [un[0], un[1]];
+          for (it = 0; it < 300; it++) {
+            var ch = 0;
+            for (i = 0; i < m; i++) {
+              var a = rows[i].a, aa = a[0] * a[0] + a[1] * a[1];
+              var s = 0; for (j = 0; j < m; j++) s += lam[j] * (a[0] * rows[j].a[0] + a[1] * rows[j].a[1]);
+              var nl = Math.max(0, (rows[i].b - (a[0] * un[0] + a[1] * un[1]) - s + lam[i] * aa) / aa);
+              ch = Math.max(ch, Math.abs(nl - lam[i])); lam[i] = nl;
+            }
+            if (ch < 1e-9) break;
+          }
+          for (i = 0; i < m; i++) { u[0] += lam[i] * rows[i].a[0]; u[1] += lam[i] * rows[i].a[1]; }
+          return u;
+        }
+        function step() {
+          var gamma = parseFloat(elGamma.value), ds = parseFloat(elDs.value), useF = elFilter.checked;
+          var us = [], i, j, dmin = Infinity;
+          for (i = 0; i < agents.length; i++) {
+            var un = nominal(agents[i]), rows = [];
+            for (j = 0; j < agents.length; j++) {
+              if (j === i) continue;
+              var dx = agents[i].p[0] - agents[j].p[0], dy = agents[i].p[1] - agents[j].p[1];
+              var h = dx * dx + dy * dy - ds * ds;
+              rows.push({ a: [2 * dx, 2 * dy], b: -0.5 * gamma * h });
+              if (j > i) dmin = Math.min(dmin, Math.sqrt(dx * dx + dy * dy));
+            }
+            us.push(useF ? filter(un, rows) : un);
+          }
+          for (i = 0; i < agents.length; i++) {
+            agents[i].p[0] += Ts * us[i][0]; agents[i].p[1] += Ts * us[i][1];
+            if (Math.round(t / Ts) % 4 === 0) agents[i].trail.push([agents[i].p[0], agents[i].p[1]]);
+          }
+          dminAll = Math.min(dminAll, dmin); t += Ts;
+          elInfo.textContent = 't = ' + t.toFixed(1) + ' s, min pair distance now ' + dmin.toFixed(1) + ' m, overall ' + dminAll.toFixed(1) + ' m' + (dminAll < ds ? '  (< d_s !)' : '');
+          if (t > 60) { running = false; clearInterval(timer); }
+        }
+        function draw() {
+          var ds = parseFloat(elDs.value);
+          ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, c.width, c.height);
+          for (var i = 0; i < agents.length; i++) {
+            var a = agents[i]; ctx.strokeStyle = cols[i]; ctx.fillStyle = cols[i]; ctx.lineWidth = 1;
+            ctx.beginPath(); for (var k = 0; k < a.trail.length; k++) { var q = a.trail[k]; if (k === 0) ctx.moveTo(q[0] * S, q[1] * S); else ctx.lineTo(q[0] * S, q[1] * S); } ctx.stroke();
+            ctx.beginPath(); ctx.arc(a.g[0] * S, a.g[1] * S, 4, 0, 2 * Math.PI); ctx.stroke();
+            ctx.globalAlpha = 0.15; ctx.beginPath(); ctx.arc(a.p[0] * S, a.p[1] * S, ds / 2 * S, 0, 2 * Math.PI); ctx.fill(); ctx.globalAlpha = 1;
+            ctx.beginPath(); ctx.arc(a.p[0] * S, a.p[1] * S, 5, 0, 2 * Math.PI); ctx.fill();
+          }
+        }
+        function tick() { step(); draw(); }
+        document.getElementById('cbf-run').addEventListener('click', function () {
+          running = !running; if (running) timer = setInterval(tick, 40); else clearInterval(timer);
+        });
+        document.getElementById('cbf-reset').addEventListener('click', function () { running = false; clearInterval(timer); reset(); });
+        elGamma.addEventListener('input', function () { elGv.textContent = elGamma.value; });
+        elDs.addEventListener('input', function () { elDv.textContent = elDs.value; draw(); });
+        reset();
+      } catch (e) { console.error('demo failed', e); }
+    })();
+  </script>
+</body>
+</html>

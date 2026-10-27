@@ -1,0 +1,43 @@
+=== 1) time coordination: 3 UAVs, path lengths ell = [1000, 1200, 1400] m, V in [18, 28] ===
+  nominal zeta_dot_d = 23/1200 = 0.019167 1/s -> nominal mission time 52.2 s
+  nominal speeds ell_i * zeta_dot_d = [19.1667 23.     26.8333]
+  symmetric correction bounds ubar_i = min(zd - Vmin/ell_i, Vmax/ell_i - zd) = [0.0012 0.0042 0.0008]  (x ell = [1.1667 5.     1.1667] m/s)
+  path graph eigenvalues [0. 1. 3.], lambda_2 = 1.000
+  k_zeta = 0.1: unsaturated disagreement rate k lambda_2 = 0.100 1/s (tau = 10.0 s)
+  zeta(0) = [0.0, 0.05, 0.02]  (UAV 2 is 60 m along its path, UAV 3 28 m)
+  --- saturation ON
+    t=0: u = [ 0.005 -0.008  0.003], saturated u = [ 0.0012 -0.0042  0.0008], speed commands = [20.3333 18.     28.    ] m/s
+    max spread < 1e-3 (1.2 m) at t = 35.35 s; last saturated at t = 9.15 s
+    speed range per UAV: min [19.1769 18.     26.3854], max [20.3333 23.     28.    ]
+    arrival times at zeta = 1: [51.2 51.2 51.2] s (spread 0.00 s)
+  --- saturation OFF (hypothetical)
+    t=0: u = [ 0.005 -0.008  0.003], saturated u = [ 0.005 -0.008  0.003], speed commands = [24.1667 13.4    31.0333] m/s
+    max spread < 1e-3 (1.2 m) at t = 29.90 s; last saturated at t = 0.00 s
+    speed range per UAV: min [19.1727 13.4    26.5614], max [24.1667 23.     31.0333]
+    arrival times at zeta = 1: [51. 51. 51.] s (spread 0.00 s)
+  initial mean zeta = 0.0233; unsaturated consensus would track mean + zd t
+
+=== 2) along-path spacing: V_d = 150 m/s, V in [120, 190], Delta = 500 m, initial gap 800 m ===
+  bidirectional: t=0 gap error 300 m -> commands [135. 165.] m/s (correction k_s*err = 15.0 m/s)
+    linear time constant 10 s (ignoring speed lag); |gap error| < 10 m at t = 23.5 s, follower flew 3.7 km; speeds in [139.5, 160.5] m/s
+  follower-only: t=0 gap error 300 m -> commands [150. 165.] m/s (correction k_s*err = 15.0 m/s)
+    linear time constant 20 s (ignoring speed lag); |gap error| < 10 m at t = 58.6 s, follower flew 9.1 km; speeds in [150.0, 161.8] m/s
+  discrete-time check T_s=0.1: T_s k_s lambda_N = 0.010 < 2
+  stale-data error without dead reckoning at tau=0.15 s: V tau = 22.5 m; with 0.15 s and 500 m spacing that is 4.5% of the gap
+  time gap at 150 m/s with 500 m spacing: 3.33 s
+  line-abreast contrast: y=+250 m in a 45-deg turn at 150 m/s (R_c=2294 m): V_i = 166.3 m/s, bank 48.0 deg
+  line-abreast contrast: y=-250 m in a 45-deg turn at 150 m/s (R_c=2294 m): V_i = 133.7 m/s, bank 41.7 deg
+  -> speed spread 32.7 m/s needed just to hold the shape; a trail formation needs 0
+
+=== 3) phase coordination: 3 UAVs, rho = 300 m, V_0 = 23 m/s, all-to-all, k_theta = 0.008 ===
+  omega_0 = 0.07667 rad/s, period 82.0 s; lambda_2(K3) = 3 -> linear rate 0.024 1/s (tau 41.7 s)
+  speed authority used: rho k_theta d_i = 4.8 m/s (bounds 18..28 => +-5 m/s around 23)
+  initial phases [0, 40, 200] deg; target splay offsets [0, 120, 240] deg
+    t=0: phase rates [0.0636 0.0897 0.0767], speeds [19.0938 26.9062 23.    ] m/s
+    splay: all shifted-phase differences < 1 deg at t = 188.0 s (2.29 orbits); speeds in [19.09, 26.91]; |p_theta| final = 0.0000; final relative phases [   0.      119.9939 -120.0031]
+    t=0: phase rates [0.0791 0.0743 0.0767], speeds [23.7218 22.2782 23.    ] m/s
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-ragupathi-dev-study-fw-swarm-Learning/c2969d82-b15d-413b-b0cf-4b548e942418/scratchpad/verify/part19_coordination.py", line 140, in <module>
+    print(f"    synchronise (offsets 0): converged < 1 deg at t = {t_conv:.1f} s; |p_theta| final = {pabs:.4f}; speeds in [{vmin:.2f}, {vmax:.2f}]")
+                                                                  ^^^^^^^^^^^^
+TypeError: unsupported format string passed to NoneType.__format__

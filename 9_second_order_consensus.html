@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fixed-Wing Swarm Learning — Second-Order Consensus</title>
+
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['\\(', '\\)']],
+        displayMath: [['\\[', '\\]'], ['$$', '$$']]
+      },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --card: #ffffff;
+      --text: #172033;
+      --muted: #5d687a;
+      --accent: #2457d6;
+      --accent-light: #eaf0ff;
+      --border: #dce2ec;
+      --code: #111827;
+      --success: #147a4b;
+      --warning: #c27b00;
+      --danger: #b42318;
+      --claw: #0f766e;
+      --claw-light: #e6f6f4;
+      --def: #6d28d9;
+      --def-light: #f3eefe;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+    }
+
+    header {
+      background: linear-gradient(135deg, #172554, #2457d6);
+      color: white;
+      padding: 56px 20px 44px;
+    }
+    header .wrap { max-width: 1320px; margin: auto; }
+    .topbar { margin-bottom: 18px; font-size: .95rem; }
+    .topbar a { color: #dbe6ff; }
+    .topbar a:hover { color: #fff; }
+
+    h1 { margin: 0 0 10px; font-size: clamp(2rem, 5vw, 3.2rem); }
+    h2 { margin-top: 0; font-size: 1.8rem; }
+    h3 { margin-top: 1.6rem; }
+    h4 { margin-top: 1.2rem; margin-bottom: .4rem; }
+
+    .subtitle { max-width: 820px; color: #dbe6ff; font-size: 1.08rem; }
+
+    nav, section, .callout {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px;
+      margin: 20px 0;
+      box-shadow: 0 3px 12px rgba(20, 35, 70, .05);
+    }
+    nav h2 { font-size: 1.35rem; }
+    nav ol { margin-bottom: 0; padding-left: 22px; }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    code { background: #eef1f6; padding: 2px 5px; border-radius: 5px; font-size: .92em; }
+    pre {
+      background: var(--code);
+      color: #e5e7eb;
+      padding: 18px;
+      border-radius: 10px;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+    pre code { background: none; padding: 0; color: inherit; font-size: .9rem; }
+
+    .formula {
+      background: var(--accent-light);
+      border-left: 4px solid var(--accent);
+      padding: 16px 18px;
+      margin: 16px 0;
+      overflow-x: auto;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+    }
+    .mini {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      background: #fbfcff;
+    }
+    .mini strong { display: block; margin-bottom: 5px; }
+
+    .success { border-left: 4px solid var(--success); background: #edf9f3; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .warning { border-left: 4px solid var(--warning); background: #fff8e8; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .danger  { border-left: 4px solid var(--danger);  background: #fdecec; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .note    { border-left: 4px solid var(--muted);   background: #f3f5f8; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .definition, .theorem {
+      border-left: 4px solid var(--def);
+      background: var(--def-light);
+      padding: 14px 18px;
+      border-radius: 8px;
+      margin: 14px 0;
+    }
+    .definition > strong:first-child, .theorem > strong:first-child { color: var(--def); }
+    .claw {
+      border: 1px solid #99d6cf;
+      border-left: 6px solid var(--claw);
+      background: var(--claw-light);
+      padding: 16px 20px;
+      border-radius: 10px;
+      margin: 18px 0;
+    }
+    .claw > strong:first-child { color: var(--claw); display: block; margin-bottom: 6px; font-size: 1.05rem; }
+
+    table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+    th, td { text-align: left; padding: 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    th { background: #f1f4f9; }
+
+    .tag {
+      display: inline-block;
+      background: #eaf0ff;
+      color: #204bb4;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: .82rem;
+      margin: 3px;
+    }
+
+    figure { margin: 18px 0; }
+    figure > svg { width: 100%; height: auto; display: block; background: #fbfcff; border: 1px solid var(--border); border-radius: 10px; }
+    figcaption { color: var(--muted); font-size: .92rem; margin-top: 6px; text-align: center; }
+
+    .exercise { border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; margin: 14px 0; background: #fbfcff; }
+    .exercise summary { cursor: pointer; color: var(--accent); font-weight: 600; margin-top: 8px; }
+    .exercise details { margin-top: 6px; }
+    .exercise .solution { border-top: 1px dashed var(--border); margin-top: 8px; padding-top: 8px; }
+
+    .demo { border: 1px solid var(--border); border-radius: 12px; padding: 14px; background: #fbfcff; margin: 16px 0; }
+    .demo canvas { width: 100%; height: auto; display: block; background: #ffffff; border: 1px solid var(--border); border-radius: 8px; }
+    .controls { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; margin: 10px 0; font-size: .95rem; }
+    .controls label { display: inline-flex; align-items: center; gap: 6px; }
+    .controls input[type=range] { width: 140px; }
+    .controls button, .btn {
+      background: var(--accent); color: #fff; border: 0; padding: 7px 14px; border-radius: 8px; cursor: pointer; font-size: .92rem;
+    }
+    .controls button:hover, .btn:hover { filter: brightness(1.08); }
+    .controls button.secondary { background: #e5e9f2; color: var(--text); }
+
+    .prevnext { display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin: 26px 0 0; }
+    .prevnext a { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; flex: 1 1 260px; }
+    .prevnext a span { display: block; color: var(--muted); font-size: .82rem; }
+    .prevnext a.next { text-align: right; }
+
+    .done-box { text-align: center; margin: 24px 0 0; }
+    .done-box button { background: var(--success); color: #fff; border: 0; padding: 9px 18px; border-radius: 8px; cursor: pointer; }
+    .done-box button.undone { background: #9aa5b5; }
+
+    footer { text-align: center; color: var(--muted); padding: 30px 20px 50px; }
+
+    .page-shell {
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      gap: 24px;
+      max-width: 1320px;
+      margin: 0 auto;
+      padding: 28px 20px 70px;
+      align-items: start;
+    }
+    .sidebar { grid-column: 1; position: sticky; top: 20px; }
+    .sidebar nav { position: sticky; top: 20px; max-height: calc(100vh - 40px); overflow-y: auto; }
+    .content { grid-column: 2; min-width: 0; }
+    @media (max-width: 960px) {
+      .page-shell { grid-template-columns: 1fr; }
+      .sidebar, .sidebar nav { position: static; max-height: none; }
+      .sidebar, .content { grid-column: 1; }
+    }
+    @media print {
+      nav { break-after: page; }
+      section { box-shadow: none; }
+      .demo, .done-box, .prevnext, .topbar { display: none; }
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <div class="wrap">
+      <div class="topbar"><a href="index.html">&larr; Course home</a> &nbsp;·&nbsp; Module B: Consensus</div>
+      <h1>Fixed-Wing Swarm Learning</h1>
+      <div class="subtitle">
+        Part 9: <strong>Second-Order Consensus</strong> — agreeing on position <em>and</em> velocity with double-integrator agents:
+        modal damping design, the directed-graph gain condition, sampled-data limits, and how an acceleration demand becomes a
+        course-rate and speed command for an aircraft.
+      </div>
+      <p>
+        <span class="tag">Double integrator</span>
+        <span class="tag">Damping ratio</span>
+        <span class="tag">Yu–Chen–Cao condition</span>
+        <span class="tag">Acceleration projection</span>
+        <span class="tag">UAV Swarms</span>
+      </p>
+    </div>
+  </header>
+
+  <div class="page-shell">
+    <aside class="sidebar">
+      <nav id="index">
+        <h2>Index</h2>
+        <ol>
+          <li><a href="#why">Why this matters</a></li>
+          <li><a href="#protocol">Double integrators and the protocol</a></li>
+          <li><a href="#modes">Modal decomposition and damping</a></li>
+          <li><a href="#trajectory">The consensus trajectory</a></li>
+          <li><a href="#examples">Worked examples</a></li>
+          <li><a href="#directed">Directed graphs: the gain condition</a></li>
+          <li><a href="#variants">Variants: damping, references, feedforward</a></li>
+          <li><a href="#sampled">Sampled-data stability</a></li>
+          <li><a href="#fixed-wing">Fixed-wing interpretation</a></li>
+          <li><a href="#implementation">Implementation</a></li>
+          <li><a href="#pitfalls">Common pitfalls</a></li>
+          <li><a href="#exercises">Exercises</a></li>
+          <li><a href="#summary">Key takeaways &amp; formula sheet</a></li>
+          <li><a href="#references">References</a></li>
+        </ol>
+      </nav>
+    </aside>
+
+    <main class="content">
+
+      <section id="why">
+        <h2>1. Why This Matters</h2>
+        <p>
+          Everything so far treated the agreed variable as something a UAV can set directly — a speed command, a flight level, an estimate in memory.
+          Positions are different. An aircraft cannot jump to a position; it has a velocity that changes through acceleration, and so do its
+          neighbours. If the swarm is to agree on <em>where</em> to be while <em>moving</em>, the agents are double integrators and the consensus law
+          must couple velocities as well as positions. Three new questions appear:
+        </p>
+        <ul>
+          <li>With two gains instead of one, how do we choose them? (Answer: by the damping ratio of each Laplacian mode.)</li>
+          <li>Does the spanning-tree condition still suffice on directed graphs? (Answer: no — the gains must also satisfy an inequality set by the complex Laplacian eigenvalues.)</li>
+          <li>The law outputs an acceleration. An aircraft is commanded in course and speed. How do the two meet? (Answer: project onto the velocity direction and its normal, then respect the turn-rate and speed envelope.)</li>
+        </ul>
+        <div class="formula">
+          \[ \text{first order: } \dot p_i=u_i \qquad\longrightarrow\qquad \text{second order: } \dot p_i=v_i,\ \ \dot v_i=u_i \]
+        </div>
+        <div class="grid">
+          <div class="mini"><strong>Input</strong>Laplacian modes (<a href="4_Laplacian_Eigenvalues.html">Part 4</a>), consensus and its Kronecker form (<a href="5_continuous_time_consensus.html">Part 5</a>), sampled-data limits (<a href="6_consensus_convergence_stability.html">Part 6</a>), listening weights and \(\gamma\) (<a href="7_directed_graph_consensus.html">Part 7</a>), pinning (<a href="8_leader_follower_consensus.html">Part 8</a>).</div>
+          <div class="mini"><strong>Output</strong>Choose \((k_p,k_v)\) for a given graph and vehicle, verify stability on digraphs, and map an acceleration demand to \(\dot\chi^c\) and \(\dot V_g^c\) within the envelope.</div>
+          <div class="mini"><strong>Used in</strong><a href="12_formation_control.html">Part 12</a> (formation with velocity terms), <a href="14_flocking.html">Part 14</a> (flocking is second-order consensus plus potentials), <a href="20_collision_avoidance_cbf.html">Part 20</a> (high-order barriers), Part 24 (check D2).</div>
+        </div>
+      </section>
+
+      <section id="protocol">
+        <h2>2. Double Integrators and the Protocol</h2>
+        <p>Each UAV has position \(p_i\in\mathbb R^n\), velocity \(v_i\), and an acceleration input \(u_i\). The standard second-order consensus law (Ren &amp; Atkins 2007) couples both states through the same listening weights:</p>
+        <div class="formula">
+          \[ \boxed{\;u_i=-\sum_{j\in\mathcal N_i^{\mathrm{in}}}w_{ij}\Big[k_p\,(p_i-p_j)+k_v\,(v_i-v_j)\Big]\;} \]
+        </div>
+        <p>Stacking scalar states (\(n=1\); vector states use \(L\otimes I_n\) throughout):</p>
+        <div class="formula">
+          \[ \frac{d}{dt}\begin{bmatrix}p\\v\end{bmatrix}=\underbrace{\begin{bmatrix}0&I_N\\-k_pL&-k_vL\end{bmatrix}}_{M}\begin{bmatrix}p\\v\end{bmatrix} . \]
+        </div>
+        <p>The position term is the familiar "move toward your neighbours"; the velocity term is "match your neighbours' velocity", which is what damps the oscillation that pure position coupling would produce (Section 3). Without it the swarm is a set of masses connected by springs with no dampers.</p>
+      </section>
+
+      <section id="modes">
+        <h2>3. Modal Decomposition and Damping</h2>
+        <p>For an undirected graph let \(Lv_k=\lambda_kv_k\) with orthonormal \(v_k\). Project the stacked state onto \(v_k\): \(z_k=v_k^Tp\), \(\dot z_k=v_k^Tv\). Because \(M\) acts on each eigen-direction separately,</p>
+        <div class="formula">
+          \[ \boxed{\;\ddot z_k+k_v\lambda_k\,\dot z_k+k_p\lambda_k\,z_k=0\;}\qquad\Longrightarrow\qquad
+          \omega_{n,k}=\sqrt{k_p\lambda_k},\qquad \zeta_k=\frac{k_v\lambda_k}{2\sqrt{k_p\lambda_k}}=\frac{k_v\sqrt{\lambda_k}}{2\sqrt{k_p}} . \]
+        </div>
+        <p>Each disagreement mode is a second-order system with its own natural frequency and damping ratio, both increasing with \(\lambda_k\). Two conclusions:</p>
+        <ul>
+          <li><strong>Any \(k_p,k_v\gt0\) stabilises every disagreement mode</strong> on a connected undirected graph (the characteristic polynomial \(s^2+k_v\lambda s+k_p\lambda\) is Hurwitz for \(\lambda\gt0\)). Consensus is as easy to guarantee as in first order.</li>
+          <li><strong>The least-damped mode is the slowest one</strong>, \(\lambda_2\): \(\zeta_{\min}=k_v\sqrt{\lambda_2}/(2\sqrt{k_p})\). Design \(k_v\) from \(\zeta_{\min}\), then \(k_p\) from the bandwidth you can afford (Sections 8–9). The fastest mode \(\lambda_N\) is overdamped and sets the sampled-data limit.</li>
+        </ul>
+        <figure>
+          <svg viewBox="0 0 620 230" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Closed-loop poles of the C4 ring">
+            <g font-family="system-ui, sans-serif" font-size="13" fill="#172033">
+              <line x1="40" y1="115" x2="600" y2="115" stroke="#5d687a" stroke-width="1.5"/>
+              <line x1="520" y1="20" x2="520" y2="210" stroke="#5d687a" stroke-width="1.5"/>
+              <text x="585" y="133" fill="#5d687a">Re s</text>
+              <text x="527" y="32" fill="#5d687a">Im s</text>
+              <text x="120" y="133" text-anchor="middle" fill="#5d687a" font-size="12">−2</text>
+              <text x="320" y="133" text-anchor="middle" fill="#5d687a" font-size="12">−1</text>
+              <text x="320" y="70" text-anchor="middle" fill="#5d687a" font-size="12">+j</text>
+              <text x="320" y="172" text-anchor="middle" fill="#5d687a" font-size="12">−j</text>
+              <!-- poles -->
+              <g stroke="#2457d6" stroke-width="2.5">
+                <line x1="112" y1="107" x2="128" y2="123"/><line x1="128" y1="107" x2="112" y2="123"/>
+                <line x1="312" y1="51" x2="328" y2="67"/><line x1="328" y1="51" x2="312" y2="67"/>
+                <line x1="312" y1="163" x2="328" y2="179"/><line x1="328" y1="163" x2="312" y2="179"/>
+              </g>
+              <g stroke="#b42318" stroke-width="2.5">
+                <line x1="512" y1="107" x2="528" y2="123"/><line x1="528" y1="107" x2="512" y2="123"/>
+              </g>
+              <text x="120" y="95" text-anchor="middle" fill="#2457d6" font-size="12">λ = 4: s = −2 (double), ζ = 1</text>
+              <text x="320" y="40" text-anchor="middle" fill="#2457d6" font-size="12">λ = 2 (×2): s = −1 ± j, ζ = 0.707</text>
+              <text x="470" y="200" text-anchor="middle" fill="#b42318" font-size="12">λ = 0: s = 0 (double) — the moving consensus</text>
+              <line x1="320" y1="115" x2="320" y2="59" stroke="#dce2ec" stroke-dasharray="4 3"/>
+              <line x1="520" y1="115" x2="320" y2="59" stroke="#dce2ec" stroke-dasharray="4 3"/>
+              <text x="430" y="80" fill="#5d687a" font-size="11">ζ = cos θ</text>
+            </g>
+          </svg>
+          <figcaption>Figure 1. Closed-loop poles of the 4-UAV ring with \(k_p=k_v=1\): each Laplacian eigenvalue contributes a pole pair; the zero eigenvalue contributes a double pole at the origin.</figcaption>
+        </figure>
+      </section>
+
+      <section id="trajectory">
+        <h2>4. The Consensus Trajectory</h2>
+        <p>The zero eigenvalue of \(L\) gives \(M\) a <em>double</em> zero eigenvalue with a single eigenvector — a Jordan block of size two (\(\operatorname{rank}M=2N-1\), \(\operatorname{rank}M^2=2N-2\)). Its mode is \(\ddot z_1=0\): a <strong>ramp</strong>, not a constant. On an undirected graph the sums are conserved — \(\mathbf 1^T\dot v=-k_p\mathbf 1^TLp-k_v\mathbf 1^TLv=0\) and \(\mathbf 1^T\dot p=\mathbf 1^Tv\) — so</p>
+        <div class="formula">
+          \[ \boxed{\;p_i(t)\to\bar p(0)+\bar v(0)\,t,\qquad v_i(t)\to\bar v(0)\;}\qquad \bar p(0)=\tfrac1N\textstyle\sum_jp_j(0),\ \bar v(0)=\tfrac1N\sum_jv_j(0). \]
+        </div>
+        <div class="success"><strong>Interpretation:</strong> second-order consensus does not bring the swarm to rest; it makes every aircraft converge to a common point that keeps moving at the initial average velocity — exactly what a formation needs (Part 12 adds offsets so that "common point" becomes "common frame"). On a digraph with a spanning tree the averages are replaced by \(\gamma\)-weighted averages (Part 7).</div>
+      </section>
+
+      <section id="examples">
+        <h2>5. Worked Examples</h2>
+        <h3>5.1 Two UAVs, critically damped</h3>
+        <p>\(L=\begin{bmatrix}1&-1\\-1&1\end{bmatrix}\), \(\lambda_2=2\). Choose \(k_p=1\) and \(k_v=\sqrt2\): \(\omega_n=\sqrt2=1.414\) rad/s, \(\zeta=\sqrt2\cdot\sqrt2/2=1\). Closed-loop eigenvalues \(\{-\sqrt2,-\sqrt2,0,0\}\). From \(p(0)=[0,10]\), \(v(0)=[2,0]\): \(\bar p(0)=5\), \(\bar v(0)=1\), so both converge to \(5+t\). The relative coordinate \(z=p_1-p_2\) obeys \(\ddot z+2\sqrt2\dot z+2z=0\) with \(z(0)=-10\), \(\dot z(0)=2\):</p>
+        <div class="formula">\[ z(t)=\big(z(0)+(\dot z(0)+\sqrt2\,z(0))\,t\big)e^{-\sqrt2t}=\big(-10-12.14\,t\big)e^{-1.414t}. \]</div>
+        <table>
+          <thead><tr><th>\(t\)</th><th>\(p\)</th><th>\(v\)</th><th>\(p_1-p_2\)</th><th>\(\bar p(0)+\bar v(0)t\)</th></tr></thead>
+          <tbody>
+            <tr><td>1 s</td><td>[3.31, 8.69]</td><td>[3.33, −1.33]</td><td>−5.38</td><td>6</td></tr>
+            <tr><td>2 s</td><td>[5.99, 8.01]</td><td>[2.07, −0.07]</td><td>−2.03</td><td>7</td></tr>
+            <tr><td>3 s</td><td>[7.67, 8.33]</td><td>[1.38, 0.62]</td><td>−0.67</td><td>8</td></tr>
+            <tr><td>6 s</td><td>[10.99, 11.01]</td><td>[1.01, 0.99]</td><td>−0.017</td><td>11</td></tr>
+          </tbody>
+        </table>
+        <p>The separation falls below 0.1 m at \(t=4.59\) s. Note UAV 2 briefly moves <em>backwards</em> (\(v_2=-1.33\) at \(t=1\)): with no minimum-speed constraint the double integrator is free to do so; an aircraft is not (Section 9).</p>
+
+        <h3>5.2 Four UAVs on a ring, in the plane</h3>
+        <p>Undirected ring \(C_4\): \(\lambda(L)=\{0,2,2,4\}\). With \(k_p=k_v=1\): the two \(\lambda=2\) modes have \(\omega_n=1.414\), \(\zeta=0.707\) (poles \(-1\pm\mathrm j\)); the \(\lambda=4\) mode has \(\omega_n=2\), \(\zeta=1\) (double pole at \(-2\)); plus the double pole at 0 (Figure 1). Planar states use \(M\) with \(L\otimes I_2\). Start on the corners of a 100 m square heading roughly north: \(p(0)=\{(0,0),(100,0),(100,100),(0,100)\}\) m (north, east), \(v(0)=\{(20,0),(25,5),(20,-5),(15,0)\}\) m/s. Then \(\bar p(0)=(50,50)\), \(\bar v(0)=(20,0)\): the consensus point travels north at 20 m/s.</p>
+        <table>
+          <thead><tr><th>\(t\)</th><th>max position spread</th><th>max velocity spread</th><th>centroid</th><th>predicted \(\bar p(0)+\bar v(0)t\)</th></tr></thead>
+          <tbody>
+            <tr><td>2 s</td><td>9.96 m</td><td>35.5 m/s</td><td>(90, 50)</td><td>(90, 50)</td></tr>
+            <tr><td>5 s</td><td>0.67 m</td><td>1.86 m/s</td><td>(150, 50)</td><td>(150, 50)</td></tr>
+            <tr><td>10 s</td><td>0.009 m</td><td>0.007 m/s</td><td>(250, 50)</td><td>(250, 50)</td></tr>
+          </tbody>
+        </table>
+        <p>Two warnings are hidden in that table. First, the velocity spread of 35 m/s at \(t=2\) s means individual speeds swung from about 7 to 33 m/s during the collapse — a 100 m disagreement with \(k_p=1\) demands tens of m/s² (Section 9). Second, the four aircraft converge to the <em>same point</em>: pure consensus is a collision law. Formation control (Part 12) replaces \(p_i-p_j\) by \(p_i-p_j-d_{ij}\) so that the same dynamics converge to a shape instead.</p>
+      </section>
+
+      <section id="directed">
+        <h2>6. Directed Graphs: the Gain Condition</h2>
+        <p>On a digraph the Laplacian eigenvalues \(\mu_k\) can be complex, and the modal equation becomes \(\ddot z+k_v\mu_k\dot z+k_p\mu_k z=0\) with <em>complex</em> coefficients. A quadratic \(s^2+as+b\) with complex \(a,b\) is Hurwitz iff</p>
+        <div class="formula">\[ \operatorname{Re}a\gt0\qquad\text{and}\qquad \operatorname{Re}a\,\operatorname{Im}a\,\operatorname{Im}b+(\operatorname{Re}a)^2\operatorname{Re}b-(\operatorname{Im}b)^2\gt0 \]</div>
+        <p>(checked numerically against 20 000 random complex pairs). With \(a=k_v\mu\), \(b=k_p\mu\) the first condition is \(k_v\operatorname{Re}\mu\gt0\) — Gershgorin's half-plane, Part 7 — and the second, after dividing by \(k_pk_v^2\operatorname{Re}\mu\), becomes the theorem:</p>
+        <div class="theorem">
+          <strong>Theorem (Yu, Chen &amp; Cao 2010).</strong> With \(k_p,k_v\gt0\), second-order consensus is reached on a digraph if and only if the digraph has a directed spanning tree and
+          \[ \boxed{\;\frac{k_v^2}{k_p}\;\gt\;\max_{\mu_k\ne0}\frac{\big(\operatorname{Im}\mu_k\big)^2}{\operatorname{Re}\mu_k\,|\mu_k|^2}\;} \]
+          For undirected graphs (\(\operatorname{Im}\mu_k=0\)) the right-hand side is zero and any positive gains work.
+        </div>
+        <p><strong>Directed 3-ring</strong> \(1\to2\to3\to1\): \(\mu=1.5\pm0.866\mathrm j\), \(|\mu|^2=3\), threshold \(0.75/(1.5\cdot3)=1/6=0.167\). With \(k_p=1\) the law needs \(k_v\gt\sqrt{1/6}=0.408\):</p>
+        <table>
+          <thead><tr><th>\(k_v\)</th><th>\(k_v^2/k_p\)</th><th>max Re of non-zero closed-loop eigenvalues</th><th>position spread at 30 s (\(p(0)=[10,14,8]\), \(v(0)=[1,0,-1]\))</th></tr></thead>
+          <tbody>
+            <tr><td>0.30</td><td>0.090</td><td>+0.097 (unstable)</td><td>41.8 and growing</td></tr>
+            <tr><td>0.408</td><td>0.167</td><td>0.000 (boundary: poles at \(\pm1.414\mathrm j\))</td><td>sustained oscillation</td></tr>
+            <tr><td>0.50</td><td>0.250</td><td>−0.087</td><td>0.18</td></tr>
+            <tr><td>1.00</td><td>1.000</td><td>−0.648</td><td>≈ 0</td></tr>
+          </tbody>
+        </table>
+        <div class="warning"><strong>What is new.</strong> In first-order consensus a spanning tree was sufficient for any gain. Here a one-way ring with too little velocity coupling diverges — the complex eigenvalue injects a phase lag that the position term alone cannot damp. The stronger the rotation of \(\mu\) off the real axis (relay chains, one-way rings), the more velocity coupling is needed. Balanced symmetric links are the easy case.</div>
+      </section>
+
+      <section id="variants">
+        <h2>7. Variants: Damping, References, Feedforward</h2>
+        <h3>7.1 Absolute damping: stationary consensus</h3>
+        <p>Adding \(-k_dv_i\) to \(u_i\) brings the swarm to rest: velocities decay and positions converge to \(\bar p(0)+\bar v(0)/k_d\) (the ramp is integrated by a first-order lag of time constant \(1/k_d\)). Two UAVs, \(k_d=0.5\): predicted final position \(5+1/0.5=7\); simulated \(p(20)=[7.000,7.000]\), \(v(20)=0\); closed-loop eigenvalues \(\{-2.54,-0.79,-0.5,0\}\). Useful for a loiter rendezvous point; useless for a fixed-wing swarm that must keep flying.</p>
+        <h3>7.2 Reference tracking with pinning</h3>
+        <p>Let pinned UAVs also see a reference \((p_r,v_r)\) with acceleration \(u_r\): \(u_i=\dots-b_i[k_p(p_i-p_r)+k_v(v_i-v_r)]\). With \(H=L+B\) (Part 8) the error dynamics are \(\ddot e=-k_pHe-k_vH\dot e-\mathbf 1u_r\): for a constantly accelerating reference the followers lag by</p>
+        <div class="formula">\[ e_{ss}=-\frac{H^{-1}\mathbf 1}{k_p}\,u_r . \]</div>
+        <p>Two UAVs, UAV 1 pinned, \(k_p=1\), \(u_r=0.5\) m/s²: \(H^{-1}\mathbf 1=(2,3)\), \(e_{ss}=(-1,-1.5)\) m, reached by \(t=60\) s (\(-0.89,-1.32\) at 10 s). Adding the feedforward \(u_i\mathrel{+}=u_r\) removes it: \(e(30)=(-0.0016,-0.0025)\). This is the second-order version of the Part 8 lesson: broadcast the reference's acceleration (or run the estimator with its model) and the lag disappears.</p>
+        <h3>7.3 Position-only coupling</h3>
+        <p>With \(k_v=0\) the \(C_4\) closed loop has eigenvalues \(\{0,0,\pm1.414\mathrm j,\pm1.414\mathrm j,\pm2\mathrm j\}\): undamped oscillation forever. Velocity information is not optional in second-order consensus; it is the damper. When neighbours' velocities are not communicated, estimate them by differencing their reported positions — with care for noise (Part 6 §8).</p>
+      </section>
+
+      <section id="sampled">
+        <h2>8. Sampled-Data Stability</h2>
+        <p>Implemented with forward-Euler steps of \(T_s\), each mode becomes the discrete map</p>
+        <div class="formula">
+          \[ \begin{bmatrix}z\\ \dot z\end{bmatrix}[k+1]=\begin{bmatrix}1&T_s\\-k_p\lambda T_s&1-k_v\lambda T_s\end{bmatrix}\begin{bmatrix}z\\ \dot z\end{bmatrix}[k], \]
+        </div>
+        <p>with characteristic polynomial \(P(z)=z^2-(2-k_v\lambda T_s)z+(1-k_v\lambda T_s+k_p\lambda T_s^2)\). The Jury conditions give the exact stability region:</p>
+        <div class="formula">
+          \[ \boxed{\;T_s\lt\frac{k_v}{k_p}\qquad\text{and}\qquad 4-2k_v\lambda T_s+k_p\lambda T_s^2\gt0\;}\qquad\text{for every }\lambda_k\gt0. \]
+        </div>
+        <p>For \(k_p=k_v=1\) and \(\lambda=4\) the second condition is \(4(1-T_s)^2\gt0\): stable for all \(T_s\lt1\) s, with a deadbeat at \(T_s=0.5\) (spectral radius 0). The spectral radius is \(0.90,\ 0.80,\ 0.60\) at \(T_s=0.05,0.1,0.2\) s. For \(k_p=0.5\), \(k_v=1\), \(\lambda_N=4\) the limit is \(T_s\lt0.586\) s (root of \(4-8T_s+2T_s^2\)), and at 20 Hz the radius is \(0.971\). These limits are far looser than the first-order rule \(T_sk\lambda_N\lt2\) because the velocity term is itself a damper — but they depend on the integration scheme: a semi-implicit step (update \(v\) then \(p\) with the new \(v\)) has radius \(1.62\) at \(\lambda=4\), \(T_s=0.5\). Always check the discrete map you actually implement.</p>
+      </section>
+
+      <section id="fixed-wing">
+        <h2>9. Fixed-Wing Interpretation</h2>
+        <h3>9.1 From acceleration to course rate and speed rate</h3>
+        <p>The law outputs an inertial acceleration demand \(u_i\in\mathbb R^2\) (north, east). An aircraft flying at ground speed \(V_g\) on course \(\chi\) can realise an acceleration only through its speed loop (along-track) and its turn (cross-track). Project onto the velocity direction and its left normal:</p>
+        <div class="formula">
+          \[ \hat t=\begin{bmatrix}\cos\chi\\ \sin\chi\end{bmatrix},\quad \hat n=\begin{bmatrix}-\sin\chi\\ \cos\chi\end{bmatrix},\qquad
+          \boxed{\;\dot V_g^c=u_i\cdot\hat t,\qquad \dot\chi^c=\frac{u_i\cdot\hat n}{V_g}\;} \]
+        </div>
+        <p>(from \(\dot v=\dot V_g\hat t+V_g\dot\chi\hat n\) for \(v=V_g\hat t\)). Example: \(V_g=25\) m/s, \(\chi=30^\circ\), \(u=(1,2)\) m/s²: \(\hat t=(0.866,0.5)\), \(\hat n=(-0.5,0.866)\), \(\dot V_g^c=1.87\) m/s², \(u\cdot\hat n=1.23\) m/s², \(\dot\chi^c=0.0493\) rad/s \(=2.82^\circ\)/s. The course-rate command then becomes a bank command \(\phi^c=\arctan(V_g\dot\chi^c/g)\) (Part 16), or a lateral-acceleration setpoint for the autopilot (Part 23).</p>
+        <h3>9.2 The envelope</h3>
+        <table>
+          <thead><tr><th>\(V_g\)</th><th>limit</th><th>\(a_{\mathrm{lat},\max}\)</th><th>\(\omega_{\max}\)</th><th>\(R_{\min}\)</th><th>\(\dot\chi\) for a 5 m/s² lateral demand</th></tr></thead>
+          <tbody>
+            <tr><td>25 m/s</td><td>\(\phi_{\max}=45^\circ\)</td><td>9.81 m/s²</td><td>22.5°/s</td><td>64 m</td><td>11.5°/s</td></tr>
+            <tr><td>60 m/s</td><td>\(\phi_{\max}=45^\circ\)</td><td>9.81 m/s²</td><td>9.4°/s</td><td>367 m</td><td>4.8°/s</td></tr>
+            <tr><td>150 m/s</td><td>\(\phi_{\max}=60^\circ\)</td><td>17.0 m/s²</td><td>6.5°/s</td><td>1324 m</td><td>1.9°/s</td></tr>
+            <tr><td>250 m/s</td><td>\(n_{z,\max}=4\) (\(\phi=75.5^\circ\))</td><td>38.0 m/s²</td><td>8.7°/s</td><td>1645 m</td><td>1.15°/s</td></tr>
+          </tbody>
+        </table>
+        <p>Three consequences for the gains:</p>
+        <ul>
+          <li><strong>Scale \(k_p\) to the disagreement you expect.</strong> \(k_p=1\) with a 100 m position disagreement on a single link demands 100 m/s² — ten times what any aircraft can turn at. \(k_p=0.05\) demands 5 m/s². Second-order consensus gains for aircraft are two orders of magnitude smaller than the textbook \(k_p=1\), and the command is saturated anyway (Part 24's \(\Delta v_{\max}\)).</li>
+          <li><strong>Make the gains anisotropic.</strong> Lateral acceleration capability (\(g\tan\phi_{\max}\)) is similar at all speeds, but <em>longitudinal</em> acceleration is small — a few m/s² for a small UAV, under 1 m/s² for a fast aircraft near its drag limit (specific excess power, Part 16). The along-track component of \(u_i\) therefore deserves a smaller gain than the cross-track one, or the speed command will saturate while the turn does not.</li>
+          <li><strong>Respect the minimum speed.</strong> The double integrator happily reverses (Section 5.1); an aircraft cannot drop below \(V_{\min}\). The projection must clip \(V_g^c\) to \([V_{\min},V_{\max}]\), which turns the exact linear analysis into a local one — valid once the disagreement is small enough that the clip is inactive.</li>
+        </ul>
+        <h3>9.3 Where the damping actually comes from</h3>
+        <p>In the capstone the formation layer outputs a <em>velocity</em> command (first-order law) and the aircraft's course/speed loops supply the integration. Per mode, a velocity command \(v^c=-k\,e\) through a first-order vehicle lag \(\dot v=b(v^c-v)\) gives \(\ddot e+b\dot e+bk\,e=0\): a second-order consensus with \(k_v\lambda\to b\) and \(k_p\lambda\to bk\), hence</p>
+        <div class="formula">\[ \zeta=\frac{b}{2\sqrt{bk}}=\frac12\sqrt{\frac{b}{k}}\ \ge\ \frac{1}{\sqrt2}\quad\Longleftrightarrow\quad k\le\frac{b}{2}, \]</div>
+        <p>which is exactly Part 24's check D2, \(k_p+k_c\lambda_{\max}\le b_\chi/2\). The vehicle's own loop bandwidth plays the role of \(k_v\); the designer only sets the position gain, and the bound on it is a damping requirement.</p>
+        <div class="note"><strong>High-speed note.</strong> \(\omega_{\max}\propto1/V_g\) while \(a_{\mathrm{lat},\max}\) stays of order \(g\): at 250 m/s a 5 m/s² lateral demand is a 1.15°/s turn, so the <em>same</em> acceleration-level law produces gentle, slow course changes, and disagreement in position is removed over kilometres rather than hundreds of metres (Section 5.2's 100 m collapse took 5 s at 20 m/s; at 200 m/s the equivalent manoeuvre spans a kilometre). Longitudinal acceleration is scarcer still, so along-track errors should be corrected by speed over long horizons or by path-based coordination (Part 19) rather than by aggressive \(k_p\). The gain condition of Section 6 is unchanged by speed, but the Jordan-block transients of relay graphs (Part 7) now cost kilometres.</div>
+        <div class="claw"><strong>Toward the CLAW</strong>
+          Second-order consensus is the <em>dynamic model</em> behind the capstone's formation layer. The capstone's L2 law is first-order in the command, and this part shows why that is enough: the aircraft's course and speed loops close the second integrator, with their bandwidth acting as the velocity gain — which is where check D2 comes from (Section 9.3). When the autopilot accepts acceleration setpoints instead (Part 23), the protocol of Section 2 with the projection of Section 9.1 is used directly, with gains scaled by the envelope table and the velocity term fed from neighbours' reported velocities (dead-reckoned, Part 24 §4.4). The directed-graph condition of Section 6 is checked once per topology alongside condition C1.</div>
+      </section>
+
+      <section id="implementation">
+        <h2>10. Implementation</h2>
+        <p>Pure NumPy. Reproduces the critically damped pair, the planar ring (Kronecker form), the Yu–Chen–Cao threshold on the directed ring, and the acceleration projection.</p>
+<pre><code>import numpy as np
+np.set_printoptions(precision=4, suppress=True)
+
+def laplacian_in(A):                      # course convention: A[i,j]&gt;0 &lt;=&gt; i transmits to j
+    W = A.T.copy()
+    return np.diag(W.sum(axis=1)) - W
+
+def closed_loop(L, kp, kv):               # d/dt [p; v] = M [p; v]
+    N = len(L)
+    return np.block([[np.zeros((N, N)), np.eye(N)], [-kp * L, -kv * L]])
+
+def modes(L, kp, kv):                     # undirected only: omega_n and zeta per Laplacian mode
+    for lam in np.linalg.eigvalsh(L)[1:]:
+        wn, zeta = np.sqrt(kp * lam), kv * np.sqrt(lam) / (2 * np.sqrt(kp))
+        print(f"  lambda={lam:.3f}: omega_n={wn:.4f} rad/s, zeta={zeta:.4f}")
+
+def yu_chen_cao_threshold(L):             # directed: need kv^2/kp &gt; threshold (+ spanning tree)
+    mu = np.linalg.eigvals(L); mu = mu[np.abs(mu) &gt; 1e-9]
+    return max(m.imag**2 / (m.real * abs(m)**2) for m in mu)
+
+def euler(M, z0, T, dt=1e-3):             # z' = M z
+    z = z0.astype(float).copy()
+    for _ in range(int(round(T / dt))):
+        z += dt * (M @ z)
+    return z
+
+# --- Example 1: two UAVs, lambda_2 = 2, kp = 1, kv = sqrt(2)  -&gt; zeta = 1 ---
+L2 = laplacian_in(np.array([[0, 1], [1, 0]], float))
+kp, kv = 1.0, np.sqrt(2)
+print("two UAVs:"); modes(L2, kp, kv)
+M = closed_loop(L2, kp, kv)
+print("  closed-loop eigenvalues:", np.sort_complex(np.linalg.eigvals(M)))
+z0 = np.array([0.0, 10.0, 2.0, 0.0])      # p1, p2, v1, v2
+for T in (3.0, 6.0):
+    z = euler(M, z0, T)
+    print(f"  t={T:.0f}: p={z[:2]}, v={z[2:]}, consensus trajectory pbar+vbar*t={5 + 1*T:.1f}")
+
+# --- Example 2: 4-UAV undirected ring C4 in 2-D (Kronecker form), kp = kv = 1 ---
+A4 = np.array([[0, 1, 0, 1], [1, 0, 1, 0], [0, 1, 0, 1], [1, 0, 1, 0]], float)
+L4 = laplacian_in(A4); kp, kv = 1.0, 1.0
+print("C4 ring:"); modes(L4, kp, kv)
+print("  closed-loop eigenvalues:", np.sort_complex(np.linalg.eigvals(closed_loop(L4, kp, kv))))
+Mk = closed_loop(np.kron(L4, np.eye(2)), kp, kv)                  # (L (x) I_2)
+P0 = np.array([[0, 0], [100, 0], [100, 100], [0, 100]], float)    # (north, east) [m]
+V0 = np.array([[20, 0], [25, 5], [20, -5], [15, 0]], float)       # [m/s]
+z = euler(Mk, np.concatenate([P0.ravel(), V0.ravel()]), 10.0)
+P, V = z[:8].reshape(4, 2), z[8:].reshape(4, 2)
+print("  t=10: centroid", P.mean(axis=0), "predicted", P0.mean(axis=0) + V0.mean(axis=0) * 10,
+      "| max spread %.3f m" % max(np.linalg.norm(P[i] - P[j]) for i in range(4) for j in range(i)))
+
+# --- Example 3: directed ring 1-&gt;2-&gt;3-&gt;1: gain condition of Yu, Chen &amp; Cao (2010) ---
+L3 = laplacian_in(np.array([[0, 1, 0], [0, 0, 1], [1, 0, 0]], float))
+thr = yu_chen_cao_threshold(L3)
+print(f"directed ring: need kv^2/kp &gt; {thr:.4f}")
+for kv in (0.3, 0.5):
+    ev = np.linalg.eigvals(closed_loop(L3, 1.0, kv)); nz = ev[np.abs(ev) &gt; 1e-7]
+    print(f"  kp=1, kv={kv}: kv^2/kp={kv**2:.3f}, max Re(nonzero eig)={nz.real.max():+.4f}")
+
+# --- Fixed-wing projection of an acceleration demand (NED horizontal, course chi) ---
+Vg, chi, u = 25.0, np.radians(30.0), np.array([1.0, 2.0])
+t_hat, n_hat = np.array([np.cos(chi), np.sin(chi)]), np.array([-np.sin(chi), np.cos(chi)])
+print(f"projection: Vg_dot^c = {u @ t_hat:.3f} m/s^2, chi_dot^c = {np.degrees(u @ n_hat / Vg):.3f} deg/s")
+</code></pre>
+<pre><code>two UAVs:
+  lambda=2.000: omega_n=1.4142 rad/s, zeta=1.0000
+  closed-loop eigenvalues: [-1.4142-0.j -1.4142+0.j  0.    +0.j  0.    +0.j]
+  t=3: p=[7.6671 8.3329], v=[1.3839 0.6161], consensus trajectory pbar+vbar*t=8.0
+  t=6: p=[10.9915 11.0085], v=[1.0108 0.9892], consensus trajectory pbar+vbar*t=11.0
+C4 ring:
+  lambda=2.000: omega_n=1.4142 rad/s, zeta=0.7071
+  lambda=2.000: omega_n=1.4142 rad/s, zeta=0.7071
+  lambda=4.000: omega_n=2.0000 rad/s, zeta=1.0000
+  closed-loop eigenvalues: [-2.+0.j -2.+0.j -1.-1.j -1.+1.j -1.-1.j -1.+1.j -0.+0.j -0.+0.j]
+  t=10: centroid [250.  50.] predicted [250.  50.] | max spread 0.009 m
+directed ring: need kv^2/kp &gt; 0.1667
+  kp=1, kv=0.3: kv^2/kp=0.090, max Re(nonzero eig)=+0.0972
+  kp=1, kv=0.5: kv^2/kp=0.250, max Re(nonzero eig)=-0.0867
+projection: Vg_dot^c = 1.866 m/s^2, chi_dot^c = 2.824 deg/s
+</code></pre>
+      </section>
+
+      <section id="pitfalls">
+        <h2>11. Common Pitfalls</h2>
+        <ul>
+          <li><strong>Textbook gains on aircraft.</strong> \(k_p=1\) turns a 100 m disagreement into a 100 m/s² demand. Scale \(k_p\) by \(a_{\max}/(d_{\max}\cdot\text{expected disagreement})\) and saturate.</li>
+          <li><strong>Treating the spanning tree as sufficient on digraphs.</strong> It is not; check \(k_v^2/k_p\) against the Yu–Chen–Cao threshold whenever the Laplacian has complex eigenvalues.</li>
+          <li><strong>Dropping the velocity term because velocities are not in the packets.</strong> Then the swarm oscillates forever (Section 7.3). Put \(v_j\) in the packet (Part 24 §4.2) or difference positions.</li>
+          <li><strong>Expecting the swarm to stop.</strong> Second-order consensus converges to a moving point at \(\bar v(0)\); add \(-k_dv_i\) only if a halt is wanted — never for fixed-wing.</li>
+          <li><strong>Using the first-order sampling rule.</strong> The second-order Jury region is different (and usually looser), but it depends on the integration scheme; verify the map you implement.</li>
+          <li><strong>Projecting without the envelope.</strong> \(\dot\chi^c=(u\cdot\hat n)/V_g\) can exceed \(\omega_{\max}\) and \(V_g^c\) can fall below \(V_{\min}\); clip both and accept that the linear analysis is then local.</li>
+          <li><strong>Forgetting the reference acceleration.</strong> Pinned tracking of an accelerating reference lags by \(H^{-1}\mathbf 1u_r/k_p\) unless \(u_r\) is fed forward.</li>
+        </ul>
+      </section>
+
+      <section id="exercises">
+        <h2>12. Exercises</h2>
+        <div class="exercise">
+          <strong>Exercise 1 (damping design).</strong> For the \(C_4\) ring with \(k_p=0.5\), choose \(k_v\) so that every disagreement mode has \(\zeta\ge0.7\). Which mode is binding, and what are the resulting natural frequencies?
+          <details><summary>Show solution</summary><div class="solution">\(\zeta_k=k_v\sqrt{\lambda_k}/(2\sqrt{0.5})=k_v\sqrt{\lambda_k/2}\). The smallest \(\lambda_k=2\) is binding: \(\zeta=k_v\ge0.7\Rightarrow k_v=0.7\). Then \(\lambda=4\) has \(\zeta=0.99\). Natural frequencies \(\sqrt{0.5\cdot2}=1.0\) and \(\sqrt{0.5\cdot4}=1.41\) rad/s.</div></details>
+        </div>
+        <div class="exercise">
+          <strong>Exercise 2 (sampling).</strong> With \(k_p=0.5\), \(k_v=1\) and \(\lambda_N=4\), find the largest forward-Euler step from the Jury conditions and the spectral radius at 20 Hz.
+          <details><summary>Show solution</summary><div class="solution">\(T_s\lt k_v/k_p=2\) and \(4-8T_s+2T_s^2\gt0\Rightarrow T_s\lt(8-\sqrt{32})/4=0.586\) s (binding). At \(T_s=0.05\) s the mode matrix has spectral radius 0.971 (numerically 0.9707); at 0.1 s, 0.941; at 0.5 s, 0.707.</div></details>
+        </div>
+        <div class="exercise">
+          <strong>Exercise 3 (directed threshold).</strong> On the directed 3-ring with \(k_p=2\), what is the minimum \(k_v\)? Explain in words why a one-way ring needs more velocity coupling than a two-way one.
+          <details><summary>Show solution</summary><div class="solution">\(k_v^2\gt k_p/6=1/3\Rightarrow k_v\gt0.577\). In a one-way ring each UAV reacts to an upstream neighbour that is itself reacting to its own upstream neighbour, so position information travels around the loop with phase lag (the complex eigenvalue); without enough velocity coupling the loop behaves like a delayed spring and oscillates with growing amplitude. Two-way links cancel the phase lag (real eigenvalues).</div></details>
+        </div>
+        <div class="exercise">
+          <strong>Exercise 4 (stationary consensus).</strong> Derive the final position \(\bar p(0)+\bar v(0)/k_d\) for the protocol with absolute damping \(-k_dv_i\) on an undirected graph.
+          <details><summary>Show solution</summary><div class="solution">Averages: \(\dot{\bar v}=-k_d\bar v\) (the Laplacian terms vanish under \(\mathbf 1^T\)), so \(\bar v(t)=\bar v(0)e^{-k_dt}\) and \(\bar p(t)=\bar p(0)+\bar v(0)(1-e^{-k_dt})/k_d\to\bar p(0)+\bar v(0)/k_d\). Disagreement modes satisfy \(\ddot z+(k_v\lambda+k_d)\dot z+k_p\lambda z=0\), Hurwitz, so all agents converge to the average trajectory. Two UAVs, \(k_d=0.5\): \(5+1/0.5=7\) ✓.</div></details>
+        </div>
+        <div class="exercise">
+          <strong>Exercise 5 (projection at speed).</strong> A fast aircraft at \(V_g=150\) m/s, \(\chi=90^\circ\) (east) receives \(u=(-3,\,1)\) m/s². Compute \(\dot V_g^c\), \(\dot\chi^c\) in °/s, the bank angle \(\phi^c=\arctan(V_g\dot\chi^c/g)\), and check it against \(\phi_{\max}=60^\circ\).
+          <details><summary>Show solution</summary><div class="solution">\(\hat t=(0,1)\), \(\hat n=(-1,0)\): \(\dot V_g^c=u\cdot\hat t=1\) m/s² (speed up), \(u\cdot\hat n=3\) m/s², \(\dot\chi^c=3/150=0.02\) rad/s \(=1.15^\circ\)/s (a left turn), \(\phi^c=\arctan(150\cdot0.02/9.81)=\arctan(0.306)=17^\circ\), well inside \(60^\circ\). The 1 m/s² longitudinal demand is the one more likely to saturate at this speed.</div></details>
+        </div>
+      </section>
+
+      <section id="summary">
+        <h2>13. Key Takeaways &amp; Formula Sheet</h2>
+        <ul>
+          <li>Protocol \(u_i=-\sum_jw_{ij}[k_p(p_i-p_j)+k_v(v_i-v_j)]\); stacked \(M=\begin{bmatrix}0&I\\-k_pL&-k_vL\end{bmatrix}\).</li>
+          <li>Undirected modes: \(\ddot z+k_v\lambda\dot z+k_p\lambda z=0\), \(\omega_n=\sqrt{k_p\lambda}\), \(\zeta=k_v\sqrt\lambda/(2\sqrt{k_p})\); stable for any \(k_p,k_v\gt0\); \(\lambda_2\) least damped.</li>
+          <li>Consensus trajectory \(p_i\to\bar p(0)+\bar v(0)t\), \(v_i\to\bar v(0)\) (double zero eigenvalue, Jordan block).</li>
+          <li>Directed: spanning tree <em>and</em> \(k_v^2/k_p\gt\max_k(\operatorname{Im}\mu_k)^2/(\operatorname{Re}\mu_k|\mu_k|^2)\) (Yu–Chen–Cao); directed 3-ring threshold \(1/6\).</li>
+          <li>Absolute damping \(-k_dv_i\): rest at \(\bar p(0)+\bar v(0)/k_d\). Pinned reference with acceleration \(u_r\): lag \(-H^{-1}\mathbf 1u_r/k_p\) unless fed forward.</li>
+          <li>Euler sampling (per mode): \(T_s\lt k_v/k_p\) and \(4-2k_v\lambda T_s+k_p\lambda T_s^2\gt0\).</li>
+          <li>Projection: \(\dot V_g^c=u\cdot\hat t\), \(\dot\chi^c=(u\cdot\hat n)/V_g\), clipped to the envelope; scale \(k_p\) to \(a_{\max}\); velocity-command law + vehicle lag \(b\) ⇒ \(\zeta=\tfrac12\sqrt{b/k}\) ⇒ \(k\le b/2\) (check D2).</li>
+        </ul>
+      </section>
+
+      <section id="references">
+        <h2>14. References</h2>
+        <ul>
+          <li>W. Ren and E. Atkins, "Distributed multi-vehicle coordinated control via local information exchange," <em>Int. J. Robust and Nonlinear Control</em> 17(10–11), 2007 — second-order consensus protocol and its analysis.</li>
+          <li>W. Yu, G. Chen and M. Cao, "Some necessary and sufficient conditions for second-order consensus in multi-agent dynamical systems," <em>Automatica</em> 46(6), 2010 — the gain condition on digraphs.</li>
+          <li>W. Ren and R. W. Beard, <em>Distributed Consensus in Multi-vehicle Cooperative Control</em>, Springer, 2008, Ch. 4 — double-integrator dynamics, reference tracking.</li>
+          <li>G. Xie and L. Wang, "Consensus control for a class of networks of dynamic agents," <em>Int. J. Robust and Nonlinear Control</em> 17(10–11), 2007.</li>
+          <li>R. Olfati-Saber, "Flocking for multi-agent dynamic systems: algorithms and theory," <em>IEEE Trans. Automatic Control</em> 51(3), 2006 — second-order agents with velocity alignment (Part 14).</li>
+          <li>K. J. Åström and B. Wittenmark, <em>Computer-Controlled Systems</em>, 3rd ed., Prentice Hall, 1997 — Jury stability test.</li>
+          <li>M. Mesbahi and M. Egerstedt, <em>Graph Theoretic Methods in Multiagent Networks</em>, Princeton, 2010, Ch. 3, 6.</li>
+        </ul>
+      </section>
+
+      <div class="prevnext">
+        <a class="prev" href="8_leader_follower_consensus.html"><span>&larr; Previous</span>Part 8: Leader–Follower Consensus</a>
+        <a class="next" href="10_formation_specification.html"><span>Next &rarr;</span>Part 10: Formation Specification</a>
+      </div>
+      <div class="done-box"><button id="done-btn" data-lesson="9">Mark Part 9 as complete</button></div>
+    </main>
+  </div>
+
+  <footer>Fixed-Wing Swarm Learning · Part 9 · Second-Order Consensus</footer>
+
+  <script>
+    (function () {
+      try {
+        var btn = document.getElementById('done-btn');
+        if (!btn) return;
+        var id = btn.getAttribute('data-lesson');
+        var key = 'fwswarm_done';
+        var done = JSON.parse(localStorage.getItem(key) || '[]');
+        function render() {
+          var is = done.indexOf(id) >= 0;
+          btn.textContent = is ? 'Completed ✓ (click to undo)' : 'Mark Part ' + id + ' as complete';
+          btn.className = is ? 'undone' : '';
+        }
+        btn.addEventListener('click', function () {
+          var i = done.indexOf(id);
+          if (i >= 0) done.splice(i, 1); else done.push(id);
+          localStorage.setItem(key, JSON.stringify(done));
+          render();
+        });
+        render();
+      } catch (e) { /* storage unavailable: ignore */ }
+    })();
+  </script>
+</body>
+</html>

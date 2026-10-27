@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fixed-Wing Swarm Learning — Directed-Graph Consensus</title>
+
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['\\(', '\\)']],
+        displayMath: [['\\[', '\\]'], ['$$', '$$']]
+      },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --card: #ffffff;
+      --text: #172033;
+      --muted: #5d687a;
+      --accent: #2457d6;
+      --accent-light: #eaf0ff;
+      --border: #dce2ec;
+      --code: #111827;
+      --success: #147a4b;
+      --warning: #c27b00;
+      --danger: #b42318;
+      --claw: #0f766e;
+      --claw-light: #e6f6f4;
+      --def: #6d28d9;
+      --def-light: #f3eefe;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+    }
+
+    header {
+      background: linear-gradient(135deg, #172554, #2457d6);
+      color: white;
+      padding: 56px 20px 44px;
+    }
+    header .wrap { max-width: 1320px; margin: auto; }
+    .topbar { margin-bottom: 18px; font-size: .95rem; }
+    .topbar a { color: #dbe6ff; }
+    .topbar a:hover { color: #fff; }
+
+    h1 { margin: 0 0 10px; font-size: clamp(2rem, 5vw, 3.2rem); }
+    h2 { margin-top: 0; font-size: 1.8rem; }
+    h3 { margin-top: 1.6rem; }
+    h4 { margin-top: 1.2rem; margin-bottom: .4rem; }
+
+    .subtitle { max-width: 820px; color: #dbe6ff; font-size: 1.08rem; }
+
+    nav, section, .callout {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px;
+      margin: 20px 0;
+      box-shadow: 0 3px 12px rgba(20, 35, 70, .05);
+    }
+    nav h2 { font-size: 1.35rem; }
+    nav ol { margin-bottom: 0; padding-left: 22px; }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    code { background: #eef1f6; padding: 2px 5px; border-radius: 5px; font-size: .92em; }
+    pre {
+      background: var(--code);
+      color: #e5e7eb;
+      padding: 18px;
+      border-radius: 10px;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+    pre code { background: none; padding: 0; color: inherit; font-size: .9rem; }
+
+    .formula {
+      background: var(--accent-light);
+      border-left: 4px solid var(--accent);
+      padding: 16px 18px;
+      margin: 16px 0;
+      overflow-x: auto;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+    }
+    .mini {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      background: #fbfcff;
+    }
+    .mini strong { display: block; margin-bottom: 5px; }
+
+    .success { border-left: 4px solid var(--success); background: #edf9f3; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .warning { border-left: 4px solid var(--warning); background: #fff8e8; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .danger  { border-left: 4px solid var(--danger);  background: #fdecec; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .note    { border-left: 4px solid var(--muted);   background: #f3f5f8; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .definition, .theorem {
+      border-left: 4px solid var(--def);
+      background: var(--def-light);
+      padding: 14px 18px;
+      border-radius: 8px;
+      margin: 14px 0;
+    }
+    .definition > strong:first-child, .theorem > strong:first-child { color: var(--def); }
+    .claw {
+      border: 1px solid #99d6cf;
+      border-left: 6px solid var(--claw);
+      background: var(--claw-light);
+      padding: 16px 20px;
+      border-radius: 10px;
+      margin: 18px 0;
+    }
+    .claw > strong:first-child { color: var(--claw); display: block; margin-bottom: 6px; font-size: 1.05rem; }
+
+    table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+    th, td { text-align: left; padding: 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    th { background: #f1f4f9; }
+
+    .tag {
+      display: inline-block;
+      background: #eaf0ff;
+      color: #204bb4;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: .82rem;
+      margin: 3px;
+    }
+
+    figure { margin: 18px 0; }
+    figure > svg { width: 100%; height: auto; display: block; background: #fbfcff; border: 1px solid var(--border); border-radius: 10px; }
+    figcaption { color: var(--muted); font-size: .92rem; margin-top: 6px; text-align: center; }
+
+    .exercise { border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; margin: 14px 0; background: #fbfcff; }
+    .exercise summary { cursor: pointer; color: var(--accent); font-weight: 600; margin-top: 8px; }
+    .exercise details { margin-top: 6px; }
+    .exercise .solution { border-top: 1px dashed var(--border); margin-top: 8px; padding-top: 8px; }
+
+    .demo { border: 1px solid var(--border); border-radius: 12px; padding: 14px; background: #fbfcff; margin: 16px 0; }
+    .demo canvas { width: 100%; height: auto; display: block; background: #ffffff; border: 1px solid var(--border); border-radius: 8px; }
+    .controls { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; margin: 10px 0; font-size: .95rem; }
+    .controls label { display: inline-flex; align-items: center; gap: 6px; }
+    .controls input[type=range] { width: 140px; }
+    .controls button, .btn {
+      background: var(--accent); color: #fff; border: 0; padding: 7px 14px; border-radius: 8px; cursor: pointer; font-size: .92rem;
+    }
+    .controls button:hover, .btn:hover { filter: brightness(1.08); }
+    .controls button.secondary { background: #e5e9f2; color: var(--text); }
+
+    .prevnext { display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin: 26px 0 0; }
+    .prevnext a { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; flex: 1 1 260px; }
+    .prevnext a span { display: block; color: var(--muted); font-size: .82rem; }
+    .prevnext a.next { text-align: right; }
+
+    .done-box { text-align: center; margin: 24px 0 0; }
+    .done-box button { background: var(--success); color: #fff; border: 0; padding: 9px 18px; border-radius: 8px; cursor: pointer; }
+    .done-box button.undone { background: #9aa5b5; }
+
+    footer { text-align: center; color: var(--muted); padding: 30px 20px 50px; }
+
+    .page-shell {
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      gap: 24px;
+      max-width: 1320px;
+      margin: 0 auto;
+      padding: 28px 20px 70px;
+      align-items: start;
+    }
+    .sidebar { grid-column: 1; position: sticky; top: 20px; }
+    .sidebar nav { position: sticky; top: 20px; max-height: calc(100vh - 40px); overflow-y: auto; }
+    .content { grid-column: 2; min-width: 0; }
+    @media (max-width: 960px) {
+      .page-shell { grid-template-columns: 1fr; }
+      .sidebar, .sidebar nav { position: static; max-height: none; }
+      .sidebar, .content { grid-column: 1; }
+    }
+    @media print {
+      nav { break-after: page; }
+      section { box-shadow: none; }
+      .demo, .done-box, .prevnext, .topbar { display: none; }
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <div class="wrap">
+      <div class="topbar"><a href="index.html">&larr; Course home</a> &nbsp;·&nbsp; Module B: Consensus</div>
+      <h1>Fixed-Wing Swarm Learning</h1>
+      <div class="subtitle">
+        Part 7: <strong>Directed-Graph Consensus</strong> — when information flows one way: the in-degree Laplacian, the spanning-tree
+        condition, and who decides what value the swarm agrees on.
+      </div>
+      <p>
+        <span class="tag">Digraphs</span>
+        <span class="tag">Spanning tree</span>
+        <span class="tag">Left eigenvector</span>
+        <span class="tag">Balanced graphs</span>
+        <span class="tag">UAV Swarms</span>
+      </p>
+    </div>
+  </header>
+
+  <div class="page-shell">
+    <aside class="sidebar">
+      <nav id="index">
+        <h2>Index</h2>
+        <ol>
+          <li><a href="#why">Why this matters</a></li>
+          <li><a href="#listening">Listening weights and the in-degree Laplacian</a></li>
+          <li><a href="#spectrum">Where the eigenvalues live</a></li>
+          <li><a href="#spanning-tree">The spanning-tree theorem</a></li>
+          <li><a href="#value">Who decides the consensus value</a></li>
+          <li><a href="#examples">Worked examples</a></li>
+          <li><a href="#rate">Convergence rate</a></li>
+          <li><a href="#classes">Four classes of digraphs</a></li>
+          <li><a href="#discrete">Discrete time and switching digraphs</a></li>
+          <li><a href="#fixed-wing">Fixed-wing interpretation</a></li>
+          <li><a href="#implementation">Implementation</a></li>
+          <li><a href="#pitfalls">Common pitfalls</a></li>
+          <li><a href="#exercises">Exercises</a></li>
+          <li><a href="#summary">Key takeaways &amp; formula sheet</a></li>
+          <li><a href="#references">References</a></li>
+        </ol>
+      </nav>
+    </aside>
+
+    <main class="content">
+
+      <section id="why">
+        <h2>1. Why This Matters</h2>
+        <p>
+          Parts 5 and 6 assumed that if UAV \(i\) hears UAV \(j\), then \(j\) hears \(i\). Real links are not like that: transmit powers differ,
+          antenna patterns are shadowed by a banked wing, a relay forwards in one direction, a leader broadcasts to followers who never
+          answer, and a lost packet makes even a symmetric link momentarily one-way (Part 6, Section 9). The communication graph is a
+          <em>digraph</em>, and three things change at once:
+        </p>
+        <ul>
+          <li>the Laplacian is no longer symmetric, so its eigenvalues can be complex and the Lyapunov proof of Part 6 no longer applies as written;</li>
+          <li>connectivity is no longer one property but several (weak, spanning tree, strong), and only one of them is the right condition for consensus;</li>
+          <li>the consensus value is no longer the average — it is a weighted average whose weights say <em>how much influence each aircraft has</em>.</li>
+        </ul>
+        <div class="formula">
+          \[ \text{undirected: } x_i\to\frac1N\sum_jx_j(0)\qquad\longrightarrow\qquad \text{directed: } x_i\to\sum_j\gamma_jx_j(0),\quad \gamma\ge0,\ \textstyle\sum_j\gamma_j=1 \]
+        </div>
+        <div class="grid">
+          <div class="mini"><strong>Input</strong>Digraphs and in/out-neighbours (<a href="1_fixed_wing_swarm_graphs_digraphs.html">Part 1</a>), the course's adjacency convention (<a href="2_fixed_wing_swarm_adjacency_degree_matrices.html">Part 2</a>), the undirected consensus solution (<a href="5_continuous_time_consensus.html">Part 5</a>), Gershgorin and Perron–Frobenius (<a href="A1_math_toolbox.html#gershgorin">A1 §6</a>, <a href="A1_math_toolbox.html#nonneg">§11</a>).</div>
+          <div class="mini"><strong>Output</strong>Build the correct Laplacian for a digraph under the course convention, decide from the graph alone whether consensus happens, compute the consensus value and rate, and judge a topology's fragility.</div>
+          <div class="mini"><strong>Used in</strong><a href="8_leader_follower_consensus.html">Part 8</a> (leader as root), <a href="9_second_order_consensus.html">Part 9</a>, every later law's \(w_{ij}\) sums, Part 24 (condition C1).</div>
+        </div>
+      </section>
+
+      <section id="listening">
+        <h2>2. Listening Weights and the In-Degree Laplacian</h2>
+        <p>Part 2 fixed the course convention for the adjacency matrix:</p>
+        <div class="formula">\[ a_{ij}\gt0\iff i\rightarrow j\qquad\text{(UAV } i \text{ transmits to UAV } j\text{)} . \]</div>
+        <p>A controller running on UAV \(i\) can only use what UAV \(i\) <em>receives</em>, i.e. data from its in-neighbours \(j\) with \(a_{ji}\gt0\). So the directed consensus protocol is</p>
+        <div class="formula">
+          \[ \dot x_i=\sum_{j:\,a_{ji}\gt0}a_{ji}\,(x_j-x_i) . \]
+        </div>
+        <p>The weight that matters to UAV \(i\) is \(a_{ji}\), not \(a_{ij}\). To stop writing transposed indices for the rest of the course, define the <strong>listening-weight matrix</strong>:</p>
+        <div class="definition">
+          <strong>Definition (listening weights, in-degree, in-degree Laplacian).</strong>
+          \[ W=A^T,\qquad w_{ij}=a_{ji}=\text{weight UAV } i \text{ applies to data received from } j, \]
+          \[ \mathcal N_i^{\mathrm{in}}=\{j:w_{ij}\gt0\},\qquad d_i^{\mathrm{in}}=\sum_jw_{ij}\ \ (\text{column sums of }A),\qquad D_{\mathrm{in}}=\operatorname{diag}(d_i^{\mathrm{in}}), \]
+          \[ \boxed{\;L=D_{\mathrm{in}}-W\;},\qquad (Lx)_i=\sum_{j\in\mathcal N_i^{\mathrm{in}}}w_{ij}(x_i-x_j),\qquad \dot x=-Lx . \]
+        </div>
+        <p>Row \(i\) of \(L\) is built entirely from what UAV \(i\) hears: the diagonal is its total listening weight, the off-diagonal entries are minus the weights it applies. Hence every row sums to zero,</p>
+        <div class="formula">\[ L\mathbf 1=0\qquad\text{always, for any digraph,} \]</div>
+        <p>so the zero eigenvalue with eigenvector \(\mathbf 1\) survives. What does <em>not</em> survive is \(\mathbf 1^TL=0\): the columns of \(L\) sum to \(d_j^{\mathrm{in}}-d_j^{\mathrm{out}}\), which is zero only for <em>balanced</em> digraphs (Section 5). For an undirected graph \(A=A^T\), so \(W=A\), \(D_{\mathrm{in}}=D\) and \(L=D-A\) as before — nothing in Parts 3–6 changes.</p>
+        <div class="warning">
+          <strong>Textbook convention clash.</strong> Ren &amp; Beard, Mesbahi &amp; Egerstedt, Olfati-Saber &amp; Murray and most papers define the adjacency matrix the other way round: their \(a_{ij}\gt0\) means "\(i\) receives from \(j\)", so their \(A\) is our \(W\) and their \(L=D-A\) is our \(L=D_{\mathrm{in}}-W\). Their directed spanning tree points <em>into</em> the followers along their edge convention and is drawn with arrows reversed relative to ours. The mathematics is identical; only the bookkeeping differs. When you copy a formula, first decide which matrix the author calls \(A\).
+        </div>
+        <p><strong>Code</strong> (the two lines that matter for the whole course):</p>
+<pre><code>W = A.T                                  # listening weights: W[i, j] = A[j, i]
+L = np.diag(W.sum(axis=1)) - W           # in-degree Laplacian, rows sum to zero</code></pre>
+      </section>
+
+      <section id="spectrum">
+        <h2>3. Where the Eigenvalues Live</h2>
+        <p>\(L\) is not symmetric, so its eigenvalues may be complex and need not be ordered. Gershgorin's theorem still locates them: row \(i\) of \(L\) has diagonal \(d_i^{\mathrm{in}}\) and off-diagonal absolute sum \(\sum_j w_{ij}=d_i^{\mathrm{in}}\), so every eigenvalue lies in a disc centred at \(d_i^{\mathrm{in}}\) with radius \(d_i^{\mathrm{in}}\) for some \(i\):</p>
+        <div class="formula">
+          \[ \boxed{\;\lambda\in\bigcup_i\big\{z:|z-d_i^{\mathrm{in}}|\le d_i^{\mathrm{in}}\big\}\quad\Longrightarrow\quad \operatorname{Re}\lambda\ge0,\qquad |\lambda|\le2\,d_{\max}^{\mathrm{in}}\;} \]
+        </div>
+        <figure>
+          <svg viewBox="0 0 560 230" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Gershgorin discs of a directed Laplacian">
+            <g font-family="system-ui, sans-serif" font-size="13" fill="#172033">
+              <line x1="40" y1="120" x2="530" y2="120" stroke="#5d687a" stroke-width="1.5"/>
+              <line x1="80" y1="20" x2="80" y2="220" stroke="#5d687a" stroke-width="1.5"/>
+              <text x="520" y="138" fill="#5d687a">Re λ</text>
+              <text x="86" y="32" fill="#5d687a">Im λ</text>
+              <circle cx="160" cy="120" r="80" fill="rgba(36,87,214,0.10)" stroke="#2457d6" stroke-width="1.5"/>
+              <circle cx="240" cy="120" r="160" fill="rgba(15,118,110,0.08)" stroke="#0f766e" stroke-width="1.5" stroke-dasharray="6 4"/>
+              <text x="160" y="212" text-anchor="middle" fill="#2457d6">d_in = 1</text>
+              <text x="330" y="60" text-anchor="middle" fill="#0f766e">d_in = 2</text>
+              <circle cx="80" cy="120" r="5" fill="#b42318"/><text x="72" y="140" text-anchor="end" fill="#b42318">0</text>
+              <circle cx="200" cy="51" r="5" fill="#b42318"/><circle cx="200" cy="189" r="5" fill="#b42318"/>
+              <text x="212" y="47" fill="#b42318">1.5 ± 0.866 j</text>
+              <text x="300" y="150" fill="#5d687a" font-size="12">all discs touch the origin from the right:</text>
+              <text x="300" y="168" fill="#5d687a" font-size="12">Re λ ≥ 0, and 0 is always an eigenvalue</text>
+            </g>
+          </svg>
+          <figcaption>Figure 1. Gershgorin discs of an in-degree Laplacian are tangent to the imaginary axis at the origin; the directed 3-ring's eigenvalues \(0,\ 1.5\pm0.866\mathrm j\) sit inside the \(d^{\mathrm{in}}=1\) disc.</figcaption>
+        </figure>
+        <p>So \(\dot x=-Lx\) is never unstable: every mode decays or at worst persists. Whether it <em>converges to consensus</em> depends on the zero eigenvalue being simple, which is a question about the graph, not about Gershgorin.</p>
+      </section>
+
+      <section id="spanning-tree">
+        <h2>4. The Spanning-Tree Theorem</h2>
+        <div class="definition">
+          <strong>Definition (directed spanning tree, course convention).</strong> A digraph has a directed spanning tree if some node \(r\) (a <em>root</em>) has a directed path \(r\to\cdots\to i\) to every other node \(i\): information from the root can reach everyone, possibly through relays. Equivalently, every node except the root has an in-neighbour from which it is reachable along the tree.
+        </div>
+        <div class="theorem">
+          <strong>Theorem (consensus on digraphs — Ren &amp; Beard 2005; Olfati-Saber &amp; Murray 2004 for the strongly connected case).</strong>
+          For \(L=D_{\mathrm{in}}-W\) with non-negative weights the following are equivalent:
+          (a) the digraph has a directed spanning tree;
+          (b) zero is a simple eigenvalue of \(L\), i.e. \(\operatorname{rank}L=N-1\);
+          (c) \(\dot x=-Lx\) reaches consensus from every initial condition: \(x(t)\to x^\ast\mathbf 1\).
+          Moreover \(x^\ast=\gamma^Tx(0)\), where \(\gamma\) is the left eigenvector of the zero eigenvalue normalised so that \(\gamma^T\mathbf 1=1\), and \(\gamma\ge0\) entrywise.
+        </div>
+        <p><em>Proof sketch.</em> (b)⇔(c): with \(\operatorname{Re}\lambda\ge0\) from Gershgorin, all modes other than the zero one decay iff no other eigenvalue sits on the imaginary axis; a direct argument shows the only possible imaginary-axis eigenvalue of an in-degree Laplacian is \(0\) itself, so (c) holds iff the zero eigenvalue is simple, and then \(e^{-Lt}\to\mathbf 1\gamma^T\) (the spectral projector onto \(\ker L\)). (a)⇔(b): if two nodes \(r_1,r_2\) each have no path from the other — no spanning tree — the sets of nodes reachable from each contain disjoint "closed" subsets that never hear the outside, and the indicator vector of each closed subset is in \(\ker L\), so \(\dim\ker L\ge2\). Conversely, with a spanning tree every closed subset must contain the root, so there is only one, and the kernel is spanned by \(\mathbf 1\). \(\square\)</p>
+        <p><strong>Why \(\gamma\ge0\).</strong> Write \(L=d_{\max}I-M\) with \(M=d_{\max}I-D_{\mathrm{in}}+W\ge0\) entrywise. Then \(e^{-Lt}=e^{-d_{\max}t}e^{Mt}\) is a non-negative matrix, and \(e^{-Lt}\mathbf 1=\mathbf 1\) because \(L\mathbf 1=0\): the solution operator is <strong>row-stochastic</strong>. Every \(x_i(t)\) is therefore a convex combination of the initial values (no overshoot past the extremes), and so is the limit \(\gamma^Tx(0)\). (Numerically, \(e^{-0.7L}\) for the 3-ring has smallest entry \(0.122\) and row sums exactly one.)</p>
+        <div class="success"><strong>Interpretation:</strong> consensus needs exactly one thing — some aircraft whose information reaches every other aircraft, directly or by relay. It does not need two-way links, and it does not need everyone to reach everyone.</div>
+      </section>
+
+      <section id="value">
+        <h2>5. Who Decides the Consensus Value</h2>
+        <p>The vector \(\gamma\) is the <strong>influence profile</strong> of the swarm. Three facts settle most practical questions:</p>
+        <ol>
+          <li><strong>Nodes that nobody hears have zero influence</strong> (\(\gamma_i=0\) if \(i\) has no out-neighbours — it never affects anyone). A node that is not reachable <em>from</em> the root is impossible under the theorem; a node that cannot reach the root may well have \(\gamma_i=0\).</li>
+          <li><strong>Strongly connected</strong> (every node reaches every node) \(\Rightarrow\gamma_i\gt0\) for all \(i\): everyone has a say (Perron–Frobenius on the irreducible non-negative matrix \(M\)).</li>
+          <li><strong>Balanced</strong> (\(d_i^{\mathrm{in}}=d_i^{\mathrm{out}}\) for every node) \(\Rightarrow\mathbf 1^TL=0\Rightarrow\gamma=\mathbf 1/N\): <em>average</em> consensus, exactly as in the undirected case. Proof: column \(j\) of \(L=D_{\mathrm{in}}-W\) sums to \(d_j^{\mathrm{in}}-\sum_iw_{ij}=d_j^{\mathrm{in}}-\sum_ia_{ji}=d_j^{\mathrm{in}}-d_j^{\mathrm{out}}=0\), so \(\mathbf 1^T\) is a left null vector, and \(\tfrac{d}{dt}\mathbf 1^Tx=-\mathbf 1^TLx=0\) conserves the sum.</li>
+        </ol>
+        <div class="formula">
+          \[ \boxed{\;x^\ast=\gamma^Tx(0),\qquad \gamma^TL=0,\ \gamma\ge0,\ \gamma^T\mathbf 1=1\;} \qquad\text{balanced}\Rightarrow\gamma=\tfrac1N\mathbf 1 . \]
+        </div>
+        <p>For a leader broadcasting to followers who do not talk back, \(\gamma=e_{\text{leader}}\): the followers adopt the leader's value and the leader never moves. That is the degenerate extreme of influence — and the basis of <a href="8_leader_follower_consensus.html">Part 8</a>.</p>
+      </section>
+
+      <section id="examples">
+        <h2>6. Worked Examples</h2>
+        <p>All with \(x(0)=[10,14,8]^T\) (average \(10.667\)) unless stated. Figure 2 shows the four 3-UAV digraphs.</p>
+        <figure>
+          <svg viewBox="0 0 900 190" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Four three-node digraphs">
+            <defs><marker id="ar7" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#2457d6"/></marker></defs>
+            <g font-family="system-ui, sans-serif" font-size="13" fill="#172033">
+              <!-- (a) chain -->
+              <text x="110" y="22" text-anchor="middle" font-weight="700">(a) chain 1→2→3</text>
+              <circle cx="40" cy="80" r="17" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/><text x="40" y="85" text-anchor="middle">1</text>
+              <circle cx="110" cy="80" r="17" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/><text x="110" y="85" text-anchor="middle">2</text>
+              <circle cx="180" cy="80" r="17" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/><text x="180" y="85" text-anchor="middle">3</text>
+              <line x1="59" y1="80" x2="91" y2="80" stroke="#2457d6" stroke-width="2.5" marker-end="url(#ar7)"/>
+              <line x1="129" y1="80" x2="161" y2="80" stroke="#2457d6" stroke-width="2.5" marker-end="url(#ar7)"/>
+              <text x="110" y="130" text-anchor="middle" fill="#5d687a" font-size="12">tree, root 1</text>
+              <text x="110" y="148" text-anchor="middle" fill="#5d687a" font-size="12">γ = (1, 0, 0) → x* = 10</text>
+              <!-- (b) ring -->
+              <text x="330" y="22" text-anchor="middle" font-weight="700">(b) ring 1→2→3→1</text>
+              <circle cx="330" cy="50" r="17" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/><text x="330" y="55" text-anchor="middle">1</text>
+              <circle cx="280" cy="115" r="17" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/><text x="280" y="120" text-anchor="middle">3</text>
+              <circle cx="380" cy="115" r="17" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/><text x="380" y="120" text-anchor="middle">2</text>
+              <line x1="341" y1="64" x2="370" y2="101" stroke="#2457d6" stroke-width="2.5" marker-end="url(#ar7)"/>
+              <line x1="362" y1="115" x2="298" y2="115" stroke="#2457d6" stroke-width="2.5" marker-end="url(#ar7)"/>
+              <line x1="290" y1="101" x2="319" y2="64" stroke="#2457d6" stroke-width="2.5" marker-end="url(#ar7)"/>
+              <text x="330" y="150" text-anchor="middle" fill="#5d687a" font-size="12">strongly connected, balanced</text>
+              <text x="330" y="168" text-anchor="middle" fill="#5d687a" font-size="12">γ = (⅓,⅓,⅓) → x* = 10.667</text>
+              <!-- (c) two roots -->
+              <text x="560" y="22" text-anchor="middle" font-weight="700">(c) two roots 1→2←3</text>
+              <circle cx="490" cy="80" r="17" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/><text x="490" y="85" text-anchor="middle">1</text>
+              <circle cx="560" cy="80" r="17" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/><text x="560" y="85" text-anchor="middle">2</text>
+              <circle cx="630" cy="80" r="17" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/><text x="630" y="85" text-anchor="middle">3</text>
+              <line x1="509" y1="80" x2="541" y2="80" stroke="#2457d6" stroke-width="2.5" marker-end="url(#ar7)"/>
+              <line x1="611" y1="80" x2="579" y2="80" stroke="#2457d6" stroke-width="2.5" marker-end="url(#ar7)"/>
+              <text x="560" y="130" text-anchor="middle" fill="#5d687a" font-size="12">no spanning tree</text>
+              <text x="560" y="148" text-anchor="middle" fill="#5d687a" font-size="12">x → (10, 9, 8): no consensus</text>
+              <!-- (d) ring + 1->3 -->
+              <text x="790" y="22" text-anchor="middle" font-weight="700">(d) ring + 1→3</text>
+              <circle cx="790" cy="50" r="17" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/><text x="790" y="55" text-anchor="middle">1</text>
+              <circle cx="740" cy="115" r="17" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/><text x="740" y="120" text-anchor="middle">3</text>
+              <circle cx="840" cy="115" r="17" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/><text x="840" y="120" text-anchor="middle">2</text>
+              <line x1="801" y1="64" x2="830" y2="101" stroke="#2457d6" stroke-width="2.5" marker-end="url(#ar7)"/>
+              <line x1="822" y1="115" x2="758" y2="115" stroke="#2457d6" stroke-width="2.5" marker-end="url(#ar7)"/>
+              <line x1="750" y1="101" x2="779" y2="64" stroke="#2457d6" stroke-width="2.5" marker-end="url(#ar7)"/>
+              <line x1="779" y1="64" x2="750" y2="101" stroke="#0f766e" stroke-width="2.5" marker-end="url(#ar7)" transform="translate(-14 -8)"/>
+              <text x="790" y="150" text-anchor="middle" fill="#5d687a" font-size="12">strongly connected, unbalanced</text>
+              <text x="790" y="168" text-anchor="middle" fill="#5d687a" font-size="12">γ = (½,¼,¼) → x* = 10.5</text>
+            </g>
+          </svg>
+          <figcaption>Figure 2. Arrows point in the direction of transmission (course convention). In (d) the extra edge 1→3 is drawn in green.</figcaption>
+        </figure>
+
+        <h3>6.1 Chain \(1\to2\to3\): a relay line</h3>
+        <div class="formula">
+          \[ A=\begin{bmatrix}0&1&0\\0&0&1\\0&0&0\end{bmatrix},\quad W=A^T=\begin{bmatrix}0&0&0\\1&0&0\\0&1&0\end{bmatrix},\quad d^{\mathrm{in}}=(0,1,1),\quad L=\begin{bmatrix}0&0&0\\-1&1&0\\0&-1&1\end{bmatrix}. \]
+        </div>
+        <p>Eigenvalues \(\{0,1,1\}\), \(\operatorname{rank}L=2\) — spanning tree rooted at UAV 1 ✓. Left null vector \(\gamma=(1,0,0)\): the consensus value is \(x_1(0)=10\), not the average. UAV 1 hears nobody (\(d_1^{\mathrm{in}}=0\)), so its row of \(L\) is zero and it never moves; UAV 2 tracks it; UAV 3 tracks UAV 2. Solving row by row:</p>
+        <div class="formula">
+          \[ x_1(t)=10,\qquad x_2(t)=10+4e^{-t},\qquad x_3(t)=10-2e^{-t}+4t\,e^{-t}. \]
+        </div>
+        <p>The \(te^{-t}\) term is new: the eigenvalue 1 is repeated with a single Jordan block (\(\operatorname{rank}(L-I)=2\)), so the last aircraft in a relay chain lags with a polynomial-times-exponential transient. Numbers: \(x(1)=[10,\,11.47,\,10.74]\), \(x(2)=[10,\,10.54,\,10.81]\), \(x(5)=[10,\,10.03,\,10.12]\) — UAV 3 is still 6 % of its initial offset away at \(t=5\) s although "the rate" is \(1\ \mathrm{s^{-1}}\).</p>
+
+        <h3>6.2 Ring \(1\to2\to3\to1\): balanced and strongly connected</h3>
+        <div class="formula">
+          \[ L=\begin{bmatrix}1&0&-1\\-1&1&0\\0&-1&1\end{bmatrix},\qquad \lambda=\{0,\ 1.5\pm0.866\mathrm j\},\qquad d^{\mathrm{in}}=d^{\mathrm{out}}=(1,1,1). \]
+        </div>
+        <p>Balanced ⇒ \(\gamma=\mathbf 1/3\) ⇒ \(x^\ast=10.667\), the average, and \(\mathbf 1^Tx(t)=32\) is conserved at every instant. The complex pair makes the approach oscillatory with damped period \(2\pi/0.866=7.26\) s and envelope \(e^{-1.5t}\): \(\|\delta(t)\|=e^{-1.5t}\|\delta(0)\|\) exactly here (the ring's \(L\) is normal), e.g. \(2.04,\ 0.96,\ 0.22,\ 0.05\) at \(t=0.5,1,2,3\) s. Trajectory: \(x(0.5)=[9.69,\,12.32,\,9.98]\), \(x(1)=[9.98,\,11.34,\,10.67]\), \(x(2)=[10.50,\,10.70,\,10.80]\). Note UAV 1 first <em>drops below</em> every initial value's neighbourhood of its own — it hears only UAV 3, which started low — before rising to the average: directed consensus is not monotone per agent, only convex overall.</p>
+
+        <h3>6.3 Two roots \(1\to2\leftarrow3\): no spanning tree</h3>
+        <div class="formula">\[ L=\begin{bmatrix}0&0&0\\-1&2&-1\\0&0&0\end{bmatrix},\qquad \lambda=\{0,0,2\},\qquad \operatorname{rank}L=1 . \]</div>
+        <p>Two zero eigenvalues: UAVs 1 and 3 are each a closed set of one node that hears nothing, so \(e_1\) and \(e_3\) are both in \(\ker L\). UAV 2 converges to the average of its two sources, \(x\to(10,\,9,\,8)\) — no consensus, however long you wait (\(x(20)=[10,9,8]\) to four digits). This is what a swarm with two leaders who ignore each other looks like.</p>
+
+        <h3>6.4 Ring plus \(1\to3\): strongly connected but unbalanced</h3>
+        <div class="formula">
+          \[ L=\begin{bmatrix}1&0&-1\\-1&1&0\\-1&-1&2\end{bmatrix},\qquad d^{\mathrm{in}}=(1,1,2),\ d^{\mathrm{out}}=(2,1,1),\qquad \lambda=\{0,2,2\},\qquad \gamma=(0.5,\,0.25,\,0.25). \]
+        </div>
+        <p>Everyone influences everyone (\(\gamma\gt0\)), but UAV 1 — which transmits twice as much as it listens — carries half the weight: \(x^\ast=0.5\cdot10+0.25\cdot14+0.25\cdot8=10.5\), confirmed by \(x(20)=[10.5,10.5,10.5]\). The sum \(\mathbf 1^Tx\) is <em>not</em> conserved (32 → 31.5).</p>
+
+        <h3>6.5 Four aircraft: broadcast star versus relay chain</h3>
+        <p>\(x(0)=[10,14,8,12]^T\) (average 11). <em>Broadcast star</em> \(1\to\{2,3,4\}\): \(\lambda=\{0,1,1,1\}\) with three independent eigenvectors (no Jordan block), \(\gamma=e_1\), every follower converges to 10 with time constant exactly 1 s, independently of the others. <em>Relay</em> \(1\to2\to3\to4\to2\): \(\lambda=\{0,\ 0.245,\ 1.877\pm0.745\mathrm j\}\), \(\gamma=e_1\) again, but the slowest mode has time constant \(1/0.245=4.08\) s — four times slower, because the followers' sub-ring keeps re-circulating old information: \(x(5)=[10,\,10.16,\,10.22,\,10.29]\), \(x(20)=[10,\,10.004,\,10.006,\,10.007]\).</p>
+        <p><strong>Now lose the root.</strong> Star minus UAV 1: \(L=0\), every follower freezes at its own value \((14,8,12)\) — no consensus of any kind. Relay minus UAV 1: the remaining ring \(2\to3\to4\to2\) is balanced and strongly connected, so the three converge to their own average \(11.333\) within a few seconds (\(x(5)=[11.33,11.33,11.34]\)). The slow topology is the robust one.</p>
+      </section>
+
+      <section id="rate">
+        <h2>7. Convergence Rate</h2>
+        <p>Order the eigenvalues by real part. With a spanning tree the disagreement decays like</p>
+        <div class="formula">
+          \[ \|x(t)-x^\ast\mathbf 1\|\le c\,(1+t^{m-1})\,e^{-\mu_2t},\qquad \mu_2=\min_{\lambda_i\ne0}\operatorname{Re}\lambda_i, \]
+        </div>
+        <p>where \(m\) is the size of the largest Jordan block at the slowest eigenvalue (\(m=1\), pure exponential, when \(L\) is diagonalisable). \(\mu_2\) is sometimes called the <em>generalised algebraic connectivity</em>. For undirected graphs \(\mu_2=\lambda_2\). Values from Section 6: chain 1 (but \(m=2\)), ring 1.5, star 1, relay 0.245, unbalanced ring 2.</p>
+        <div class="warning"><strong>No Lyapunov shortcut.</strong> \(V=\tfrac12\delta^T\delta\) is <em>not</em> non-increasing for a general digraph (try the chain: \(\delta^TL\delta\) can be negative). The right quadratic Lyapunov function is \(V=\delta^T\Gamma\delta\) with \(\Gamma=\operatorname{diag}(\gamma)\) for strongly connected graphs (then \(\Gamma L+L^T\Gamma\) is a symmetric, positive semidefinite "mirror" Laplacian), and for graphs with a spanning tree but not strongly connected one argues via the row-stochastic solution operator (set contraction: the convex hull of \(\{x_i(t)\}\) shrinks). Both routes are in Ren &amp; Beard (2008), Ch. 2–3.</div>
+      </section>
+
+      <section id="classes">
+        <h2>8. Four Classes of Digraphs</h2>
+        <table>
+          <thead><tr><th>Class</th><th>Definition</th><th>Consensus?</th><th>Value</th><th>Example (Section 6)</th></tr></thead>
+          <tbody>
+            <tr><td>Weakly connected only</td><td>connected if arrows are ignored, no node reaches all others</td><td><span style="color:var(--danger)">no</span> (\(\dim\ker L\ge2\))</td><td>— (clusters settle separately)</td><td>(c) two roots</td></tr>
+            <tr><td>Spanning tree</td><td>some root reaches every node</td><td>yes</td><td>\(\gamma^Tx(0)\), \(\gamma\ge0\), zeros allowed</td><td>(a) chain, broadcast star, relay</td></tr>
+            <tr><td>Strongly connected</td><td>every node reaches every node</td><td>yes</td><td>\(\gamma^Tx(0)\), \(\gamma\gt0\)</td><td>(d) ring + 1→3</td></tr>
+            <tr><td>Balanced (and spanning tree)</td><td>\(d_i^{\mathrm{in}}=d_i^{\mathrm{out}}\ \forall i\)</td><td>yes</td><td>average \(\tfrac1N\mathbf 1^Tx(0)\)</td><td>(b) ring; every undirected graph</td></tr>
+          </tbody>
+        </table>
+        <p>Balanced implies strongly connected whenever a spanning tree exists (a balanced graph with a spanning tree has no node with \(d^{\mathrm{out}}=0\), so the root is reachable from everyone), which is why the classes nest from the bottom up.</p>
+      </section>
+
+      <section id="discrete">
+        <h2>9. Discrete Time and Switching Digraphs</h2>
+        <h3>9.1 Row-stochastic Perron matrix</h3>
+        <div class="formula">\[ x[k+1]=(I-\varepsilon L)x[k]=Px[k],\qquad P\ge0\ \text{and}\ P\mathbf 1=\mathbf 1\quad\text{iff}\quad \varepsilon\le\frac{1}{\max_id_i^{\mathrm{in}}}. \]</div>
+        <div class="theorem">
+          <strong>Theorem (discrete-time digraph consensus — Ren &amp; Beard 2005).</strong> If \(0\lt\varepsilon\lt1/\max_id_i^{\mathrm{in}}\) (strictly, so that every diagonal entry of \(P\) is positive) and the digraph has a spanning tree, then \(P^k\to\mathbf 1\gamma^T\) and \(x[k]\to\gamma^Tx[0]\,\mathbf 1\) with the same \(\gamma\) as in continuous time.
+        </div>
+        <p>The strict inequality is not pedantry. On the 3-ring with \(\varepsilon=1\) (\(=1/\max d^{\mathrm{in}}\)), \(P=W\) is a permutation matrix: \(|\mu|=1\) for all three eigenvalues, and \(P^{50}\) is still a permutation — the values rotate around the ring forever. With \(\varepsilon=0.5\), \(|\mu|=\{1,0.5,0.5\}\) and \(P^{50}=\tfrac13\mathbf 1\mathbf 1^T\) to four digits; with \(\varepsilon=0.9\), \(|\mu|=0.854\) and \(P^{50}\) is within \(2\times10^{-4}\) of it. A positive diagonal (a UAV keeps some weight on its own value) is what breaks the periodicity.</p>
+        <h3>9.2 Switching digraphs</h3>
+        <div class="theorem">
+          <strong>Theorem (Ren &amp; Beard 2005).</strong> For \(\dot x=-L_{\sigma(t)}x\) (or its discrete version) with a dwell time, consensus is reached if there is a \(T\) such that the <em>union</em> of the digraphs active during every window of length \(T\) has a directed spanning tree. The consensus value then depends on the switching sequence, not only on \(x(0)\).
+        </div>
+        <p>Example: alternate \(G_a=\{1\to2\}\) and \(G_b=\{2\to3\}\) every \(0.5\) s. Neither graph alone has a spanning tree (\(\operatorname{rank}L_a=\operatorname{rank}L_b=1\)), their union is the chain of Section 6.1, and the swarm converges to UAV 1's value: \(x(1)=[10,\,12.43,\,9.74]\), \(x(5)=[10,\,10.33,\,10.48]\), \(x(20)=[10,\,10.000,\,10.001]\). Contrast Part 6: on undirected switching graphs the value was always the average; here it is whatever the root holds.</p>
+        <p>This is also the precise explanation of the asymmetric-packet-loss result of Part 6, Section 9: each lost packet turns a symmetric link into a one-way edge for one step, the instantaneous graph is a random digraph, and the final value is a random weighted average. Five seeds of the 3-ring with 30 % per-direction loss ended at \(10.82\), \(11.08\), \(11.00\), \(10.90\), \(10.82\) — all consensus, none the average \(10.667\).</p>
+      </section>
+
+      <section id="fixed-wing">
+        <h2>10. Fixed-Wing Interpretation</h2>
+        <h3>10.1 Why swarm links are directed</h3>
+        <ul>
+          <li><strong>Asymmetric link budgets.</strong> A lead aircraft with a larger transmitter, or a relay aircraft at altitude, is heard by many that it cannot hear.</li>
+          <li><strong>Antenna shadowing in turns.</strong> A banked wing blocks the line of sight in one direction only for the duration of the turn — a switching digraph with a dwell time equal to the turn time.</li>
+          <li><strong>Deliberate design.</strong> A broadcast reference (GCS or lead aircraft) with followers that do not transmit back is cheaper in bandwidth and is exactly the spanning-tree-with-root structure; it is also how a mission reference is injected into the swarm (Part 8).</li>
+          <li><strong>Packet loss.</strong> Every lost packet is a temporary one-way edge (Section 9.2).</li>
+        </ul>
+        <h3>10.2 Robustness versus speed</h3>
+        <p>Section 6.5 is the central design lesson. A broadcast star converges in one time constant but has a single point of failure: lose the root and the followers freeze on different values. A relay or ring is slower but degrades gracefully — the survivors still agree. The practical compromise is a <em>strongly connected</em> follower graph with <em>one or two pinned</em> aircraft that hear the reference: fast enough, and every aircraft remains a potential root.</p>
+        <table>
+          <thead><tr><th>Topology (4 UAVs)</th><th>\(\mu_2\)</th><th>\(\tau_c\)</th><th>\(4\tau_c\) at 25 m/s</th><th>at 200 m/s</th><th>root lost</th></tr></thead>
+          <tbody>
+            <tr><td>broadcast star</td><td>1.0</td><td>1.0 s</td><td>100 m</td><td>800 m</td><td>followers freeze, no consensus</td></tr>
+            <tr><td>relay \(1\to2\to3\to4\to2\)</td><td>0.245</td><td>4.08 s</td><td>408 m</td><td>3.3 km</td><td>survivors agree on their average</td></tr>
+            <tr><td>3-ring (per Section 6.2)</td><td>1.5</td><td>0.67 s</td><td>67 m</td><td>533 m</td><td>—</td></tr>
+          </tbody>
+        </table>
+        <div class="note"><strong>High-speed note.</strong> As in Part 6, nothing in the spanning-tree condition or in \(\mu_2\) depends on airspeed, but the relay chain's \(4\tau_c=16\) s is 3.3 km of flight at 200 m/s — longer than a typical leg. At high speed a slow digraph is not merely inconvenient: the reference may change (turn entry, speed change) before the far end of the chain has agreed on the previous value. Design rule: keep the <em>information-flow diameter</em> (longest root-to-leaf path) at two hops or fewer for the reference variables, and use the Jordan-block warning of Section 6.1 — each extra hop adds a \(t^me^{-\mu t}\) lag, not just a delay.</div>
+        <div class="claw"><strong>Toward the CLAW</strong>
+          From this part on every neighbour sum in the course is written with the listening weights \(w_{ij}\) and the in-degree Laplacian \(L=D_{\mathrm{in}}-W\); the unified law's graph module (Part 24 §4.3) builds exactly these matrices and checks condition C1 — "the augmented graph, with the reference as root, has a directed spanning tree" — which is this part's theorem with the reference added as node 0. The consensus value \(\gamma^Tx(0)\) tells you what the swarm will agree on if the reference disappears (Part 24 §14, "root lost"), and the robustness-versus-speed table above is the reason the capstone pins two aircraft on a strongly connected ring rather than one on a star.</div>
+      </section>
+
+      <section id="implementation">
+        <h2>11. Implementation</h2>
+        <p>Builds \(W\) and \(L\) under the course convention, tests the spanning-tree condition by graph search, computes \(\gamma\) and the rate, and simulates each example. SciPy-free; \(\gamma\) comes from the eigenvector of \(L^T\) at its smallest eigenvalue.</p>
+<pre><code>import numpy as np
+np.set_printoptions(precision=4, suppress=True)
+
+# Course convention (Part 2): A[i, j] &gt; 0  &lt;=&gt;  UAV i transmits to UAV j.
+def listening_laplacian(A):
+    """Listening weights W = A^T and in-degree Laplacian L = D_in - W."""
+    W = A.T.copy()
+    L = np.diag(W.sum(axis=1)) - W
+    return W, L
+
+def has_spanning_tree(A):
+    """True if some root reaches every UAV along transmit edges i -&gt; j."""
+    N = len(A)
+    for root in range(N):
+        seen, stack = {root}, [root]
+        while stack:
+            i = stack.pop()
+            for j in np.flatnonzero(A[i] &gt; 0):
+                if j not in seen:
+                    seen.add(j); stack.append(j)
+        if len(seen) == N:
+            return True
+    return False
+
+def consensus_weights(L):
+    """Left null vector gamma: gamma^T L = 0, gamma^T 1 = 1 (needs rank N-1)."""
+    vals, vecs = np.linalg.eig(L.T)
+    k = np.argmin(np.abs(vals))
+    g = np.real(vecs[:, k])
+    return g / g.sum()
+
+def simulate(L, x0, T=5.0, dt=1e-3):
+    """Euler integration of x' = -L x (replace by scipy.linalg.expm if available)."""
+    x = x0.astype(float).copy()
+    for _ in range(int(round(T / dt))):
+        x -= dt * (L @ x)
+    return x
+
+graphs = {
+    "chain 1-&gt;2-&gt;3":        np.array([[0, 1, 0], [0, 0, 1], [0, 0, 0]], float),
+    "ring 1-&gt;2-&gt;3-&gt;1":      np.array([[0, 1, 0], [0, 0, 1], [1, 0, 0]], float),
+    "two roots 1-&gt;2&lt;-3":    np.array([[0, 1, 0], [0, 0, 0], [0, 1, 0]], float),
+    "ring + extra 1-&gt;3":    np.array([[0, 1, 1], [0, 0, 1], [1, 0, 0]], float),
+}
+x0 = np.array([10.0, 14.0, 8.0])
+
+for name, A in graphs.items():
+    W, L = listening_laplacian(A)
+    d_in, d_out = W.sum(axis=1), A.sum(axis=1)
+    eig = np.linalg.eigvals(L)
+    tree = has_spanning_tree(A)
+    print(f"\n{name}")
+    print("  L =", L.tolist())
+    print("  eigenvalues:", np.sort_complex(eig))
+    print("  rank L =", np.linalg.matrix_rank(L), "| spanning tree:", tree,
+          "| balanced:", bool(np.allclose(d_in, d_out)))
+    if tree:
+        gamma = consensus_weights(L)
+        nz = eig[np.abs(eig) &gt; 1e-9]
+        print("  gamma =", gamma, "-&gt; x* = gamma^T x0 =", round(float(gamma @ x0), 4))
+        print("  rate = min Re(nonzero eig) =", round(float(nz.real.min()), 4))
+    print("  x(5) by Euler:", simulate(L, x0, T=5.0))
+
+# Discrete time on the ring: P = I - eps*L is row-stochastic for eps &lt;= 1/max(d_in)
+A = graphs["ring 1-&gt;2-&gt;3-&gt;1"]
+W, L = listening_laplacian(A)
+for eps in (0.5, 1.0):
+    P = np.eye(3) - eps * L
+    print(f"\nring, eps={eps}: P^50 =", np.linalg.matrix_power(P, 50).round(4).tolist())
+</code></pre>
+<pre><code>chain 1-&gt;2-&gt;3
+  L = [[0.0, 0.0, 0.0], [-1.0, 1.0, 0.0], [0.0, -1.0, 1.0]]
+  eigenvalues: [0.+0.j 1.+0.j 1.+0.j]
+  rank L = 2 | spanning tree: True | balanced: False
+  gamma = [1. 0. 0.] -&gt; x* = gamma^T x0 = 10.0
+  rate = min Re(nonzero eig) = 1.0
+  x(5) by Euler: [10.     10.0269 10.1211]
+
+ring 1-&gt;2-&gt;3-&gt;1
+  L = [[1.0, 0.0, -1.0], [-1.0, 1.0, 0.0], [0.0, -1.0, 1.0]]
+  eigenvalues: [0. +0.j    1.5-0.866j 1.5+0.866j]
+  rank L = 2 | spanning tree: True | balanced: True
+  gamma = [0.3333 0.3333 0.3333] -&gt; x* = gamma^T x0 = 10.6667
+  rate = min Re(nonzero eig) = 1.5
+  x(5) by Euler: [10.6686 10.6654 10.666 ]
+
+two roots 1-&gt;2&lt;-3
+  L = [[0.0, 0.0, 0.0], [-1.0, 2.0, -1.0], [0.0, 0.0, 0.0]]
+  eigenvalues: [0.+0.j 0.+0.j 2.+0.j]
+  rank L = 1 | spanning tree: False | balanced: False
+  x(5) by Euler: [10.      9.0002  8.    ]
+
+ring + extra 1-&gt;3
+  L = [[1.0, 0.0, -1.0], [-1.0, 1.0, 0.0], [-1.0, -1.0, 2.0]]
+  eigenvalues: [-0.+0.j  2.+0.j  2.+0.j]
+  rank L = 2 | spanning tree: True | balanced: False
+  gamma = [0.5  0.25 0.25] -&gt; x* = gamma^T x0 = 10.5
+  rate = min Re(nonzero eig) = 2.0
+  x(5) by Euler: [10.4993 10.5008 10.5006]
+
+ring, eps=0.5: P^50 = [[0.3333, 0.3333, 0.3333], [0.3333, 0.3333, 0.3333], [0.3333, 0.3333, 0.3333]]
+
+ring, eps=1.0: P^50 = [[0.0, 1.0, 0.0], [0.0, 0.0, 1.0], [1.0, 0.0, 0.0]]
+</code></pre>
+      </section>
+
+      <section id="pitfalls">
+        <h2>12. Common Pitfalls</h2>
+        <ul>
+          <li><strong>Building \(L=D-A\) from the transmit matrix.</strong> Under the course convention that uses <em>out</em>-degrees and makes UAV \(i\)'s row depend on whom it talks to, not whom it hears; \(L\mathbf 1=0\) fails and the "consensus" law is physically meaningless. Always \(W=A^T\) first.</li>
+          <li><strong>Copying a paper's spanning-tree picture without flipping arrows.</strong> Their tree points along their edge convention; ours points along transmission. Same tree, opposite arrowheads.</li>
+          <li><strong>Reading \(\operatorname{rank}L=N-1\) as "connected".</strong> It means "spanning tree", which is weaker than strongly connected and much stronger than weakly connected.</li>
+          <li><strong>Expecting the average.</strong> Only balanced digraphs average. A broadcast star makes everyone copy the root; an unbalanced strongly connected graph weights the talkative aircraft more.</li>
+          <li><strong>Trusting \(\min\operatorname{Re}\lambda\) alone for settling time.</strong> Relay chains have Jordan blocks: \(t^me^{-\mu t}\) transients settle much later than \(4/\mu\).</li>
+          <li><strong>Using \(\varepsilon=1/\max d^{\mathrm{in}}\) exactly.</strong> Zero diagonal entries in \(P\) allow periodic cycling (the ring with \(\varepsilon=1\)); keep the diagonal positive.</li>
+          <li><strong>Reusing \(V=\tfrac12\delta^T\delta\) as a Lyapunov function.</strong> It is not monotone for digraphs; use \(\delta^T\Gamma\delta\) or the convex-hull argument.</li>
+        </ul>
+      </section>
+
+      <section id="exercises">
+        <h2>13. Exercises</h2>
+        <div class="exercise">
+          <strong>Exercise 1 (build and classify).</strong> Three UAVs with transmit edges \(2\to1\), \(2\to3\), \(3\to2\). Write \(A\), \(W\), \(L\); classify the digraph; find \(\gamma\), the consensus value for \(x(0)=[10,14,8]^T\), and the rate.
+          <details><summary>Show solution</summary><div class="solution">\(A=\begin{bmatrix}0&0&0\\1&0&1\\0&1&0\end{bmatrix}\), \(W=A^T\), \(d^{\mathrm{in}}=(1,1,1)\), \(L=\begin{bmatrix}1&-1&0\\0&1&-1\\0&-1&1\end{bmatrix}\). Spanning tree rooted at 2 (2→1, 2→3), not strongly connected (nobody hears 1), not balanced (\(d^{\mathrm{out}}=(0,2,1)\)). \(\lambda=\{0,1,2\}\), \(\gamma=(0,\,0.5,\,0.5)\) — UAV 1 transmits to nobody and has zero influence — so \(x^\ast=11\), rate \(\mu_2=1\). Check: \(x(5)=[11.01,11.00,11.00]\).</div></details>
+        </div>
+        <div class="exercise">
+          <strong>Exercise 2 (balanced ⇒ average).</strong> Prove that for a balanced digraph \(\mathbf 1^TL=0\), and deduce that \(\mathbf 1^Tx(t)\) is conserved and the consensus value is the average. Then give a 3-node digraph that is balanced but has no spanning tree.
+          <details><summary>Show solution</summary><div class="solution">Column \(j\) of \(L=D_{\mathrm{in}}-W\) sums to \(d_j^{\mathrm{in}}-\sum_iw_{ij}=d_j^{\mathrm{in}}-\sum_ia_{ji}=d_j^{\mathrm{in}}-d_j^{\mathrm{out}}=0\). Hence \(\mathbf 1^T\dot x=-\mathbf 1^TLx=0\), so \(\mathbf 1^Tx(t)=\mathbf 1^Tx(0)\); if consensus \(x\to x^\ast\mathbf 1\) then \(Nx^\ast=\mathbf 1^Tx(0)\). Balanced without a tree: the empty graph (\(d^{\mathrm{in}}=d^{\mathrm{out}}=0\)), or two disjoint 2-cycles plus an isolated node in a larger example — balanced says nothing about reachability.</div></details>
+        </div>
+        <div class="exercise">
+          <strong>Exercise 3 (relay chain at speed).</strong> For the relay \(1\to2\to3\to4\to2\) of Section 6.5, how far does a 150 m/s swarm fly during four time constants of the slowest mode? Propose one added link that makes the root-lost case still converge <em>and</em> raises \(\mu_2\), and justify qualitatively.
+          <details><summary>Show solution</summary><div class="solution">\(\tau_c=1/0.245=4.08\) s, \(4\tau_c=16.3\) s, \(150\times16.3=2448\) m. Adding \(1\to3\) or \(1\to4\) gives every follower a direct root link (star-like, \(\mu_2\) rises toward 1) while the follower ring \(2\to3\to4\to2\) remains balanced and strongly connected, so losing UAV 1 still leaves consensus on the survivors' average. Redundant root links buy speed; the follower cycle buys survivability.</div></details>
+        </div>
+        <div class="exercise">
+          <strong>Exercise 4 (discrete deadbeat).</strong> For the unbalanced graph of Section 6.4 (\(\lambda=\{0,2,2\}\)), compute \(P=I-\varepsilon L\) for \(\varepsilon=0.45\) and \(0.5\). Which is admissible, and what happens after two steps with \(\varepsilon=0.5\)?
+          <details><summary>Show solution</summary><div class="solution">\(\max d^{\mathrm{in}}=2\Rightarrow\varepsilon\lt0.5\). \(\varepsilon=0.45\): \(P\) has positive diagonal \((0.55,0.55,0.1)\), \(|\mu|=\{1,0.1,0.1\}\), \(\|P^5-\mathbf 1\gamma^T\|=2.8\times10^{-4}\). \(\varepsilon=0.5\): diagonal entry \(P_{33}=0\) (borderline), \(|\mu|=\{1,0,0\}\); because the eigenvalue 2 of \(L\) has a Jordan block, \(I-0.5L\) is nilpotent on the complement of \(\mathbf 1\) and \(P^2=\mathbf 1\gamma^T\) <em>exactly</em> — deadbeat in two steps. It works here because the zero-diagonal node is not part of a pure cycle; in general the strict inequality is the safe rule.</div></details>
+        </div>
+        <div class="exercise">
+          <strong>Exercise 5 (random digraphs).</strong> Simulate the 3-ring with each packet lost independently with probability 0.3 at 10 Hz steps for 20 s, five seeds. Report the final values and explain, using Section 9.2, why they are all consensus values but none is the average.
+          <details><summary>Show solution</summary><div class="solution">Seeds 0–4 give \(10.86,\ 11.08,\ 11.00,\ 10.90,\ 10.82\) (all three UAVs equal in each run). Every instantaneous graph is a sub-digraph of the ring; the union over any two or three consecutive steps almost surely contains a spanning tree, so the switching theorem guarantees consensus. But the instantaneous digraphs are unbalanced whenever one direction of a link is lost, the sum \(\mathbf 1^Tx\) is not conserved, and the limit is \(\big(\prod_kP_k\big)x(0)\), a random convex combination — hence a run-dependent value near, but not equal to, \(10.667\).</div></details>
+        </div>
+      </section>
+
+      <section id="summary">
+        <h2>14. Key Takeaways &amp; Formula Sheet</h2>
+        <ul>
+          <li>Course convention \(a_{ij}\gt0\iff i\to j\); controllers use listening weights \(W=A^T\), \(w_{ij}=a_{ji}\); in-degree \(d_i^{\mathrm{in}}=\sum_jw_{ij}\); \(L=D_{\mathrm{in}}-W\); \(L\mathbf 1=0\) always.</li>
+          <li>Gershgorin: \(\operatorname{Re}\lambda(L)\ge0\), \(|\lambda|\le2d_{\max}^{\mathrm{in}}\).</li>
+          <li>Consensus ⇔ directed spanning tree ⇔ \(\operatorname{rank}L=N-1\). Value \(x^\ast=\gamma^Tx(0)\), \(\gamma^TL=0\), \(\gamma\ge0\), \(\gamma^T\mathbf 1=1\). Strongly connected ⇒ \(\gamma\gt0\); balanced ⇒ \(\gamma=\mathbf 1/N\) (average).</li>
+          <li>\(e^{-Lt}\) is row-stochastic: trajectories stay in the convex hull of the initial values.</li>
+          <li>Rate \(\mu_2=\min\operatorname{Re}\lambda_{i\ne1}\), with \(t^{m-1}e^{-\mu_2t}\) transients when Jordan blocks are present (relay chains).</li>
+          <li>Discrete time: \(P=I-\varepsilon L\) row-stochastic with positive diagonal for \(\varepsilon\lt1/\max d_i^{\mathrm{in}}\); \(P^k\to\mathbf 1\gamma^T\) under a spanning tree.</li>
+          <li>Switching digraphs: consensus if the union over bounded windows has a spanning tree; the value depends on the sequence.</li>
+          <li>Design: broadcast star = fast but fragile; strongly connected follower graph with pinned roots = robust; keep root-to-leaf hops ≤ 2 for reference variables at high speed.</li>
+        </ul>
+      </section>
+
+      <section id="references">
+        <h2>15. References</h2>
+        <ul>
+          <li>W. Ren and R. W. Beard, "Consensus seeking in multiagent systems under dynamically changing interaction topologies," <em>IEEE Trans. Automatic Control</em> 50(5), 2005 — spanning-tree condition, continuous and discrete time, switching digraphs.</li>
+          <li>W. Ren and R. W. Beard, <em>Distributed Consensus in Multi-vehicle Cooperative Control</em>, Springer, 2008, Ch. 2–3 — proofs, left eigenvector, Jordan-form analysis (their adjacency convention is the transpose of ours).</li>
+          <li>R. Olfati-Saber and R. M. Murray, "Consensus problems in networks of agents with switching topology and time-delays," <em>IEEE Trans. Automatic Control</em> 49(9), 2004 — strongly connected and balanced digraphs, average consensus, mirror graph.</li>
+          <li>R. Olfati-Saber, J. A. Fax and R. M. Murray, "Consensus and cooperation in networked multi-agent systems," <em>Proc. IEEE</em> 95(1), 2007 — survey.</li>
+          <li>L. Moreau, "Stability of multiagent systems with time-dependent communication links," <em>IEEE Trans. Automatic Control</em> 50(2), 2005 — convex-hull (set contraction) argument for digraphs.</li>
+          <li>M. Mesbahi and M. Egerstedt, <em>Graph Theoretic Methods in Multiagent Networks</em>, Princeton, 2010, Ch. 3 — directed Laplacians and rooted out-branchings.</li>
+          <li>F. Bullo, <em>Lectures on Network Systems</em>, 2022, Ch. 5–7 — row-stochastic matrices, Perron–Frobenius, condensation digraphs (free online).</li>
+        </ul>
+      </section>
+
+      <div class="prevnext">
+        <a class="prev" href="6_consensus_convergence_stability.html"><span>&larr; Previous</span>Part 6: Consensus Convergence &amp; Stability</a>
+        <a class="next" href="8_leader_follower_consensus.html"><span>Next &rarr;</span>Part 8: Leader–Follower Consensus</a>
+      </div>
+      <div class="done-box"><button id="done-btn" data-lesson="7">Mark Part 7 as complete</button></div>
+    </main>
+  </div>
+
+  <footer>Fixed-Wing Swarm Learning · Part 7 · Directed-Graph Consensus</footer>
+
+  <script>
+    (function () {
+      try {
+        var btn = document.getElementById('done-btn');
+        if (!btn) return;
+        var id = btn.getAttribute('data-lesson');
+        var key = 'fwswarm_done';
+        var done = JSON.parse(localStorage.getItem(key) || '[]');
+        function render() {
+          var is = done.indexOf(id) >= 0;
+          btn.textContent = is ? 'Completed ✓ (click to undo)' : 'Mark Part ' + id + ' as complete';
+          btn.className = is ? 'undone' : '';
+        }
+        btn.addEventListener('click', function () {
+          var i = done.indexOf(id);
+          if (i >= 0) done.splice(i, 1); else done.push(id);
+          localStorage.setItem(key, JSON.stringify(done));
+          render();
+        });
+        render();
+      } catch (e) { /* storage unavailable: ignore */ }
+    })();
+  </script>
+</body>
+</html>

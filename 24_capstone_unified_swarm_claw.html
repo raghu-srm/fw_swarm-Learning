@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fixed-Wing Swarm Learning — Capstone: The Unified Swarm CLAW</title>
+
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['\\(', '\\)']],
+        displayMath: [['\\[', '\\]'], ['$$', '$$']]
+      },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --card: #ffffff;
+      --text: #172033;
+      --muted: #5d687a;
+      --accent: #2457d6;
+      --accent-light: #eaf0ff;
+      --border: #dce2ec;
+      --code: #111827;
+      --success: #147a4b;
+      --warning: #c27b00;
+      --danger: #b42318;
+      --claw: #0f766e;
+      --claw-light: #e6f6f4;
+      --def: #6d28d9;
+      --def-light: #f3eefe;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+    }
+
+    header {
+      background: linear-gradient(135deg, #172554, #2457d6);
+      color: white;
+      padding: 56px 20px 44px;
+    }
+    header .wrap { max-width: 1320px; margin: auto; }
+    .topbar { margin-bottom: 18px; font-size: .95rem; }
+    .topbar a { color: #dbe6ff; }
+    .topbar a:hover { color: #fff; }
+
+    h1 { margin: 0 0 10px; font-size: clamp(2rem, 5vw, 3.2rem); }
+    h2 { margin-top: 0; font-size: 1.8rem; }
+    h3 { margin-top: 1.6rem; }
+    h4 { margin-top: 1.2rem; margin-bottom: .4rem; }
+
+    .subtitle { max-width: 820px; color: #dbe6ff; font-size: 1.08rem; }
+
+    nav, section, .callout {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px;
+      margin: 20px 0;
+      box-shadow: 0 3px 12px rgba(20, 35, 70, .05);
+    }
+    nav h2 { font-size: 1.35rem; }
+    nav ol { margin-bottom: 0; padding-left: 22px; }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    code { background: #eef1f6; padding: 2px 5px; border-radius: 5px; font-size: .92em; }
+    pre {
+      background: var(--code);
+      color: #e5e7eb;
+      padding: 18px;
+      border-radius: 10px;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+    pre code { background: none; padding: 0; color: inherit; font-size: .9rem; }
+
+    .formula {
+      background: var(--accent-light);
+      border-left: 4px solid var(--accent);
+      padding: 16px 18px;
+      margin: 16px 0;
+      overflow-x: auto;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+    }
+    .mini {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      background: #fbfcff;
+    }
+    .mini strong { display: block; margin-bottom: 5px; }
+
+    .success { border-left: 4px solid var(--success); background: #edf9f3; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .warning { border-left: 4px solid var(--warning); background: #fff8e8; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .danger  { border-left: 4px solid var(--danger);  background: #fdecec; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .note    { border-left: 4px solid var(--muted);   background: #f3f5f8; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .definition, .theorem {
+      border-left: 4px solid var(--def);
+      background: var(--def-light);
+      padding: 14px 18px;
+      border-radius: 8px;
+      margin: 14px 0;
+    }
+    .definition > strong:first-child, .theorem > strong:first-child { color: var(--def); }
+    .claw {
+      border: 1px solid #99d6cf;
+      border-left: 6px solid var(--claw);
+      background: var(--claw-light);
+      padding: 16px 20px;
+      border-radius: 10px;
+      margin: 18px 0;
+    }
+    .claw > strong:first-child { color: var(--claw); display: block; margin-bottom: 6px; font-size: 1.05rem; }
+
+    table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+    th, td { text-align: left; padding: 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    th { background: #f1f4f9; }
+
+    .tag {
+      display: inline-block;
+      background: #eaf0ff;
+      color: #204bb4;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: .82rem;
+      margin: 3px;
+    }
+
+    figure { margin: 18px 0; }
+    figure > svg { width: 100%; height: auto; display: block; background: #fbfcff; border: 1px solid var(--border); border-radius: 10px; }
+    figcaption { color: var(--muted); font-size: .92rem; margin-top: 6px; text-align: center; }
+
+    .exercise { border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; margin: 14px 0; background: #fbfcff; }
+    .exercise summary { cursor: pointer; color: var(--accent); font-weight: 600; margin-top: 8px; }
+    .exercise details { margin-top: 6px; }
+    .exercise .solution { border-top: 1px dashed var(--border); margin-top: 8px; padding-top: 8px; }
+
+    .demo { border: 1px solid var(--border); border-radius: 12px; padding: 14px; background: #fbfcff; margin: 16px 0; }
+    .demo canvas { width: 100%; height: auto; display: block; background: #ffffff; border: 1px solid var(--border); border-radius: 8px; }
+    .controls { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; margin: 10px 0; font-size: .95rem; }
+    .controls label { display: inline-flex; align-items: center; gap: 6px; }
+    .controls input[type=range] { width: 140px; }
+    .controls button, .btn {
+      background: var(--accent); color: #fff; border: 0; padding: 7px 14px; border-radius: 8px; cursor: pointer; font-size: .92rem;
+    }
+    .controls button:hover, .btn:hover { filter: brightness(1.08); }
+    .controls button.secondary { background: #e5e9f2; color: var(--text); }
+
+    .prevnext { display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin: 26px 0 0; }
+    .prevnext a { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; flex: 1 1 260px; }
+    .prevnext a span { display: block; color: var(--muted); font-size: .82rem; }
+    .prevnext a.next { text-align: right; }
+
+    .done-box { text-align: center; margin: 24px 0 0; }
+    .done-box button { background: var(--success); color: #fff; border: 0; padding: 9px 18px; border-radius: 8px; cursor: pointer; }
+    .done-box button.undone { background: #9aa5b5; }
+
+    footer { text-align: center; color: var(--muted); padding: 30px 20px 50px; }
+
+    .page-shell {
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      gap: 24px;
+      max-width: 1320px;
+      margin: 0 auto;
+      padding: 28px 20px 70px;
+      align-items: start;
+    }
+    .sidebar { grid-column: 1; position: sticky; top: 20px; }
+    .sidebar nav { position: sticky; top: 20px; max-height: calc(100vh - 40px); overflow-y: auto; }
+    .content { grid-column: 2; min-width: 0; }
+    @media (max-width: 960px) {
+      .page-shell { grid-template-columns: 1fr; }
+      .sidebar, .sidebar nav { position: static; max-height: none; }
+      .sidebar, .content { grid-column: 1; }
+    }
+    @media print {
+      nav { break-after: page; }
+      section { box-shadow: none; }
+      .demo, .done-box, .prevnext, .topbar { display: none; }
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <div class="wrap">
+      <div class="topbar"><a href="index.html">&larr; Course home</a> &nbsp;·&nbsp; Module F: Implementation &amp; Integration</div>
+      <h1>Fixed-Wing Swarm Learning</h1>
+      <div class="subtitle">
+        Part 24: <strong>Capstone — The Unified Swarm CLAW</strong> — assembling everything from Parts 1–23 into one
+        layered control law per aircraft, proving it converges and stays safe, choosing its gains for a 25 m/s and a 150 m/s swarm,
+        and running it in the reference simulator.
+      </div>
+      <p>
+        <span class="tag">Unified CLAW</span><span class="tag">Layered architecture</span><span class="tag">Stability</span>
+        <span class="tag">Safety</span><span class="tag">High speed</span><span class="tag">Simulation</span>
+      </p>
+    </div>
+  </header>
+
+  <div class="page-shell">
+    <aside class="sidebar">
+      <nav id="index">
+        <h2>Index</h2>
+        <ol>
+          <li><a href="#why">What "unified" means</a></li>
+          <li><a href="#requirements">Requirements</a></li>
+          <li><a href="#architecture">Architecture</a></li>
+          <li><a href="#signals">Signals, packets, graph</a></li>
+          <li><a href="#l0">L0: Mission &amp; reference</a></li>
+          <li><a href="#l1">L1: Distributed estimation</a></li>
+          <li><a href="#l2">L2: Formation guidance</a></li>
+          <li><a href="#l3">L3: Safety filter</a></li>
+          <li><a href="#l4">L4: Vehicle command</a></li>
+          <li><a href="#onepage">The CLAW on one page</a></li>
+          <li><a href="#stability">Stability &amp; safety argument</a></li>
+          <li><a href="#design">Design procedure &amp; checks</a></li>
+          <li><a href="#highspeed">High-speed adaptations</a></li>
+          <li><a href="#failures">Failure modes &amp; fallbacks</a></li>
+          <li><a href="#simulation">Simulation results</a></li>
+          <li><a href="#px4">From simulation to PX4</a></li>
+          <li><a href="#extend">Extending the CLAW</a></li>
+          <li><a href="#exercises">Design exercises</a></li>
+          <li><a href="#summary">Checklist &amp; formula sheet</a></li>
+          <li><a href="#references">References</a></li>
+        </ol>
+      </nav>
+    </aside>
+
+    <main class="content">
+
+      <section id="why">
+        <h2>1. What "Unified Swarm Control" Means</h2>
+        <p>
+          Twenty-three parts ago we started with the sentence <em>"a distributed controller needs to know which other UAVs it can
+          communicate with"</em>. We can now state precisely what a swarm control law is: a function, run independently on every
+          aircraft, that maps <strong>its own state</strong>, <strong>the last packets heard from its neighbours</strong> and
+          <strong>a shared mission reference</strong> to <strong>commands its autopilot can fly</strong>.
+        </p>
+        <div class="formula">
+          \[
+            \boxed{\;u_i \;=\; \mathrm{CLAW}\big(x_i,\;\{\,\text{packets}_j : j\in\mathcal N_i^{\mathrm{in}}\},\;\hat\xi_i,\;\text{mission}\big)\;}
+          \]
+        </div>
+        <p>
+          <strong>Unified</strong> means one such law covers all the behaviours we studied — formation flight, formation manoeuvring,
+          rendezvous, loiter patterns, re-tasking, collision avoidance — by changing <em>only</em> the reference and the formation
+          slots, never the controller. Behaviours are data; the control law is fixed. This is what makes the swarm testable: one
+          code path, one stability argument, one set of gains per aircraft class.
+        </p>
+        <div class="grid">
+          <div class="mini"><strong>Input</strong>Everything in Parts 1–23. If a symbol below is unfamiliar, the layer headings say which part defines it.</div>
+          <div class="mini"><strong>Output</strong>A complete, implementable CLAW with gains for two aircraft classes, a convergence/safety argument, and a simulation you can run.</div>
+          <div class="mini"><strong>Companion code</strong><code>sim/</code> in the repository implements every equation of this part, module for module.</div>
+        </div>
+        <p>
+          The law is <em>layered</em> (Figure 1). Each layer is a block we already derived: consensus (Parts 5–8) estimates the
+          reference, formation control (Parts 9–13) turns it into a velocity command, a control barrier function (Part 20) filters that
+          command for safety, and the vehicle layer (Parts 15–16) turns the result into course, speed and altitude commands for the
+          autopilot (Part 23). Task allocation (Part 22) and path primitives (Parts 17–19) live above, in the mission layer.
+        </p>
+      </section>
+
+      <section id="requirements">
+        <h2>2. Requirements</h2>
+        <p>Before deriving anything, write down what the law must guarantee. These eight requirements are referenced throughout.</p>
+        <table>
+          <thead><tr><th>#</th><th>Requirement</th><th>Where it is satisfied</th></tr></thead>
+          <tbody>
+            <tr><td>R1</td><td><strong>Distributed.</strong> Each UAV uses only its own state and its in-neighbours' packets; no central computer in the loop.</td><td>L1–L4 use \(w_{ij}\) only (Part 7)</td></tr>
+            <tr><td>R2</td><td><strong>Scalable.</strong> Per-UAV cost grows with the number of neighbours, not with \(N\).</td><td>Sums over \(\mathcal N_i^{\mathrm{in}}\); CBF pairs within sensing range</td></tr>
+            <tr><td>R3</td><td><strong>Robust to communication.</strong> Tolerates 10–20 % packet loss and 100–200 ms latency without instability.</td><td>Dead-reckoning, estimator gains (Part 6), latency inflation (Part 20)</td></tr>
+            <tr><td>R4</td><td><strong>Envelope-respecting.</strong> Never asks for a speed outside \([V_{\min},V_{\max}]\) or a turn rate above \(\omega_{\max}(V_g)\).</td><td>L2 saturation, L4 clipping, formation feasibility check (Parts 10, 16)</td></tr>
+            <tr><td>R5</td><td><strong>Safe.</strong> Pairwise separation \(\ge d_s\) is forward-invariant whenever the filter is feasible.</td><td>L3 (Part 20)</td></tr>
+            <tr><td>R6</td><td><strong>Convergent.</strong> With a connected graph and a flyable reference, slot errors decay exponentially to a bounded set.</td><td>Section 11</td></tr>
+            <tr><td>R7</td><td><strong>High-speed capable.</strong> The same structure works at 150–250 m/s with re-derived spacing, gains and bank limits.</td><td>Section 13 (Part 16)</td></tr>
+            <tr><td>R8</td><td><strong>Implementable.</strong> Runs at 20 Hz in Python on a companion computer; maps onto PX4 setpoints.</td><td>Sections 15–16 (Part 23)</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="architecture">
+        <h2>3. Architecture</h2>
+        <figure>
+          <svg viewBox="0 0 1100 420" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="CLAW architecture per UAV">
+            <defs><marker id="ar24" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#2457d6"/></marker></defs>
+            <g font-family="system-ui, sans-serif" font-size="13" fill="#172033">
+              <rect x="20" y="20" width="1060" height="380" rx="14" fill="#fbfcff" stroke="#dce2ec"/>
+              <text x="40" y="45" font-weight="700" fill="#5d687a">UAV i  (runs on its companion computer, 20 Hz)</text>
+
+              <rect x="40" y="70" width="190" height="70" rx="10" fill="#fff" stroke="#2457d6" stroke-width="2"/>
+              <text x="135" y="98" text-anchor="middle" font-weight="700">L1 Estimator</text>
+              <text x="135" y="118" text-anchor="middle" fill="#5d687a">ξ̂ᵢ ← consensus on ξ</text>
+
+              <rect x="270" y="70" width="190" height="70" rx="10" fill="#fff" stroke="#2457d6" stroke-width="2"/>
+              <text x="365" y="98" text-anchor="middle" font-weight="700">L2 Formation</text>
+              <text x="365" y="118" text-anchor="middle" fill="#5d687a">slot + coupling → vᵢᶜᵐᵈ</text>
+
+              <rect x="500" y="70" width="190" height="70" rx="10" fill="#fff" stroke="#0f766e" stroke-width="2"/>
+              <text x="595" y="98" text-anchor="middle" font-weight="700">L3 Safety filter</text>
+              <text x="595" y="118" text-anchor="middle" fill="#5d687a">CBF projection → vᵢ<tspan font-size="0.75em" dy="-0.5em">safe</tspan></text>
+
+              <rect x="730" y="70" width="170" height="70" rx="10" fill="#fff" stroke="#2457d6" stroke-width="2"/>
+              <text x="815" y="98" text-anchor="middle" font-weight="700">L4 Mapping</text>
+              <text x="815" y="118" text-anchor="middle" fill="#5d687a">χᶜ, Vᶜ, hᶜ</text>
+
+              <rect x="930" y="70" width="130" height="70" rx="10" fill="#eaf0ff" stroke="#2457d6" stroke-width="2"/>
+              <text x="995" y="98" text-anchor="middle" font-weight="700">Autopilot</text>
+              <text x="995" y="118" text-anchor="middle" fill="#5d687a">PX4 loops</text>
+
+              <line x1="230" y1="105" x2="268" y2="105" stroke="#2457d6" stroke-width="2" marker-end="url(#ar24)"/>
+              <line x1="460" y1="105" x2="498" y2="105" stroke="#2457d6" stroke-width="2" marker-end="url(#ar24)"/>
+              <line x1="690" y1="105" x2="728" y2="105" stroke="#2457d6" stroke-width="2" marker-end="url(#ar24)"/>
+              <line x1="900" y1="105" x2="928" y2="105" stroke="#2457d6" stroke-width="2" marker-end="url(#ar24)"/>
+
+              <rect x="40" y="200" width="420" height="70" rx="10" fill="#fff" stroke="#c27b00" stroke-width="2"/>
+              <text x="250" y="228" text-anchor="middle" font-weight="700">Comms: receive buffer (10 Hz, latency τ, loss p)</text>
+              <text x="250" y="248" text-anchor="middle" fill="#5d687a">last packet per neighbour, dead-reckoned to now</text>
+              <line x1="135" y1="200" x2="135" y2="142" stroke="#c27b00" stroke-width="2" marker-end="url(#ar24)"/>
+              <line x1="365" y1="200" x2="365" y2="142" stroke="#c27b00" stroke-width="2" marker-end="url(#ar24)"/>
+              <line x1="460" y1="235" x2="595" y2="235" stroke="#c27b00" stroke-width="2"/>
+              <line x1="595" y1="235" x2="595" y2="142" stroke="#c27b00" stroke-width="2" marker-end="url(#ar24)"/>
+
+              <rect x="500" y="200" width="190" height="70" rx="10" fill="#fff" stroke="#6d28d9" stroke-width="2"/>
+              <text x="595" y="228" text-anchor="middle" font-weight="700">L0 Mission</text>
+              <text x="595" y="248" text-anchor="middle" fill="#5d687a">slots rᵢ, Δhᵢ, tasks, ξ if pinned</text>
+              <line x1="595" y1="200" x2="595" y2="200" stroke="none"/>
+              <line x1="500" y1="235" x2="462" y2="235" stroke="#6d28d9" stroke-width="2"/>
+              <line x1="462" y1="235" x2="462" y2="150" stroke="#6d28d9" stroke-width="2"/>
+              <line x1="462" y1="150" x2="365" y2="150" stroke="#6d28d9" stroke-width="2" marker-end="url(#ar24)"/>
+
+              <rect x="730" y="200" width="330" height="70" rx="10" fill="#fff" stroke="#147a4b" stroke-width="2"/>
+              <text x="895" y="228" text-anchor="middle" font-weight="700">Own state from PX4 (50 Hz)</text>
+              <text x="895" y="248" text-anchor="middle" fill="#5d687a">pᵢ, V<tspan font-size="0.75em" dy="0.3em">g,i</tspan><tspan dy="-0.3em">, χᵢ, hᵢ, V</tspan><tspan font-size="0.75em" dy="0.3em">a,i</tspan><tspan dy="-0.3em">, timestamp</tspan></text>
+              <line x1="895" y1="200" x2="895" y2="180" stroke="#147a4b" stroke-width="2"/>
+              <line x1="895" y1="180" x2="135" y2="180" stroke="#147a4b" stroke-width="2"/>
+              <line x1="135" y1="180" x2="135" y2="142" stroke="#147a4b" stroke-width="2" marker-end="url(#ar24)"/>
+
+              <rect x="40" y="310" width="1020" height="60" rx="10" fill="#fff" stroke="#c27b00" stroke-width="2" stroke-dasharray="6 4"/>
+              <text x="550" y="335" text-anchor="middle" font-weight="700">Broadcast every 100 ms: (t, pᵢ, vᵢ, hᵢ, ξ̂ᵢ)</text>
+              <text x="550" y="355" text-anchor="middle" fill="#5d687a">to every UAV j with aᵢⱼ &gt; 0 (course convention: i transmits to j)</text>
+            </g>
+          </svg>
+          <figcaption>Figure 1. The CLAW inside one aircraft. Blue blocks are the control law; orange is communication; purple is the mission layer; green is the autopilot interface.</figcaption>
+        </figure>
+        <table>
+          <thead><tr><th>Layer</th><th>Consumes</th><th>Produces</th><th>Rate</th><th>Derived in</th></tr></thead>
+          <tbody>
+            <tr><td>L0 Mission &amp; reference</td><td>tasks, GCS commands</td><td>reference \(\xi(t)\) (pinned UAVs), slots \(r_i,\Delta h_i\)</td><td>0.1–1 Hz</td><td>Parts 10, 13, 17, 19, 22</td></tr>
+            <tr><td>L1 Distributed estimation</td><td>neighbours' \(\hat\xi_j\), own \(\hat\xi_i\), \(\xi\) if pinned</td><td>\(\hat\xi_i=(\hat p_c,\hat\psi_c,\hat V_c,\hat\omega_c,\hat h_c)\)</td><td>20 Hz propagate, 10 Hz correct</td><td>Parts 5–8, 13</td></tr>
+            <tr><td>L2 Formation guidance</td><td>\(\hat\xi_i\), \(p_i\), neighbours' \(p_j\) (dead-reckoned)</td><td>\(v_i^{\mathrm{cmd}}\in\mathbb R^2\), \(h_i^{\mathrm{cmd}}\)</td><td>20 Hz</td><td>Parts 9, 12, 13</td></tr>
+            <tr><td>L3 Safety filter</td><td>\(v_i^{\mathrm{cmd}}\), neighbours' \(p_j,v_j,h_j\)</td><td>\(v_i^{\mathrm{safe}}\)</td><td>20 Hz</td><td>Part 20</td></tr>
+            <tr><td>L4 Vehicle command</td><td>\(v_i^{\mathrm{safe}}\), wind estimate</td><td>\(\chi_i^c, V_{a,i}^c, h_i^c\) → autopilot</td><td>20 Hz</td><td>Parts 15, 16, 18, 23</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="signals">
+        <h2>4. Signals, Packets and the Communication Graph</h2>
+        <h3>4.1 Own state</h3>
+        <p>From the autopilot (Part 15, Part 23): horizontal NED position \(p_i=(p_{n,i},p_{e,i})\), ground speed \(V_{g,i}\), course \(\chi_i\),
+          altitude \(h_i\), airspeed \(V_{a,i}\) and a timestamp. The inertial velocity is \(v_i=V_{g,i}(\cos\chi_i,\sin\chi_i)\).</p>
+        <h3>4.2 The packet</h3>
+        <p>Every \(T_{\mathrm{comm}}=100\) ms each UAV broadcasts one packet. Keep it small; everything else can be derived.</p>
+        <table>
+          <thead><tr><th>Field</th><th>Symbol</th><th>Why</th></tr></thead>
+          <tbody>
+            <tr><td>timestamp</td><td>\(t_{\mathrm{tx}}\)</td><td>dead-reckoning and staleness checks (Part 6)</td></tr>
+            <tr><td>position, velocity, altitude</td><td>\(p_j, v_j, h_j\)</td><td>formation coupling (L2) and safety (L3)</td></tr>
+            <tr><td>reference estimate</td><td>\(\hat\xi_j\)</td><td>consensus on the reference (L1)</td></tr>
+            <tr><td>UAV id, slot id, health</td><td>—</td><td>fallbacks (Section 14)</td></tr>
+          </tbody>
+        </table>
+        <h3>4.3 The graph</h3>
+        <p>
+          The adjacency matrix \(A\) uses the course convention \(a_{ij}&gt;0\iff i\to j\) (Part 2). The controller of UAV \(i\) uses the
+          <em>listening weights</em> \(w_{ij}=a_{ji}\), i.e. \(W=A^T\), and the in-degree Laplacian \(L=D_{\mathrm{in}}-W\) (Part 7).
+          UAVs that receive the reference directly (from the GCS or by being the lead aircraft) have pinning gain \(b_i=1\); the rest \(b_i=0\) (Part 8).
+          The two conditions every mission plan must satisfy:
+        </p>
+        <div class="formula">
+          \[
+            \text{(C1) the augmented graph (reference as root) has a directed spanning tree,}\qquad
+            \text{(C2) } H=L+B \text{ has } \operatorname{Re}\lambda_{\min}(H)\gt0 .
+          \]
+        </div>
+        <p>For an undirected graph (C1) is "connected and at least one pinned UAV", and (C2) follows (Part 8, Theorem). For the
+          5-aircraft undirected ring used in the simulator the Laplacian eigenvalues are</p>
+        <div class="formula">\[ \lambda(L)=\{0,\;1.382,\;1.382,\;3.618,\;3.618\}, \]</div>
+        <p>and pinning only UAV 1 gives \(\lambda_{\min}(H)=0.139\), pinning UAVs 1 and 2 gives \(0.268\), pinning 1 and 3 gives \(0.325\).
+          The slowest estimator mode is set by this number (Section 6), so <em>which</em> aircraft hear the reference is a design choice, not an accident.</p>
+        <h3>4.4 Dead-reckoning stale packets</h3>
+        <p>At control time \(t\) a neighbour's last packet is \(\tau_j=t-t_{\mathrm{tx},j}\) old (latency plus lost packets). Every use of \(p_j\) below means the propagated value</p>
+        <div class="formula">\[ \tilde p_j(t)=p_j(t_{\mathrm{tx},j})+v_j(t_{\mathrm{tx},j})\,\tau_j , \]</div>
+        <p>which is exact for straight flight and has error \(\tfrac12 V_{g,j}\,\omega_j\,\tau_j^2\) in a turn (for \(\tau_j=0.3\) s at 150 m/s and 6.5°/s this is 0.8 m — negligible against \(d_s\)).
+          If \(\tau_j\) exceeds \(T_{\mathrm{stale}}\) (say 1 s), drop \(j\) from \(\mathcal N_i^{\mathrm{in}}\) for L1/L2 but <em>keep</em> it in L3 with an inflated \(d_s\) (Section 8).</p>
+      </section>
+
+      <section id="l0">
+        <h2>5. L0 — Mission &amp; Reference</h2>
+        <p>The mission layer produces two things: a <strong>reference</strong> (the virtual structure of Part 13) and a <strong>slot assignment</strong>.</p>
+        <h3>5.1 The reference \(\xi\)</h3>
+        <div class="formula">
+          \[
+            \xi=(p_c,\psi_c,V_c,\omega_c,h_c),\qquad
+            \dot p_c=V_c\begin{bmatrix}\cos\psi_c\\ \sin\psi_c\end{bmatrix},\quad \dot\psi_c=\omega_c,\quad
+            \omega_c=\begin{cases}0 &\text{on a leg}\\ \pm\,g\tan\phi_c/V_c &\text{in a turn}\end{cases}
+          \]
+        </div>
+        <p>
+          A racetrack is legs of length \(\ell\) joined by 180° coordinated turns of bank \(\phi_c\). Any flyable path works: Dubins segments (Part 17), an orbit (Part 18),
+          or a path-parameterised reference for time coordination (Part 19). The only requirement is that <strong>every slot</strong>, not just the centre, stays inside the envelope (Section 12, check D1).
+        </p>
+        <h3>5.2 Slots</h3>
+        <p>Slots \(r_i\) are fixed vectors in the formation frame (Part 10); altitude offsets \(\Delta h_i\) stack the aircraft vertically so that L3 can ignore pairs that are vertically separated.
+          The simulator's vee for five aircraft, with along-track spacing \(s_x\) and cross-track spacing \(s_y\):</p>
+        <div class="formula">
+          \[ r_1=(0,0),\ r_2=(-s_x,\,s_y),\ r_3=(-s_x,\,-s_y),\ r_4=(-2s_x,\,2s_y),\ r_5=(-2s_x,\,-2s_y),\qquad \Delta h=(0,+10,-10,+20,-20)\ \mathrm{m}. \]
+        </div>
+        <p>Which aircraft takes which slot is an assignment problem solved with the Hungarian method or CBBA (Part 22) whenever the formation is created or an aircraft is lost;
+          the cost is the Dubins length (Part 17) from the aircraft's pose to the slot, divided by speed.</p>
+      </section>
+
+      <section id="l1">
+        <h2>6. L1 — Distributed Reference Estimation</h2>
+        <p>
+          Only pinned aircraft receive \(\xi\). Everyone else must <em>estimate</em> it, and all estimates must agree, otherwise the slots computed by different aircraft
+          would be inconsistent and the formation would fight itself. This is exactly leader–follower consensus with a dynamic leader (Part 8) applied to the virtual-structure state (Part 13).
+        </p>
+        <div class="formula">
+          \[
+            \boxed{\;
+            \begin{aligned}
+              \text{propagate (every } T_s\text{):}\quad & \hat p_{c,i} \mathrel{+}= \hat V_{c,i}\begin{bmatrix}\cos\hat\psi_{c,i}\\ \sin\hat\psi_{c,i}\end{bmatrix}T_s,\qquad \hat\psi_{c,i}\mathrel{+}=\hat\omega_{c,i}T_s,\\
+              \text{correct (every } T_{\mathrm{comm}}\text{):}\quad & \hat\xi_i \mathrel{-}= T_{\mathrm{comm}}\,k_\xi\Big[\sum_{j\in\mathcal N_i^{\mathrm{in}}} w_{ij}\,\big(\hat\xi_i\ominus\hat\xi_j\big)+b_i\big(\hat\xi_i\ominus\xi\big)\Big]
+            \end{aligned}\;}
+          \]
+        </div>
+        <p>where \(\ominus\) is ordinary subtraction except for the angle component \(\hat\psi_c\), which is differenced through \(\operatorname{wrap}(\cdot)\in(-\pi,\pi]\) (Part 15).</p>
+        <h3>6.1 Error dynamics</h3>
+        <p>Let \(\eta_i=\hat\xi_i-\xi\). Because every copy propagates with the same model, the model terms cancel to first order and in continuous time</p>
+        <div class="formula">\[ \dot\eta=-k_\xi\,(H\otimes I)\,\eta+\varepsilon(t),\qquad H=L+B, \]</div>
+        <p>where \(\varepsilon\) collects the model mismatch (the reference switching between leg and turn, which the followers learn only through consensus) and the
+          linearisation error of the angle. By Part 8, \(H\) is positive definite under (C1), so</p>
+        <div class="formula">\[ \|\eta(t)\|\le e^{-k_\xi\lambda_{\min}(H)\,t}\|\eta(0)\|+\frac{\sup\|\varepsilon\|}{k_\xi\lambda_{\min}(H)} . \]</div>
+        <div class="success"><strong>Interpretation:</strong> the estimate converges exponentially at rate \(k_\xi\lambda_{\min}(H)\), and a switching reference leaves a residual error inversely proportional to that rate.
+          With \(k_\xi=1\) and two pinned aircraft on the ring, the rate is \(0.268\ \mathrm{s^{-1}}\): a turn entry is "learned" by the far side of the formation in about \(3/0.268\approx 11\) s.
+          At 150 m/s that is 1.7 km of flight — which is why the reference should announce turns ahead of time (Section 13) rather than switch abruptly.</div>
+        <h3>6.2 Discrete-time check</h3>
+        <p>The correction is applied at \(T_{\mathrm{comm}}=0.1\) s. By Part 6 the Euler step is stable if \(T_{\mathrm{comm}}\,k_\xi\,\lambda_{\max}(H)\lt2\); for the pinned ring \(\lambda_{\max}(H)=4.41\), so \(k_\xi\lt4.5\). We use \(k_\xi=1\), far from the limit, which also keeps the estimator insensitive to lost packets (Part 6, switching-topology argument).</p>
+      </section>
+
+      <section id="l2">
+        <h2>7. L2 — Formation Guidance</h2>
+        <p>With a local reference estimate each aircraft can compute its own slot and its slot's velocity (Part 13):</p>
+        <div class="formula">
+          \[
+            p_i^d=\hat p_{c,i}+R(\hat\psi_{c,i})\,r_i,\qquad
+            v_i^d=\hat V_{c,i}\begin{bmatrix}\cos\hat\psi_{c,i}\\ \sin\hat\psi_{c,i}\end{bmatrix}+\hat\omega_{c,i}\,R(\hat\psi_{c,i})\,J\,r_i ,
+          \]
+        </div>
+        <p>and the velocity command combines <em>slot tracking</em> (leader-follower, Part 8) with <em>relative-formation coupling</em> (displacement-based formation control, Part 12):</p>
+        <div class="formula">
+          \[
+            \boxed{\;
+              v_i^{\mathrm{cmd}} = v_i^d \;-\; k_p\,(p_i-p_i^d)\;-\;k_c\sum_{j\in\mathcal N_i^{\mathrm{in}}} w_{ij}\Big[(p_i-\tilde p_j)-(p_i^d-p_j^d)\Big]
+            \;}
+          \]
+        </div>
+        <p>Here \(p_j^d=\hat p_{c,i}+R(\hat\psi_{c,i})r_j\) is <em>UAV \(i\)'s</em> idea of where \(j\) should be (so the coupling term needs only \(r_j\), which is mission data, and \(\tilde p_j\), which is in the packet).</p>
+        <h3>7.1 Why both terms</h3>
+        <ul>
+          <li>The \(k_p\) term alone is \(N\) independent trackers: if one aircraft lags (gust, saturation), its neighbours do not react, and the <em>relative</em> geometry — which is what matters for safety and for sensors — is lost until the laggard catches up.</li>
+          <li>The \(k_c\) term alone is displacement-based formation control (Part 12): it preserves shape but fixes position only up to a translation, which drifts under disturbances.</li>
+          <li>Together, the error \(e_i=p_i-p_i^d\) obeys (perfect estimates, perfect vehicle tracking)
+            \[ \dot e=-\big[(k_pI_N+k_cL)\otimes I_2\big]e , \]
+            whose modes decay at rates \(k_p+k_c\lambda_k\), \(k=1,\dots,N\). The slowest, \(k_p\), is the whole-formation translation; the fastest, \(k_p+k_c\lambda_N\), is the highest-frequency shape mode. The \(k_c\) term makes the <em>shape</em> converge faster than the <em>position</em>, which is the behaviour we want.</li>
+        </ul>
+        <h3>7.2 Saturation</h3>
+        <p>The correction \(\delta v_i=v_i^{\mathrm{cmd}}-v_i^d\) is scaled so that \(\|\delta v_i\|\le\Delta v_{\max}\). This keeps the speed command inside \([V_{\min},V_{\max}]\) whenever the slot velocity itself is (check D1) and turns the exponential convergence into a <em>linear approach at \(\Delta v_{\max}\) followed by exponential convergence</em> — the same structure as the vector-field guidance of Part 18.</p>
+        <h3>7.3 The feedforward term is not optional</h3>
+        <p>Dropping \(v_i^d\) leaves a pure tracker, which lags a moving slot by \(\|v_i^d\|/k_p\) (Part 12): <strong>41.7 m</strong> at 25 m/s with \(k_p=0.6\), <strong>375 m</strong> at 150 m/s with \(k_p=0.4\). The simulator's <code>--no-feedforward</code> flag shows this (Section 15).</p>
+        <h3>7.4 Altitude</h3>
+        <div class="formula">\[ h_i^{\mathrm{cmd}}=\hat h_{c,i}+\Delta h_i . \]</div>
+        <p>Altitude is handled by the autopilot's longitudinal loop (TECS in PX4, Part 23); the CLAW only supplies the stacked target.</p>
+      </section>
+
+      <section id="l3">
+        <h2>8. L3 — Safety Filter</h2>
+        <p>The formation command is nominal. Before it reaches the vehicle, a control barrier function (Part 20) enforces separation against every neighbour \(j\) within sensing range whose altitude is within \(h_{\mathrm{sep}}\) of ours:</p>
+        <div class="formula">
+          \[
+            h_{ij}=\|p_i-\tilde p_j\|^2-d_{s,\mathrm{eff}}^2,\qquad
+            d_{s,\mathrm{eff}}=d_s+V_{\mathrm{closing}}\,\tau_{\mathrm{comm}},\qquad
+            V_{\mathrm{closing}}=\max\big(0,\,-(v_i-\tilde v_j)\cdot\widehat{(p_i-\tilde p_j)}\big).
+          \]
+        </div>
+        <p>At the velocity-command level the kinematics are a single integrator, so the decentralised half-split constraint of Part 20 applies directly:</p>
+        <div class="formula">
+          \[
+            \boxed{\;2\,(p_i-\tilde p_j)^T v_i \;\ge\; -\tfrac12\,\alpha\,h_{ij}\qquad\text{for every active pair } (i,j)\;}
+          \]
+        </div>
+        <p>and the filtered command is the projection of \(v_i^{\mathrm{cmd}}\) onto the intersection of these half-spaces, then clipped to the speed envelope:</p>
+        <div class="formula">
+          \[
+            v_i^{\mathrm{safe}}=\arg\min_{v}\|v-v_i^{\mathrm{cmd}}\|^2\ \text{ s.t. all pair constraints},\qquad
+            \text{one constraint: } v=v^{\mathrm{cmd}}+\max\!\big(0,\;b-a^Tv^{\mathrm{cmd}}\big)\frac{a}{\|a\|^2},
+          \]
+        </div>
+        <p>with \(a=2(p_i-\tilde p_j)\), \(b=-\tfrac12\alpha h_{ij}\). The simulator solves the multi-constraint case by cyclic projection (a few sweeps), which is exact for one active constraint and a good approximation otherwise; a production implementation uses a small QP solver (Part 20, Part 21).</p>
+        <div class="warning"><strong>Latency inflation numbers.</strong> Head-on closing at twice the cruise speed with the comm latency: \(2\times25\times0.1=5\) m for the small swarm, \(2\times150\times0.15=45\) m for the high-speed swarm. The inflation is added on top of \(d_s\) (30 m and 150 m respectively), which already accounts for wake and navigation error.</div>
+        <p>The filter is the <em>last</em> block before the vehicle on purpose: whatever the formation, flocking or MPC layer asks for, separation is enforced here with a guarantee (Section 11). Relative-degree issues of the real aircraft (turn rate, not velocity, is the input) are absorbed by the course-loop bandwidth margin discussed in Section 12.</p>
+      </section>
+
+      <section id="l4">
+        <h2>9. L4 — Vehicle Command Mapping</h2>
+        <div class="formula">
+          \[
+            \boxed{\;\chi_i^c=\operatorname{atan2}\big(v_{e}^{\mathrm{safe}},\,v_{n}^{\mathrm{safe}}\big),\qquad
+            V_{g,i}^c=\operatorname{clip}\big(\|v_i^{\mathrm{safe}}\|,\,V_{\min},\,V_{\max}\big),\qquad
+            h_i^c=h_i^{\mathrm{cmd}}\;}
+          \]
+        </div>
+        <p>With wind, convert the ground-speed command to an airspeed command through the wind triangle (Part 15) and command <em>course</em>, not heading, so that the autopilot crabs automatically (Part 18).
+          The autopilot's course loop is modelled as the first-order, rate-limited response of Part 15:</p>
+        <div class="formula">
+          \[ \dot\chi_i=\operatorname{clip}\big(b_\chi\operatorname{wrap}(\chi_i^c-\chi_i),\,\pm\omega_{\max}\big),\qquad \omega_{\max}=\frac{g\tan\phi_{\max}}{V_{g,i}},\qquad \dot V_{g,i}=\operatorname{clip}\big(b_V(V_{g,i}^c-V_{g,i}),\,\pm a_{\max}\big). \]
+        </div>
+        <p>On PX4 this maps to a lateral setpoint (course or lateral acceleration \(a_{\mathrm{lat}}=V_g\dot\chi\)) plus airspeed and altitude setpoints, or to attitude setpoints with \(\phi^c=\arctan(V_g\dot\chi^c/g)\) (Part 23).</p>
+      </section>
+
+      <section id="onepage">
+        <h2>10. The CLAW on One Page</h2>
+        <div class="claw">
+          <strong>Unified swarm CLAW — per UAV \(i\), every \(T_s\)</strong>
+          <ol>
+            <li><strong>Ingest.</strong> Own state \((p_i,v_i,h_i)\); for each in-neighbour \(j\) the last packet, dead-reckoned: \(\tilde p_j=p_j+v_j\tau_j\).</li>
+            <li><strong>L1 Estimate.</strong> Propagate \(\hat\xi_i\) with the virtual-structure model; at comm ticks correct with
+              \(\hat\xi_i\mathrel{-}=T_{\mathrm{comm}}k_\xi\big[\sum_j w_{ij}(\hat\xi_i\ominus\hat\xi_j)+b_i(\hat\xi_i\ominus\xi)\big]\).</li>
+            <li><strong>L2 Guide.</strong> \(p_i^d=\hat p_c+R(\hat\psi_c)r_i\), \(v_i^d=\hat V_c\hat t(\hat\psi_c)+\hat\omega_cR(\hat\psi_c)Jr_i\);
+              \(v_i^{\mathrm{cmd}}=v_i^d-k_p(p_i-p_i^d)-k_c\sum_jw_{ij}[(p_i-\tilde p_j)-(p_i^d-p_j^d)]\), correction saturated at \(\Delta v_{\max}\); \(h_i^{\mathrm{cmd}}=\hat h_c+\Delta h_i\).</li>
+            <li><strong>L3 Protect.</strong> For each nearby, co-altitude \(j\): enforce \(2(p_i-\tilde p_j)^Tv\ge-\tfrac12\alpha(\|p_i-\tilde p_j\|^2-d_{s,\mathrm{eff}}^2)\) by projection → \(v_i^{\mathrm{safe}}\).</li>
+            <li><strong>L4 Command.</strong> \(\chi_i^c=\operatorname{atan2}(v_e,v_n)\), \(V_{g,i}^c=\operatorname{clip}(\|v_i^{\mathrm{safe}}\|)\), \(h_i^c\) → autopilot.</li>
+            <li><strong>Broadcast</strong> \((t,p_i,v_i,h_i,\hat\xi_i)\) every \(T_{\mathrm{comm}}\).</li>
+          </ol>
+          Parameters: graph \(W,B\); slots \(r_i,\Delta h_i\); gains \(k_\xi,k_p,k_c,\alpha\); limits \(\Delta v_{\max},V_{\min},V_{\max},\phi_{\max},d_s,h_{\mathrm{sep}}\); timing \(T_s,T_{\mathrm{comm}},T_{\mathrm{stale}}\).
+        </div>
+        <p>Everything else in this part — proofs, gain selection, fallbacks — is about choosing those parameters and knowing what the law guarantees.</p>
+      </section>
+
+      <section id="stability">
+        <h2>11. Stability and Safety Argument</h2>
+        <p>The layers form a <strong>cascade</strong>: L1 does not depend on L2–L4; L2 depends on L1's output; L3 modifies L2's output; the vehicle tracks L4's output with lag. Cascades of exponentially stable systems driven by bounded inputs are input-to-state stable (Appendix A1), which gives the following.</p>
+        <div class="theorem">
+          <strong>Proposition (convergence of the CLAW).</strong> Assume
+          (A1) the augmented communication graph has a directed spanning tree rooted at the reference, so \(H=L+B\) satisfies \(\operatorname{Re}\lambda_{\min}(H)=:\mu\gt0\) (Part 8);
+          (A2) the reference is flyable by every slot: \(V_{\min}\le\|v_i^d\|\le V_{\max}\) and \(\|\dot v_i^d\|/\|v_i^d\|\le\omega_{\max}\) (Part 10, Part 16);
+          (A3) the vehicle tracks a velocity command with first-order lag \(b\) and \(k_p+k_c\lambda_{\max}(L)\le b/2\) (time-scale separation, Part 16);
+          (A4) packet staleness is bounded by \(T_{\mathrm{stale}}\) and the union graph over any window of length \(T_{\mathrm{stale}}\) satisfies (A1) (Part 6);
+          (A5) the safety filter is inactive (no pair closer than the inflated \(d_s\)).
+          Then the estimator error and the slot errors converge exponentially to a ball whose radius is proportional to the reference's model mismatch and the staleness bound, with rates \(k_\xi\mu\) for L1 and \(k_p\) (slowest) for L2.
+          <br><em>Proof sketch.</em> L1: Section 6.1 and Part 8. L2 with exact estimates and ideal vehicle: \(\dot e=-[(k_pI+k_cL)\otimes I_2]e\), eigenvalues \(k_p+k_c\lambda_k\gt0\) under (A1) (for directed \(L\) the real parts are positive, Part 7). Estimator error enters L2 as a bounded additive input through \(p_i^d,v_i^d\) (Lipschitz in \(\hat\xi_i\)); vehicle lag is a first-order filter in the loop, stable under the gain ratio of (A3) (Part 16); staleness and loss are a switching perturbation handled by the common Lyapunov function \(\|e\|^2\) under (A4) (Part 6). ISS of each stage and the cascade structure give the result.
+        </div>
+        <div class="theorem">
+          <strong>Proposition (safety).</strong> If at \(t=0\) every pair satisfies \(h_{ij}\ge0\) and at every step the projection in L3 is feasible (each pair's half-space intersects the speed envelope), then \(h_{ij}(t)\ge0\) for all \(t\) at the command level; the real aircraft additionally violates by at most \(V_g\,\Delta\chi/\!b_\chi\) during the course-loop transient, which the inflation of \(d_s\) is sized to cover.
+          <br><em>Proof sketch.</em> Part 20: the pair constraint is \(\dot h_{ij}\ge-\alpha h_{ij}\) (each aircraft contributes half), so \(h_{ij}(t)\ge h_{ij}(0)e^{-\alpha t}\ge0\) (Nagumo / comparison lemma). Feasibility is the only assumption; Section 14 says what to do when it fails.
+        </div>
+        <div class="warning"><strong>What is not proved.</strong> Convergence <em>while</em> the filter is active (the filter can create temporary deadlocks, Part 20), convergence when (A2) fails (an infeasible reference produces saturation — see check D1), and anything about the autopilot's inner loops, which we take as given (Part 23).</div>
+      </section>
+
+      <section id="design">
+        <h2>12. Design Procedure and the Five Checks</h2>
+        <p>Gains are chosen in order, each from an inequality derived earlier. The two aircraft classes used throughout the course:</p>
+        <table>
+          <thead><tr><th>Quantity</th><th>Small UAV</th><th>High-speed</th><th>Part</th></tr></thead>
+          <tbody>
+            <tr><td>\(V_c\), \([V_{\min},V_{\max}]\)</td><td>25 m/s, [16, 32]</td><td>150 m/s, [120, 190]</td><td>15</td></tr>
+            <tr><td>\(\phi_{\max}\), \(n_{z,\max}\)</td><td>45°, 2</td><td>60°, 4</td><td>16</td></tr>
+            <tr><td>\(\omega_{\max}\) (bank-limited), \(R_{\min}\)</td><td>22.5°/s, 64 m</td><td>6.5°/s, 1324 m</td><td>16</td></tr>
+            <tr><td>course-loop bandwidth \(b_\chi\)</td><td>1.5 s\(^{-1}\)</td><td>0.8 s\(^{-1}\)</td><td>15, 16</td></tr>
+            <tr><td>\(T_s\), \(T_{\mathrm{comm}}\), \(\tau\), loss</td><td>50 ms, 100 ms, 100 ms, 10 %</td><td>50 ms, 100 ms, 150 ms, 10 %</td><td>6, 23</td></tr>
+            <tr><td>vee spacing \(s_x\times s_y\)</td><td>60 m × 40 m</td><td>400 m × 250 m</td><td>10</td></tr>
+          </tbody>
+        </table>
+
+        <h3>D1 — Formation feasibility in turns (Part 10)</h3>
+        <p>All slots share \(\omega_c\); the slot at lateral offset \(y\) flies at \(V_c(1+y/R_c)\). The outermost slot of the vee sits at \(y=\pm2s_y\). Feasible offsets are
+          \(-R_c(1-V_{\min}/V_c)\le y\le R_c(V_{\max}/V_c-1)\), which gives a maximum bank for the reference:</p>
+        <div class="formula">
+          \[ R_c\ \ge\ \max\!\Big(\frac{2s_y}{V_{\max}/V_c-1},\ \frac{2s_y}{1-V_{\min}/V_c}\Big)\quad\Longrightarrow\quad \tan\phi_c\le\frac{V_c^2}{g\,R_c}. \]
+        </div>
+        <table>
+          <thead><tr><th></th><th>\(\phi_c\)</th><th>\(R_c\)</th><th>feasible \(y\)</th><th>outer / inner slot speed</th><th>verdict</th></tr></thead>
+          <tbody>
+            <tr><td>Small, 80 m extent</td><td>30°</td><td>110 m</td><td>[−40, 31] m</td><td>43.1 / 6.9 m/s</td><td><span style="color:var(--danger)">infeasible</span> — needs \(\phi_c\le12.6^\circ\)</td></tr>
+            <tr><td>Small, 80 m extent</td><td>12°</td><td>300 m</td><td>[−108, 84] m</td><td>31.7 / 18.3 m/s</td><td>feasible</td></tr>
+            <tr><td>High, 500 m extent</td><td>45°</td><td>2294 m</td><td>[−459, 612] m</td><td>182.7 / 117.3 m/s</td><td><span style="color:var(--danger)">inner slot below \(V_{\min}\)</span> — needs \(\phi_c\le42.5^\circ\)</td></tr>
+            <tr><td>High, 500 m extent</td><td>40°</td><td>2733 m</td><td>[−547, 729] m</td><td>177.4 / 122.6 m/s</td><td>feasible</td></tr>
+          </tbody>
+        </table>
+        <div class="success"><strong>Lesson.</strong> Formation width, reference bank and speed envelope are one coupled design. A 25 m/s swarm with an 80 m-wide vee cannot turn at 30°; it turns at 12° (radius 300 m) or collapses into trail before turning (Section 13). This is the single most common error in fixed-wing formation design, and the law cannot fix it — only the reference can.</div>
+
+        <h3>D2 — Time-scale separation (Part 16)</h3>
+        <p>The fastest L2 mode must be slower than the course loop that has to realise it: \(k_p+k_c\lambda_{\max}(L)\le b_\chi/2\) (factor 2–3 in practice).</p>
+        <div class="formula">\[ \text{Small: } b_\chi/2=0.75\ \mathrm{s^{-1}},\qquad \text{High: } b_\chi/2=0.4\ \mathrm{s^{-1}}. \]</div>
+        <p>With \(\lambda_{\max}(L)=3.618\) on the 5-ring, the original spec values \((k_p,k_c)=(0.6,0.3)\) give \(1.69\ \mathrm{s^{-1}}\) — above \(b_\chi\) itself and therefore oscillation-prone. Section 15 lists the values that passed in simulation.</p>
+
+        <h3>D3 — Discrete-time step (Part 6)</h3>
+        <div class="formula">\[ T_s\,(k_p+k_c\lambda_{\max}(L))\lt 0.5\ (\ll2),\qquad T_{\mathrm{comm}}\,k_\xi\,\lambda_{\max}(H)\lt0.5 . \]</div>
+        <p>At 20 Hz both are satisfied with wide margin for any gains that pass D2; D3 only bites if the control rate is reduced to a few hertz.</p>
+
+        <h3>D4 — Estimator speed vs. reference switching (Section 6)</h3>
+        <p>The far side of the formation learns a reference change at rate \(k_\xi\lambda_{\min}(H)\). Choose the pinned set to make \(\lambda_{\min}(H)\) large (pin 1 and 3 on the ring: 0.325 instead of 0.139) and announce turns \(\ge3/(k_\xi\lambda_{\min}(H))\) seconds ahead, or broadcast the <em>future</em> reference (turn start time and bank) so that every copy switches simultaneously.</p>
+
+        <h3>D5 — Safety margins (Part 20)</h3>
+        <div class="formula">\[ d_{s,\mathrm{eff}}=d_s+2V_c\tau_{\mathrm{comm}}+\text{nav error}+\text{course-loop transient }V_c\,\Delta\chi_{\max}/b_\chi . \]</div>
+        <p>Small: \(30+5+5+25\cdot0.5/1.5\approx48\) m worst case; high: \(150+45+10+150\cdot0.3/0.8\approx261\) m. Slot spacing must exceed \(d_{s,\mathrm{eff}}\) with margin, otherwise the filter is permanently active and D1–D4 no longer describe the closed loop; altitude stacking (\(h_{\mathrm{sep}}\)) removes most pairs from the filter entirely.</p>
+      </section>
+
+      <section id="highspeed">
+        <h2>13. High-Speed Adaptations</h2>
+        <p>Nothing in the CLAW's <em>structure</em> changes with speed; six <em>parameters and modes</em> do. Each is a consequence of a scaling law from Part 16.</p>
+        <table>
+          <thead><tr><th>Effect of speed</th><th>Scaling</th><th>Adaptation in the CLAW</th></tr></thead>
+          <tbody>
+            <tr><td>Turn radius grows</td><td>\(R\propto V_g^2\)</td><td>Formation width must stay a small fraction of \(R_c\) (check D1); reference bank limited by the outermost slot, not by the lead aircraft.</td></tr>
+            <tr><td>Turn rate falls</td><td>\(\omega_{\max}\propto1/V_g\)</td><td>Lower \(k_p,k_c\) (check D2); larger \(\Delta v_{\max}\) in absolute terms but smaller as a fraction of \(V_c\).</td></tr>
+            <tr><td>Latency covers more ground</td><td>\(V_g\tau\)</td><td>\(d_s\) inflation (D5); dead-reckoning mandatory; higher comm rate if the radio allows.</td></tr>
+            <tr><td>Speed changes are slow</td><td>\(P_s=(T-D)V/W\) small</td><td>Prefer <em>along-path spacing</em> and trail formations in turns (Part 19), where speed, not lateral position, is the control; avoid wide vees at high \(V\).</td></tr>
+            <tr><td>Roll takes time</td><td>\(\phi_{\max}/p_{\max}\) ≈ 1 s</td><td>Lower \(b_\chi\) in the design model; announce turns early (D4) so the estimator, not the tracker, absorbs the transient.</td></tr>
+            <tr><td>Structural limit</td><td>\(n_{z,\max}\)</td><td>\(\omega_{\max}=\min\big(g\tan\phi_{\max},\,g\sqrt{n_{z,\max}^2-1}\big)/V_g\) in L4's vehicle model; above corner speed the bank limit is the binding one.</td></tr>
+          </tbody>
+        </table>
+        <h3>Mode switching: vee on legs, trail in turns</h3>
+        <p>For high-speed swarms the cleanest solution to D1 is a <strong>time-varying slot table</strong> \(r_i(t)\) (Part 10): a few seconds before a turn the reference morphs the vee into a trail (\(r_i\to(-i\,s_x,0)\)); after the turn it morphs back. Because the slots are part of \(\xi\)-synchronised mission data, every aircraft morphs in step, and the CLAW's equations do not change — \(v_i^d\) simply acquires the \(\dot r_i\) term, \(v_i^d\mathrel{+}=R(\hat\psi_c)\dot r_i\). In a trail every slot has \(y=0\), so the turn is feasible at any bank the lead can fly.</p>
+      </section>
+
+      <section id="failures">
+        <h2>14. Failure Modes and Fallbacks</h2>
+        <table>
+          <thead><tr><th>Failure</th><th>Detection</th><th>Fallback</th><th>Part</th></tr></thead>
+          <tbody>
+            <tr><td>Neighbour packets stale (\(\tau_j\gt T_{\mathrm{stale}}\))</td><td>timestamp</td><td>drop \(j\) from L1/L2 sums; keep in L3 with \(d_s\) inflated by \(2V_c\tau_j\); if all neighbours stale: hold \(\hat\xi_i\) propagation for \(T_{\mathrm{hold}}\), then loiter at current altitude</td><td>6, 20</td></tr>
+            <tr><td>Reference (root) lost</td><td>pinned UAVs stop receiving \(\xi\)</td><td>pinned set re-elected: lowest-id UAV with a GCS link becomes the reference source; everyone else continues consensus (the law is unchanged)</td><td>7, 8</td></tr>
+            <tr><td>Graph loses its spanning tree</td><td>each UAV counts in-neighbours; GCS monitors \(\lambda_2\)</td><td>reduce spacing or climb to restore links; otherwise sub-swarms each elect a root and fly separate references</td><td>4, 7</td></tr>
+            <tr><td>Estimates disagree (\(\|\hat\xi_i\ominus\hat\xi_j\|\) large)</td><td>compare with neighbours' packets</td><td>temporarily raise \(k_\xi\) toward the D3 limit; if persistent, trust the pinned neighbour only (\(w_{ij}=0\) for others)</td><td>6, 8</td></tr>
+            <tr><td>Safety filter infeasible</td><td>projection does not converge / constraints contradict</td><td>priority rule (lower id yields), immediate altitude change by \(h_{\mathrm{sep}}\), then re-enter; log and re-task</td><td>20</td></tr>
+            <tr><td>Aircraft lost</td><td>health flag / timeout</td><td>re-run slot assignment (Hungarian/CBBA) for the remaining aircraft; new slot table broadcast with the reference</td><td>22</td></tr>
+            <tr><td>Reference infeasible (D1 violated after a wind change)</td><td>\(\|v_i^d\|\) outside envelope</td><td>reference reduces \(\phi_c\) or morphs to trail; aircraft saturate gracefully meanwhile</td><td>10, 16</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="simulation">
+        <h2>15. Simulation Results</h2>
+        <p>The repository's <code>sim/</code> package implements Sections 4–9 line by line (each module's docstring names the part it comes from). Run:</p>
+<pre><code>python3 tests/test_sim.py
+python3 -m sim.run --preset small --duration 400 --out sim_out_small
+python3 -m sim.run --preset high  --duration 600 --out sim_out_high
+python3 -m sim.run --preset small --no-feedforward   # Section 7.3
+python3 -m sim.run --preset small --no-cbf           # Section 8</code></pre>
+        <p>Each run prints a summary and saves four figures (trajectories with slots, slot errors, minimum pairwise distance, speeds and courses). The metrics obtained with the final preset values:</p>
+        {{SIM_TABLE}}
+        <h3>What to look at</h3>
+        <ul>
+          <li><strong>Trajectories.</strong> In the turns, the outer aircraft fly faster and bank more than the inner ones (Part 10). If the slot errors grow in every turn, D1 or D2 is violated.</li>
+          <li><strong>Slot errors.</strong> Exponential decay at roughly \(k_p\) after the initial assembly, then a residual set by estimator lag at turn entries (D4).</li>
+          <li><strong>Minimum distance.</strong> Never below \(d_s\) with the filter on; the <code>--no-cbf</code> run shows the assembly phase crossing it.</li>
+          <li><strong>No feedforward.</strong> Errors settle at \(\approx V_c/k_p\) behind the slots, confirming Part 12.</li>
+        </ul>
+      </section>
+
+      <section id="px4">
+        <h2>16. From Simulation to PX4 + ROS 2</h2>
+        <p>Part 23 gives the software architecture; the CLAW maps onto it as one ROS 2 node per aircraft:</p>
+        <table>
+          <thead><tr><th>CLAW block</th><th>ROS 2 / PX4 element</th><th>Rate</th></tr></thead>
+          <tbody>
+            <tr><td>Own state ingest</td><td>subscribe <code>/px4_i/fmu/out/vehicle_local_position</code>, <code>…/airspeed_validated</code>, <code>…/vehicle_attitude</code></td><td>50 Hz</td></tr>
+            <tr><td>Packets</td><td>custom <code>SwarmState</code> message on <code>/swarm/state</code> (best-effort QoS, depth 1), namespaced per UAV; latency/loss injector node in SITL</td><td>10 Hz</td></tr>
+            <tr><td>L1–L3</td><td>timer callback in the swarm node (NumPy, the same functions as <code>sim/</code>)</td><td>20 Hz</td></tr>
+            <tr><td>L4 → autopilot</td><td>publish <code>OffboardControlMode</code> heartbeat + fixed-wing lateral/longitudinal setpoints (course or lateral acceleration, airspeed, altitude) — or attitude setpoints where the former are unavailable (verify against the PX4 version, Part 23)</td><td>20 Hz</td></tr>
+            <tr><td>L0 Mission</td><td>GCS node publishes \(\xi\) and the slot table; pinned UAVs subscribe</td><td>10 Hz / on change</td></tr>
+          </tbody>
+        </table>
+        <h3>Acceptance test plan</h3>
+        <ol>
+          <li><strong>SITL, 1 aircraft:</strong> L4 only; verify course-loop bandwidth \(b_\chi\) and speed-loop \(b_V\) from step responses (they are design inputs to D2).</li>
+          <li><strong>SITL, 5 aircraft, no loss:</strong> assembly from scattered starts; metrics as in Section 15; compare with <code>sim/</code>.</li>
+          <li><strong>SITL with injected loss/latency:</strong> 20 % loss, 300 ms latency; verify no separation violation and bounded slot error.</li>
+          <li><strong>HITL</strong> with real flight controllers and radios: measure actual latency distribution; re-derive D5.</li>
+          <li><strong>Flight:</strong> 2 aircraft trail, then 3 vee on legs only, then turns at the D1 bank, then 5 aircraft; widen the envelope one parameter at a time.</li>
+        </ol>
+      </section>
+
+      <section id="extend">
+        <h2>17. Extending the CLAW</h2>
+        <ul>
+          <li><strong>Wind.</strong> Estimate \(w\) in the autopilot; L4 converts \(V_g^c\) to \(V_a^c\) by the wind triangle; D1 becomes a ground-speed check with \(V_a\) limits mapped through the wind (Part 15).</li>
+          <li><strong>3-D formations.</strong> Replace \(R(\psi_c)\) by a 3-D rotation and add a flight-path-angle command; altitude stacking already gives most of the benefit.</li>
+          <li><strong>GPS-denied / no common heading.</strong> Replace the L2 coupling term by the distance-based gradient law of Part 12 over a rigid graph (Part 11); only body-frame relative positions are needed.</li>
+          <li><strong>Predictive guidance.</strong> Replace L2 by the distributed MPC of Part 21 using the same slots and the same L3 filter; the cascade argument is unchanged.</li>
+          <li><strong>Flocking mode.</strong> For loose transit, replace L2 by Olfati-Saber's Algorithm 2 (Part 14) with \(\hat\xi_i\) as the \(\gamma\)-agent; L1, L3, L4 unchanged.</li>
+          <li><strong>Time-critical missions.</strong> Use the path-parameter consensus of Part 19 as the L1 state (\(\zeta\) instead of \(p_c\)) and along-path slots; simultaneous arrival becomes a consensus target.</li>
+          <li><strong>Sensing instead of comms.</strong> If neighbours are sensed rather than heard, \(\tilde p_j\) comes from the sensor and L1 needs an observer of \(\hat\xi_j\) from relative motion — the structure survives, the guarantees weaken (Part 6 noise bounds).</li>
+        </ul>
+      </section>
+
+      <section id="exercises">
+        <h2>18. Design Exercises</h2>
+        <div class="exercise">
+          <strong>Exercise 1 (D1).</strong> A 60 m/s swarm with \(V\in[45,80]\) m/s flies a vee with \(s_y=100\) m (outer slots at ±200 m). What is the largest reference bank, and which slot limits it?
+          <details><summary>Show solution</summary><div class="solution">Outside: \(R_c\ge200/(80/60-1)=600\) m; inside: \(R_c\ge200/(1-45/60)=800\) m. The inner slot limits. \(\tan\phi_c\le60^2/(9.81\cdot800)=0.459\), \(\phi_c\le24.7^\circ\).</div></details>
+        </div>
+        <div class="exercise">
+          <strong>Exercise 2 (D2).</strong> The same swarm uses a 6-aircraft undirected ring (\(\lambda_{\max}=4\)) and a course loop with \(b_\chi=1.2\ \mathrm{s^{-1}}\). Choose \(k_p,k_c\) so that the shape modes are three times faster than the translation mode and D2 holds with a factor 2.
+          <details><summary>Show solution</summary><div class="solution">Need \(k_p+4k_c\le0.6\) and \(k_p+k_c\lambda_2=3k_p\) with \(\lambda_2=1\) (6-ring: \(2-2\cos(\pi/3)=1\)) ⇒ \(k_c=2k_p\) ⇒ \(9k_p\le0.6\) ⇒ \(k_p=0.067,\ k_c=0.133\). Translation time constant 15 s — slow, which is the price of a ring with a slow course loop; a denser graph (larger \(\lambda_2/\lambda_{\max}\)) would help more than gain tuning.</div></details>
+        </div>
+        <div class="exercise">
+          <strong>Exercise 3 (L1).</strong> Show that if every \(\hat\xi_i\) is initialised to the same wrong value and the reference is constant, the estimator error decays as \(e^{-k_\xi\lambda_{\min}(H)t}\) only in the pinned direction and explain why pinning more aircraft helps.
+          <details><summary>Show solution</summary><div class="solution">With equal initial errors \(\eta(0)=\eta_0\mathbf 1\), \(\dot\eta=-k_\xi H\eta\) and \(H\mathbf 1=B\mathbf 1=b\) (since \(L\mathbf 1=0\)): the error leaves the consensus direction only through the pinned entries. \(\mathbf 1\) is not an eigenvector of \(H\), so the decay mixes modes, but the component along the slowest eigenvector of \(H\) decays at \(k_\xi\lambda_{\min}(H)\). More pinned aircraft increase \(\lambda_{\min}(H)\) (Part 8: 0.139 → 0.268 → 0.325 on the 5-ring).</div></details>
+        </div>
+        <div class="exercise">
+          <strong>Exercise 4 (D5).</strong> Two aircraft on adjacent vee slots at 150 m/s are 250 m apart laterally and 400 m longitudinally. With \(d_s=150\) m and a 300 ms worst-case staleness, is the pair ever "active" in L3 during a correctly executed 40° turn? Use the slot-speed result from D1.
+          <details><summary>Show solution</summary><div class="solution">Slot separation is \(\sqrt{250^2+400^2}=472\) m and does not change in a coordinated turn (rigid rotation). \(d_{s,\mathrm{eff}}\le150+2\cdot150\cdot0.3=240\) m \(\lt472\) m, so \(h_{ij}\gt0\) with margin; the pair is inactive unless a slot error exceeds about 230 m. Altitude stacking (\(\Delta h=10\) m, \(h_{\mathrm{sep}}=8\) m) removes the pair from the filter regardless.</div></details>
+        </div>
+        <div class="exercise">
+          <strong>Exercise 5 (code).</strong> In <code>sim/</code>, change the graph to a directed chain \(1\to2\to3\to4\to5\) with only UAV 1 pinned. Predict from Part 7 what happens, then run the small preset and compare the estimator error of UAV 5 with the ring case.
+          <details><summary>Show solution</summary><div class="solution">The chain has a spanning tree rooted at UAV 1, so (A1) holds; \(H\) is lower-triangular with eigenvalues \(1\) (all equal), but the transient is a chain of first-order lags, so UAV 5 sees a reference change delayed by roughly \(4/k_\xi\) s and with a fourth-order smoothed shape; with 10 % packet loss each hop adds expected delay. Slot errors of UAV 5 at turn entry are several times larger than on the ring; the pinned ring with \(\lambda_{\min}(H)=0.268\) is slower per mode but has no serial delay.</div></details>
+        </div>
+      </section>
+
+      <section id="summary">
+        <h2>19. Checklist and Formula Sheet</h2>
+        <div class="grid">
+          <div class="mini"><strong>Graph</strong>\(W=A^T\), \(L=D_{\mathrm{in}}-W\), \(H=L+B\), need a spanning tree rooted at the reference.</div>
+          <div class="mini"><strong>L1</strong>\(\dot{\hat\xi}_i=f(\hat\xi_i)-k_\xi[\sum_jw_{ij}(\hat\xi_i\ominus\hat\xi_j)+b_i(\hat\xi_i\ominus\xi)]\)</div>
+          <div class="mini"><strong>L2</strong>\(v_i^{\mathrm{cmd}}=v_i^d-k_p(p_i-p_i^d)-k_c\sum_jw_{ij}[(p_i-\tilde p_j)-(p_i^d-p_j^d)]\)</div>
+          <div class="mini"><strong>L3</strong>\(2(p_i-\tilde p_j)^Tv\ge-\tfrac12\alpha(\|p_i-\tilde p_j\|^2-d_{s,\mathrm{eff}}^2)\)</div>
+          <div class="mini"><strong>L4</strong>\(\chi^c=\operatorname{atan2}(v_e,v_n)\), \(V_g^c=\operatorname{clip}\|v\|\), \(\omega_{\max}=g\tan\phi_{\max}/V_g\)</div>
+          <div class="mini"><strong>Checks</strong>D1 turn feasibility · D2 \(k_p+k_c\lambda_{\max}\le b_\chi/2\) · D3 \(T_s(\cdot)\lt0.5\) · D4 pinned set · D5 \(d_{s,\mathrm{eff}}\)</div>
+        </div>
+        <h3>Before you fly</h3>
+        <ol>
+          <li>Every slot's turn speed inside \([V_{\min},V_{\max}]\) at the reference bank (D1), or trail mode in turns.</li>
+          <li>Gains pass D2–D3 with the <em>measured</em> course-loop bandwidth.</li>
+          <li>Pinned set chosen for \(\lambda_{\min}(H)\); turns announced early (D4).</li>
+          <li>\(d_{s,\mathrm{eff}}\) computed from measured latency; slots farther apart than that (D5).</li>
+          <li>Fallbacks of Section 14 implemented and tested in SITL with injected loss.</li>
+          <li>Simulation metrics (Section 15) reproduced in SITL before HITL.</li>
+        </ol>
+      </section>
+
+      <section id="references">
+        <h2>20. References</h2>
+        <ul>
+          <li>W. Ren and R. W. Beard, <em>Distributed Consensus in Multi-vehicle Cooperative Control</em>, Springer, 2008 — leader-follower consensus, virtual structures.</li>
+          <li>M. Mesbahi and M. Egerstedt, <em>Graph Theoretic Methods in Multiagent Networks</em>, Princeton, 2010 — graph Laplacians, pinning.</li>
+          <li>R. W. Beard and T. W. McLain, <em>Small Unmanned Aircraft: Theory and Practice</em>, Princeton, 2012 — vehicle models, autopilot loops, guidance.</li>
+          <li>K.-K. Oh, M.-C. Park and H.-S. Ahn, "A survey of multi-agent formation control," <em>Automatica</em> 53, 2015.</li>
+          <li>L. Wang, A. D. Ames and M. Egerstedt, "Safety barrier certificates for collisions-free multirobot systems," <em>IEEE Trans. Robotics</em> 33(3), 2017.</li>
+          <li>A. D. Ames, S. Coogan, M. Egerstedt, G. Notomista, K. Sreenath and P. Tabuada, "Control barrier functions: theory and applications," <em>ECC</em>, 2019.</li>
+          <li>E. Xargay, I. Kaminer, A. Pascoal, N. Hovakimyan, V. Dobrokhodov, V. Cichella, A. P. Aguiar and R. Ghabcheloo, "Time-critical cooperative path following of multiple UAVs over time-varying networks," <em>J. Guidance, Control, and Dynamics</em> 36(2), 2013.</li>
+          <li>H. K. Khalil, <em>Nonlinear Systems</em>, 3rd ed., Prentice Hall, 2002 — input-to-state stability and cascades (Ch. 4).</li>
+          <li>PX4 Autopilot User Guide, <a href="https://docs.px4.io/main/">docs.px4.io/main</a> — offboard control, ROS 2 interface, multi-vehicle simulation.</li>
+        </ul>
+      </section>
+
+      <div class="prevnext">
+        <a class="prev" href="23_px4_ros2_multi_vehicle.html"><span>&larr; Previous</span>Part 23: PX4 + ROS 2 Multi-Vehicle</a>
+        <a class="next" href="A1_math_toolbox.html"><span>Next &rarr;</span>Appendix A1: Math Toolbox</a>
+      </div>
+      <div class="done-box"><button id="done-btn" data-lesson="24">Mark Part 24 as complete</button></div>
+    </main>
+  </div>
+
+  <footer>Fixed-Wing Swarm Learning · Part 24 · Capstone: The Unified Swarm CLAW</footer>
+
+  <script>
+    (function () {
+      try {
+        var btn = document.getElementById('done-btn');
+        if (!btn) return;
+        var id = btn.getAttribute('data-lesson');
+        var key = 'fwswarm_done';
+        var done = JSON.parse(localStorage.getItem(key) || '[]');
+        function render() {
+          var is = done.indexOf(id) >= 0;
+          btn.textContent = is ? 'Completed ✓ (click to undo)' : 'Mark Part ' + id + ' as complete';
+          btn.className = is ? 'undone' : '';
+        }
+        btn.addEventListener('click', function () {
+          var i = done.indexOf(id);
+          if (i >= 0) done.splice(i, 1); else done.push(id);
+          localStorage.setItem(key, JSON.stringify(done));
+          render();
+        });
+        render();
+      } catch (e) { /* storage unavailable: ignore */ }
+    })();
+  </script>
+</body>
+</html>

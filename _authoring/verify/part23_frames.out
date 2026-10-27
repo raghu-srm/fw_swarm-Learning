@@ -1,0 +1,12 @@
+ENU [1. 2. 3.] -> NED by swap [ 2.  1. -3.]  by rotation [ 2.  1. -3.]  equal: True
+R_enu2ned =
+ [[ 0.  1.  0.]
+ [ 1. -0. -0.]
+ [ 0.  0. -1.]] 
+ involutory (R^2 = I): True
+FLU [1. 2. 3.] -> FRD by swap [ 1. -2. -3.]  by rotation [ 1. -2. -3.]  equal: True
+yaw ENU    0.0 deg -> heading NED   90.0 deg   (pi/2 - yaw_enu =   90.0 deg)
+yaw ENU   30.0 deg -> heading NED   60.0 deg   (pi/2 - yaw_enu =   60.0 deg)
+yaw ENU   90.0 deg -> heading NED    0.0 deg   (pi/2 - yaw_enu =    0.0 deg)
+yaw ENU  180.0 deg -> heading NED  -90.0 deg   (pi/2 - yaw_enu =  -90.0 deg)
+v = (20 N, 15 E) m/s -> V_g = 25.00 m/s, chi = 36.9 deg

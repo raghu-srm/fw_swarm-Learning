@@ -1,0 +1,7 @@
+# Python
+__pycache__/
+*.pyc
+# simulator outputs (regenerate with: python3 -m sim.run --preset small --out sim_out_small)
+sim_out*/
+# editor
+.vscode/

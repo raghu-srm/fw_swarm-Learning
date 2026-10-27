@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fixed-Wing Swarm Learning — Graph & Framework Rigidity</title>
+
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['\\(', '\\)']],
+        displayMath: [['\\[', '\\]'], ['$$', '$$']]
+      },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --card: #ffffff;
+      --text: #172033;
+      --muted: #5d687a;
+      --accent: #2457d6;
+      --accent-light: #eaf0ff;
+      --border: #dce2ec;
+      --code: #111827;
+      --success: #147a4b;
+      --warning: #c27b00;
+      --danger: #b42318;
+      --claw: #0f766e;
+      --claw-light: #e6f6f4;
+      --def: #6d28d9;
+      --def-light: #f3eefe;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+    }
+
+    header {
+      background: linear-gradient(135deg, #172554, #2457d6);
+      color: white;
+      padding: 56px 20px 44px;
+    }
+    header .wrap { max-width: 1320px; margin: auto; }
+    .topbar { margin-bottom: 18px; font-size: .95rem; }
+    .topbar a { color: #dbe6ff; }
+    .topbar a:hover { color: #fff; }
+
+    h1 { margin: 0 0 10px; font-size: clamp(2rem, 5vw, 3.2rem); }
+    h2 { margin-top: 0; font-size: 1.8rem; }
+    h3 { margin-top: 1.6rem; }
+    h4 { margin-top: 1.2rem; margin-bottom: .4rem; }
+
+    .subtitle { max-width: 820px; color: #dbe6ff; font-size: 1.08rem; }
+
+    nav, section, .callout {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px;
+      margin: 20px 0;
+      box-shadow: 0 3px 12px rgba(20, 35, 70, .05);
+    }
+    nav h2 { font-size: 1.35rem; }
+    nav ol { margin-bottom: 0; padding-left: 22px; }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    code { background: #eef1f6; padding: 2px 5px; border-radius: 5px; font-size: .92em; }
+    pre {
+      background: var(--code);
+      color: #e5e7eb;
+      padding: 18px;
+      border-radius: 10px;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+    pre code { background: none; padding: 0; color: inherit; font-size: .9rem; }
+
+    .formula {
+      background: var(--accent-light);
+      border-left: 4px solid var(--accent);
+      padding: 16px 18px;
+      margin: 16px 0;
+      overflow-x: auto;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+    }
+    .mini {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      background: #fbfcff;
+    }
+    .mini strong { display: block; margin-bottom: 5px; }
+
+    .success { border-left: 4px solid var(--success); background: #edf9f3; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .warning { border-left: 4px solid var(--warning); background: #fff8e8; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .danger  { border-left: 4px solid var(--danger);  background: #fdecec; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .note    { border-left: 4px solid var(--muted);   background: #f3f5f8; padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+    .definition, .theorem {
+      border-left: 4px solid var(--def);
+      background: var(--def-light);
+      padding: 14px 18px;
+      border-radius: 8px;
+      margin: 14px 0;
+    }
+    .definition > strong:first-child, .theorem > strong:first-child { color: var(--def); }
+    .claw {
+      border: 1px solid #99d6cf;
+      border-left: 6px solid var(--claw);
+      background: var(--claw-light);
+      padding: 16px 20px;
+      border-radius: 10px;
+      margin: 18px 0;
+    }
+    .claw > strong:first-child { color: var(--claw); display: block; margin-bottom: 6px; font-size: 1.05rem; }
+
+    table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+    th, td { text-align: left; padding: 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    th { background: #f1f4f9; }
+
+    .tag {
+      display: inline-block;
+      background: #eaf0ff;
+      color: #204bb4;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: .82rem;
+      margin: 3px;
+    }
+
+    figure { margin: 18px 0; }
+    figure > svg { width: 100%; height: auto; display: block; background: #fbfcff; border: 1px solid var(--border); border-radius: 10px; }
+    figcaption { color: var(--muted); font-size: .92rem; margin-top: 6px; text-align: center; }
+
+    .exercise { border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; margin: 14px 0; background: #fbfcff; }
+    .exercise summary { cursor: pointer; color: var(--accent); font-weight: 600; margin-top: 8px; }
+    .exercise details { margin-top: 6px; }
+    .exercise .solution { border-top: 1px dashed var(--border); margin-top: 8px; padding-top: 8px; }
+
+    .demo { border: 1px solid var(--border); border-radius: 12px; padding: 14px; background: #fbfcff; margin: 16px 0; }
+    .demo canvas { width: 100%; height: auto; display: block; background: #ffffff; border: 1px solid var(--border); border-radius: 8px; }
+    .controls { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; margin: 10px 0; font-size: .95rem; }
+    .controls label { display: inline-flex; align-items: center; gap: 6px; }
+    .controls input[type=range] { width: 140px; }
+    .controls button, .btn {
+      background: var(--accent); color: #fff; border: 0; padding: 7px 14px; border-radius: 8px; cursor: pointer; font-size: .92rem;
+    }
+    .controls button:hover, .btn:hover { filter: brightness(1.08); }
+    .controls button.secondary { background: #e5e9f2; color: var(--text); }
+
+    .prevnext { display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin: 26px 0 0; }
+    .prevnext a { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; flex: 1 1 260px; }
+    .prevnext a span { display: block; color: var(--muted); font-size: .82rem; }
+    .prevnext a.next { text-align: right; }
+
+    .done-box { text-align: center; margin: 24px 0 0; }
+    .done-box button { background: var(--success); color: #fff; border: 0; padding: 9px 18px; border-radius: 8px; cursor: pointer; }
+    .done-box button.undone { background: #9aa5b5; }
+
+    footer { text-align: center; color: var(--muted); padding: 30px 20px 50px; }
+
+    .page-shell {
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      gap: 24px;
+      max-width: 1320px;
+      margin: 0 auto;
+      padding: 28px 20px 70px;
+      align-items: start;
+    }
+    .sidebar { grid-column: 1; position: sticky; top: 20px; }
+    .sidebar nav { position: sticky; top: 20px; max-height: calc(100vh - 40px); overflow-y: auto; }
+    .content { grid-column: 2; min-width: 0; }
+    @media (max-width: 960px) {
+      .page-shell { grid-template-columns: 1fr; }
+      .sidebar, .sidebar nav { position: static; max-height: none; }
+      .sidebar, .content { grid-column: 1; }
+    }
+    @media print {
+      nav { break-after: page; }
+      section { box-shadow: none; }
+      .demo, .done-box, .prevnext, .topbar { display: none; }
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <div class="wrap">
+      <div class="topbar"><a href="index.html">&larr; Course home</a> &nbsp;·&nbsp; Module C: Formation &amp; Flocking</div>
+      <h1>Fixed-Wing Swarm Learning</h1>
+      <div class="subtitle">
+        Part 11: <strong>Graph &amp; Framework Rigidity</strong> — when do inter-aircraft distances pin down a formation's shape?
+        The rigidity matrix, infinitesimal rigidity, Laman's theorem, flips and degenerate geometries, and why rigidity decides
+        whether a distance-based formation law can work.
+      </div>
+      <p>
+        <span class="tag">Rigidity matrix</span>
+        <span class="tag">Laman</span>
+        <span class="tag">Henneberg</span>
+        <span class="tag">Global rigidity</span>
+        <span class="tag">UAV Swarms</span>
+      </p>
+    </div>
+  </header>
+
+  <div class="page-shell">
+    <aside class="sidebar">
+      <nav id="index">
+        <h2>Index</h2>
+        <ol>
+          <li><a href="#why">Why this matters</a></li>
+          <li><a href="#frameworks">Frameworks and the rigidity function</a></li>
+          <li><a href="#matrix">Infinitesimal motions and the rigidity matrix</a></li>
+          <li><a href="#examples">Worked examples: four planar frameworks</a></li>
+          <li><a href="#laman">Minimal rigidity, Laman, Henneberg</a></li>
+          <li><a href="#generic">Generic and degenerate placements</a></li>
+          <li><a href="#global">Global rigidity and flips</a></li>
+          <li><a href="#control">Rigidity and the distance-based formation law</a></li>
+          <li><a href="#bearing">Bearing rigidity and persistence</a></li>
+          <li><a href="#fixed-wing">Fixed-wing interpretation</a></li>
+          <li><a href="#implementation">Implementation</a></li>
+          <li><a href="#pitfalls">Common pitfalls</a></li>
+          <li><a href="#exercises">Exercises</a></li>
+          <li><a href="#summary">Key takeaways &amp; formula sheet</a></li>
+          <li><a href="#references">References</a></li>
+        </ol>
+      </nav>
+    </aside>
+
+    <main class="content">
+
+      <section id="why">
+        <h2>1. Why This Matters</h2>
+        <p>
+          <a href="10_formation_specification.html">Part 10</a> offered three ways to specify a formation. The displacement specification
+          \(p_i-p_j\to d_{ij}\) needs every aircraft to know a common heading; the distance specification \(\|p_i-p_j\|\to d_{ij}\) does not —
+          a range measurement is the same in every frame — which makes it the natural choice when GPS or a shared compass is unavailable.
+          But distances carry less information than displacements. A square with four equal sides can shear into a rhombus; a triangle
+          cannot. The theory that decides <em>which sets of distances determine a shape</em> is <strong>rigidity theory</strong>, and it enters
+          swarm control in three places:
+        </p>
+        <ul>
+          <li>whether the distance constraints define the formation at all (up to translation and rotation);</li>
+          <li>whether the distance-based control law of <a href="12_formation_control.html">Part 12</a> is even locally stable — it is, exactly when the framework is infinitesimally rigid;</li>
+          <li>how many sensing links a formation needs, which ones, and which link losses are fatal.</li>
+        </ul>
+        <div class="formula">
+          \[ \text{distances fix the shape}\quad\Longleftrightarrow\quad \operatorname{rank}R(p)=2N-3\ \ (\text{plane}),\ \ 3N-6\ \ (\text{space}) \]
+        </div>
+        <div class="grid">
+          <div class="mini"><strong>Input</strong>Graphs (<a href="1_fixed_wing_swarm_graphs_digraphs.html">Part 1</a>), formation specifications and slot vectors (<a href="10_formation_specification.html">Part 10</a>), matrix rank and null spaces (<a href="A1_math_toolbox.html#vectors">A1 §2</a>).</div>
+          <div class="mini"><strong>Output</strong>Build \(R(p)\) for any framework, test infinitesimal and minimal rigidity, recognise degenerate placements and flips, and design a sensing graph with the right redundancy.</div>
+          <div class="mini"><strong>Used in</strong><a href="12_formation_control.html">Part 12</a> (distance-based law, stability), <a href="20_collision_avoidance_cbf.html">Part 20</a> (distance constraints), Part 24 §17 (GPS-denied extension).</div>
+        </div>
+      </section>
+
+      <section id="frameworks">
+        <h2>2. Frameworks and the Rigidity Function</h2>
+        <div class="definition">
+          <strong>Definition (framework).</strong> A framework \((G,p)\) is an undirected graph \(G=(V,E)\) with \(N\) vertices together with a placement \(p=(p_1,\dots,p_N)\), \(p_i\in\mathbb R^d\) (\(d=2\) for a level formation, \(3\) with altitude). Each edge is a "bar" whose length \(\|p_i-p_j\|\) is to be maintained — for us, a sensed and controlled inter-aircraft distance.
+        </div>
+        <p>Collect the squared edge lengths into the <strong>rigidity function</strong></p>
+        <div class="formula">
+          \[ g(p)=\Big[\;\|p_i-p_j\|^2\;\Big]_{(i,j)\in E}\in\mathbb R^{|E|} . \]
+        </div>
+        <p>Two placements are <em>equivalent</em> if \(g(p)=g(q)\) (all edge lengths agree) and <em>congruent</em> if <em>all</em> pairwise distances agree, i.e. \(q\) is a rigid motion of \(p\) (translation, rotation, possibly reflection). A framework is <strong>rigid</strong> if every equivalent placement close to \(p\) is congruent to \(p\): no continuous deformation preserves the edges. It is <strong>globally rigid</strong> if every equivalent placement anywhere is congruent (Section 7).</p>
+        <div class="success"><strong>Interpretation:</strong> a formation held by distance constraints is a framework. Rigid means "the controlled distances leave no room to flex"; globally rigid means "and there is no second shape, far away, with the same distances" — such as a mirror image.</div>
+      </section>
+
+      <section id="matrix">
+        <h2>3. Infinitesimal Motions and the Rigidity Matrix</h2>
+        <p>Testing rigidity directly is hard (it is a question about a nonlinear system of equations). The linearised test is easy. Let the aircraft move with velocities \(\dot p_i\). An edge length is preserved to first order iff</p>
+        <div class="formula">
+          \[ \frac{d}{dt}\|p_i-p_j\|^2=2\,(p_i-p_j)^T(\dot p_i-\dot p_j)=0 . \]
+        </div>
+        <p>Collecting these conditions for all edges and dropping the factor 2 gives a linear system in the stacked velocity \(\dot p\in\mathbb R^{dN}\):</p>
+        <div class="definition">
+          <strong>Definition (rigidity matrix).</strong> \(R(p)=\tfrac12\,\partial g/\partial p\in\mathbb R^{|E|\times dN}\); row \(k\) for edge \((i,j)\) has \((p_i-p_j)^T\) in block \(i\), \(-(p_i-p_j)^T\) in block \(j\), and zeros elsewhere. A velocity \(\dot p\) with \(R(p)\dot p=0\) is an <strong>infinitesimal motion</strong>.
+        </div>
+        <p>Some infinitesimal motions are always present and preserve <em>every</em> distance: the <strong>trivial motions</strong>, i.e. rigid-body velocities. In the plane they are two translations \(\dot p_i=(1,0)\), \(\dot p_i=(0,1)\) and one rotation \(\dot p_i=Jp_i=(-p_{i,y},p_{i,x})\); in space, three translations and three rotations. They span a \(d(d+1)/2\)-dimensional subspace of \(\ker R(p)\) (3 in the plane, 6 in space) as long as the points do not all coincide.</p>
+        <div class="theorem">
+          <strong>Theorem (infinitesimal rigidity).</strong> A framework with \(N\ge d\) points not all on a common hyperplane is <em>infinitesimally rigid</em> iff its only infinitesimal motions are the trivial ones, i.e.
+          \[ \boxed{\;\operatorname{rank}R(p)=dN-\tfrac{d(d+1)}2\;}\qquad =2N-3\ \ (d=2),\qquad =3N-6\ \ (d=3). \]
+          Infinitesimal rigidity implies rigidity (Asimow &amp; Roth 1978). The converse can fail at special placements (Section 6), but for <em>generic</em> placements the two notions coincide.
+        </div>
+        <p>The number \(\dim\ker R-d(d+1)/2\) counts the independent <strong>non-trivial flexes</strong> — the ways the formation can deform while every sensed distance stays constant. For a swarm that number must be zero.</p>
+      </section>
+
+      <section id="examples">
+        <h2>4. Worked Examples: Four Planar Frameworks</h2>
+        <figure>
+          <svg viewBox="0 0 920 230" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Triangle, square, square with diagonal, K4, and the shear flex">
+            <defs><marker id="ar11" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#b42318"/></marker></defs>
+            <g font-family="system-ui, sans-serif" font-size="13" fill="#172033">
+              <!-- triangle -->
+              <text x="95" y="24" text-anchor="middle" font-weight="700">triangle: rank 3 = 2N−3</text>
+              <polygon points="40,170 150,170 40,60" fill="none" stroke="#2457d6" stroke-width="2.5"/>
+              <circle cx="40" cy="170" r="6" fill="#2457d6"/><circle cx="150" cy="170" r="6" fill="#2457d6"/><circle cx="40" cy="60" r="6" fill="#2457d6"/>
+              <text x="28" y="190" font-size="12">1</text><text x="150" y="190" font-size="12">2</text><text x="28" y="56" font-size="12">3</text>
+              <text x="95" y="212" text-anchor="middle" fill="#147a4b" font-size="12">rigid (minimal)</text>
+              <!-- square -->
+              <text x="310" y="24" text-anchor="middle" font-weight="700">square: rank 4 &lt; 5</text>
+              <polygon points="255,170 365,170 365,60 255,60" fill="none" stroke="#2457d6" stroke-width="2.5"/>
+              <polygon points="255,170 365,170 395,60 285,60" fill="none" stroke="#b42318" stroke-width="1.5" stroke-dasharray="5 4"/>
+              <circle cx="255" cy="170" r="6" fill="#2457d6"/><circle cx="365" cy="170" r="6" fill="#2457d6"/><circle cx="365" cy="60" r="6" fill="#2457d6"/><circle cx="255" cy="60" r="6" fill="#2457d6"/>
+              <line x1="370" y1="48" x2="400" y2="48" stroke="#b42318" stroke-width="2" marker-end="url(#ar11)"/>
+              <line x1="260" y1="48" x2="290" y2="48" stroke="#b42318" stroke-width="2" marker-end="url(#ar11)"/>
+              <text x="243" y="190" font-size="12">1</text><text x="365" y="190" font-size="12">2</text><text x="372" y="70" font-size="12">3</text><text x="238" y="70" font-size="12">4</text>
+              <text x="310" y="212" text-anchor="middle" fill="#b42318" font-size="12">flexible: top edge slides (shear)</text>
+              <!-- square + diagonal -->
+              <text x="530" y="24" text-anchor="middle" font-weight="700">square + 1–3: rank 5</text>
+              <polygon points="475,170 585,170 585,60 475,60" fill="none" stroke="#2457d6" stroke-width="2.5"/>
+              <line x1="475" y1="170" x2="585" y2="60" stroke="#2457d6" stroke-width="2.5"/>
+              <circle cx="475" cy="170" r="6" fill="#2457d6"/><circle cx="585" cy="170" r="6" fill="#2457d6"/><circle cx="585" cy="60" r="6" fill="#2457d6"/><circle cx="475" cy="60" r="6" fill="#2457d6"/>
+              <text x="463" y="190" font-size="12">1</text><text x="585" y="190" font-size="12">2</text><text x="592" y="56" font-size="12">3</text><text x="458" y="56" font-size="12">4</text>
+              <text x="530" y="212" text-anchor="middle" fill="#147a4b" font-size="12">rigid (minimal, 5 = 2N−3)</text>
+              <!-- K4 -->
+              <text x="760" y="24" text-anchor="middle" font-weight="700">K4: rank 5, 6 edges</text>
+              <polygon points="705,170 815,170 815,60 705,60" fill="none" stroke="#2457d6" stroke-width="2.5"/>
+              <line x1="705" y1="170" x2="815" y2="60" stroke="#2457d6" stroke-width="2.5"/>
+              <line x1="815" y1="170" x2="705" y2="60" stroke="#2457d6" stroke-width="2.5"/>
+              <circle cx="705" cy="170" r="6" fill="#2457d6"/><circle cx="815" cy="170" r="6" fill="#2457d6"/><circle cx="815" cy="60" r="6" fill="#2457d6"/><circle cx="705" cy="60" r="6" fill="#2457d6"/>
+              <text x="760" y="212" text-anchor="middle" fill="#147a4b" font-size="12">rigid (redundant: one spare edge)</text>
+            </g>
+          </svg>
+          <figcaption>Figure 1. Four frameworks on the unit square \(p_1=(0,0)\), \(p_2=(1,0)\), \(p_3=(1,1)\), \(p_4=(0,1)\) (the triangle uses \(p_1,p_2,p_4\)). Red: the shear flex of the 4-edge square.</figcaption>
+        </figure>
+        <h3>4.1 Triangle (\(N=3\), 3 edges)</h3>
+        <p>\(p_1=(0,0)\), \(p_2=(1,0)\), \(p_3=(0,1)\), edges 1–2, 2–3, 1–3. Each row holds the edge vector in block \(i\) and its negative in block \(j\):</p>
+        <div class="formula">
+          \[ R=\begin{bmatrix}-1&0&1&0&0&0\\0&0&1&-1&-1&1\\0&-1&0&0&0&1\end{bmatrix},\qquad \operatorname{rank}R=3=2\cdot3-3 . \]
+        </div>
+        <p>Kernel dimension 3 = exactly the trivial motions: infinitesimally rigid and, with \(|E|=3=2N-3\), <strong>minimally</strong> rigid. Singular values \(\{2.18,1.41,1.13\}\).</p>
+        <h3>4.2 Square (\(N=4\), 4 edges)</h3>
+        <div class="formula">
+          \[ R=\begin{bmatrix}-1&0&1&0&0&0&0&0\\0&0&0&-1&0&1&0&0\\0&0&0&0&1&0&-1&0\\0&-1&0&0&0&0&0&1\end{bmatrix},\qquad \operatorname{rank}R=4\lt5 . \]
+        </div>
+        <p>Kernel dimension 4: three trivial motions and <strong>one non-trivial flex</strong>. Take \(u=(0,0,\;0,0,\;1,0,\;1,0)\) — vertices 3 and 4 (the top edge) slide right while 1 and 2 stay: \(Ru=0\) ✓. Removing its trivial components leaves the pure shear velocity \(\{(1,1),(1,-1),(-1,-1),(-1,1)\}\), orthogonal to all translations and the rotation. It is a genuine finite motion, not just a first-order one: shifting the top edge by \(t\) gives a rhombus whose four edges keep length 1 while the diagonal 1–3 grows \(1.414\to1.640\to1.887\) for \(t=0,0.3,0.6\).</p>
+        <h3>4.3 Square plus diagonal 1–3 (5 edges)</h3>
+        <div class="formula">
+          \[ R=\begin{bmatrix}-1&0&1&0&0&0&0&0\\0&0&0&-1&0&1&0&0\\0&0&0&0&1&0&-1&0\\0&-1&0&0&0&0&0&1\\-1&-1&0&0&1&1&0&0\end{bmatrix},\qquad \operatorname{rank}R=5=2\cdot4-3 . \]
+        </div>
+        <p>The fifth row (edge vector \((-1,-1)\)) is independent of the first four and kills the shear: infinitesimally rigid and minimal. Singular values \(\{2.29,1.41,1.41,1.41,0.87\}\) — the smallest one is the "stiffness" of the weakest direction (Section 8).</p>
+        <h3>4.4 \(K_4\) (6 edges)</h3>
+        <p>Adding the other diagonal 2–4 gives rank still 5 (it cannot exceed \(2N-3\)): rigid with one <strong>redundant</strong> edge. Now \(R\) has a one-dimensional left null space — the six edge lengths of a planar quadrilateral satisfy one algebraic relation — which shows up as a zero eigenvalue of \(RR^T\): \(\{0,2,2,2,4,6\}\). Redundancy is what buys tolerance to a lost link (Section 10).</p>
+        <table>
+          <thead><tr><th>framework</th><th>\(|E|\)</th><th>\(\operatorname{rank}R\)</th><th>need \(2N-3\)</th><th>flexes</th><th>verdict</th></tr></thead>
+          <tbody>
+            <tr><td>triangle</td><td>3</td><td>3</td><td>3</td><td>0</td><td>rigid, minimal</td></tr>
+            <tr><td>square</td><td>4</td><td>4</td><td>5</td><td>1 (shear)</td><td>flexible</td></tr>
+            <tr><td>square + diagonal</td><td>5</td><td>5</td><td>5</td><td>0</td><td>rigid, minimal</td></tr>
+            <tr><td>\(K_4\)</td><td>6</td><td>5</td><td>5</td><td>0</td><td>rigid, redundant</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="laman">
+        <h2>5. Minimal Rigidity, Laman's Theorem, Henneberg Constructions</h2>
+        <p>Since \(\operatorname{rank}R\le\min(|E|,2N-3)\), a planar framework needs at least \(2N-3\) edges to be rigid; one with exactly \(2N-3\) independent edges is <strong>minimally rigid</strong>. Counting edges is necessary, not sufficient: \(2N-3\) edges piled onto one part of the graph leave another part loose. Laman's theorem makes the count exact.</p>
+        <div class="theorem">
+          <strong>Theorem (Laman 1970).</strong> A graph with \(N\ge2\) vertices is generically minimally rigid in the plane iff \(|E|=2N-3\) and every subset of \(k\ge2\) vertices spans at most \(2k-3\) edges. (A graph is generically rigid iff it contains a spanning subgraph satisfying these conditions.)
+        </div>
+        <p>The condition says "no sub-formation is over-braced at the expense of the rest". A graph that fails it: \(K_4\) on vertices 1–4 (6 edges, but \(2\cdot4-3=5\)) plus a triangle hanging off vertex 4 to vertices 5, 6 — 9 edges \(=2\cdot6-3\), yet the 4-vertex subset spans 6 edges and the framework flexes. Laman is a counting test on the <em>graph</em>; it says nothing about a particular placement (Section 6).</p>
+        <h3>Henneberg constructions</h3>
+        <p>Every minimally rigid planar graph can be grown from a single edge by two operations (Tay &amp; Whiteley 1985), which is how formations are designed in practice:</p>
+        <ol>
+          <li><strong>Vertex addition:</strong> add a new vertex and connect it to two existing vertices (two new distance constraints for the new aircraft's two planar degrees of freedom).</li>
+          <li><strong>Edge splitting:</strong> remove an edge \((i,j)\), add a new vertex connected to \(i\), \(j\) and a third vertex \(k\).</li>
+        </ol>
+        <p>Worked: start from the triangle (rank 3). Vertex addition — vertex 4 at \((1.2,1.1)\) joined to 2 and 3: \(|E|=5\), rank 5 ✓. Edge splitting — remove 1–2, add vertex 5 at \((0.5,-0.4)\) joined to 1, 2, 3: \(|E|=7=2\cdot5-3\), rank 7, Laman ✓. Each step keeps \(|E|=2N-3\) and the rank full, so a vee or a diamond can be assembled aircraft by aircraft with a guaranteed rigid sensing graph.</p>
+        <table>
+          <thead><tr><th>\(N\)</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th><th>10</th></tr></thead>
+          <tbody>
+            <tr><td>planar minimum \(2N-3\)</td><td>3</td><td>5</td><td>7</td><td>9</td><td>11</td><td>13</td><td>17</td></tr>
+            <tr><td>spatial minimum \(3N-6\)</td><td>3</td><td>6</td><td>9</td><td>12</td><td>15</td><td>18</td><td>24</td></tr>
+            <tr><td>all pairs \(N(N-1)/2\)</td><td>3</td><td>6</td><td>10</td><td>15</td><td>21</td><td>28</td><td>45</td></tr>
+          </tbody>
+        </table>
+        <p>For ten aircraft a planar formation needs 17 ranges, not 45 — the difference between a feasible sensing budget and an impossible one.</p>
+      </section>
+
+      <section id="generic">
+        <h2>6. Generic and Degenerate Placements</h2>
+        <p>Rigidity of a <em>graph</em> (Laman) is a statement about almost every placement. Specific placements can be worse, and formations are full of special geometry.</p>
+        <ul>
+          <li><strong>Collinear triangle.</strong> \(p=(0,0),(1,0),(2,0)\) with all three edges: rank 2, one flex — the middle point can move perpendicular to the line to first order (velocities \((0,0.5),(0,-1),(0,0.5)\)). The graph is Laman-rigid; the framework is not infinitesimally rigid. (It is still rigid in the finite sense — the flex dies at second order — but the control law of Section 8 sees only the first order and fails.)</li>
+          <li><strong>Any collinear formation.</strong> A trail of three with all three ranges: flexible. A line abreast of five with <em>all ten</em> ranges (\(K_5\)): rank 4 against the required 7, three flexes. No set of distances among collinear points can resist bending out of the line, because every edge vector is parallel and the rigidity matrix has at most \(N-1\) independent rows... plus nothing in the perpendicular direction.</li>
+          <li><strong>Concurrent or parallel bracing.</strong> The triangular prism (two triangles joined by three edges) is Laman-rigid with 9 edges. Placed as two parallel translates of the same triangle (connecting edges parallel) or as a triangle and a scaled copy (connecting edges concurrent), the rank drops to 8: flexible. A generic placement, or one with the top triangle rotated by 0.4 rad, has rank 9: rigid.</li>
+        </ul>
+        <div class="warning"><strong>For formation design.</strong> Symmetric, neat formations — line abreast, trail, parallel echelons, scaled vees — are precisely the non-generic placements where a Laman-rigid graph can lose rank. Always compute \(\operatorname{rank}R(p)\) at the <em>actual</em> slot positions, not just the edge count.</div>
+      </section>
+
+      <section id="global">
+        <h2>7. Global Rigidity and Flips</h2>
+        <p>Infinitesimal rigidity rules out small deformations. It does not rule out a second, distant placement with the same edge lengths:</p>
+        <ul>
+          <li><strong>Reflection of a triangle:</strong> \((0,0),(1,0),(0,1)\) and \((0,0),(1,0),(0,-1)\) have identical edge lengths \(\{1,1.414,1\}\). Congruent (a reflection), so harmless for a formation — unless the mission cares about left and right.</li>
+          <li><strong>Partial flip:</strong> four aircraft at \((0,0),(2,0),(2,1.5),(0.3,1.2)\) with the minimally rigid graph \(\{12,23,13,34,14\}\). Reflect aircraft 4 across the diagonal 1–3: all five edge lengths are unchanged (\(\{2,1.5,2.5,1.726,1.237\}\)), yet the formation is a different shape — the non-edge distance 2–4 changes from 2.08 to 0.77. Rank is still 5: infinitesimally rigid at both placements, but a distance-based controller started near the wrong one converges to the wrong one.</li>
+        </ul>
+        <div class="definition">
+          <strong>Global rigidity.</strong> A framework is globally rigid if every placement with the same edge lengths is congruent to it. In the plane a generic framework is globally rigid iff its graph is 3-connected and <em>redundantly rigid</em> (rigid after removing any single edge) — Jackson &amp; Jordán 2005; Connelly 2005. Adding the edge 2–4 to the example above (making \(K_4\)) excludes the flip.
+        </div>
+        <p><strong>Three dimensions.</strong> Laman's count has no 3-D analogue: the "double banana" (two tetrahedra-like bananas sharing two vertices) has \(18=3\cdot8-6\) edges satisfying the natural counting condition yet has rank 17 — the bananas rotate about the shared axis. For 3-D formations, compute the rank; do not count.</p>
+      </section>
+
+      <section id="control">
+        <h2>8. Rigidity and the Distance-Based Formation Law</h2>
+        <p>Part 12's distance-based law drives each aircraft down the gradient of \(V(p)=\tfrac14\sum_{(i,j)\in E}\big(\|p_i-p_j\|^2-d_{ij}^2\big)^2\). With the edge error \(e_k=\|p_i-p_j\|^2-d_k^2\) stacked over edges (Part 12 writes the desired distance as \(\bar d_{ij}\) to keep it apart from the displacement vector \(d_{ij}\)), the gradient is \(\nabla V=R(p)^Te\), so</p>
+        <div class="formula">
+          \[ \dot p=-R(p)^Te,\qquad \dot e=2R(p)\dot p=-2\,R(p)R(p)^T\,e . \]
+        </div>
+        <p>Near the target shape \(R(p)R(p)^T\) is approximately constant, and the error decays exponentially iff this \(|E|\times|E|\) matrix is positive definite, i.e. iff the rows of \(R\) are linearly independent — for a minimally rigid framework, iff \(\operatorname{rank}R=|E|=2N-3\):</p>
+        <div class="theorem">
+          <strong>Theorem (Krick, Broucke &amp; Francis 2009; Anderson et al. 2008).</strong> If the target framework is infinitesimally and minimally rigid, the distance-based gradient law is locally exponentially stable: \(\|e(t)\|\le e^{-2\sigma_{\min}^2t}\|e(0)\|\), where \(\sigma_{\min}\) is the smallest singular value of \(R(p^\ast)\). For redundantly rigid frameworks the error lives in the row space of \(R\) and converges at the smallest <em>non-zero</em> eigenvalue of \(RR^T\).
+        </div>
+        <p>Numbers (unit square, Section 4): triangle \(\lambda(RR^T)=\{1.27,2,4.73\}\); square + diagonal \(\{0.76,2,2,2,5.24\}\); \(K_4\) \(\{0,2,2,2,4,6\}\). The square alone has \(\lambda(RR^T)=\{2,2,2,2\}\) — positive! — because its four rows are independent; its flaw is not in \(RR^T\) but in the kernel of \(R\): the shear direction is invisible to the law, so a sheared square is an equilibrium with zero edge error. Rigidity is the condition that <em>zero edge error implies the right shape</em>.</p>
+        <h3>Stiffness scales with spacing squared</h3>
+        <p>\(R(p)\) is linear in \(p\), so scaling a formation by \(s\) scales every singular value by \(s\) and the convergence rate \(2\sigma_{\min}^2\) by \(s^2\): the unit triangle has \(\sigma_{\min}=1.13\) and rate 2.5 s⁻¹; at 40 m spacing \(\sigma_{\min}=45.0\) and rate 4057; at 400 m, \(\sigma_{\min}=450\) and rate 405 744. A gain tuned at one spacing is wildly wrong at another; normalise the law by \(1/\bar d^2\) (mean squared edge length) or work with \(e_k/d_k^2\). The five-aircraft vee of Part 10 with a 7-edge sensing graph has \(\lambda(RR^T)\) from \(2291\) to \(66\,826\) m² (ratio 29); divided by \(\bar d^2=10\,114\) m² the slowest normalised mode is \(0.227\).</p>
+      </section>
+
+      <section id="bearing">
+        <h2>9. Bearing Rigidity and Persistence (brief)</h2>
+        <p><strong>Bearing rigidity</strong> (Zhao &amp; Zelazo 2016) replaces distances by unit direction vectors \(g_{ij}=(p_j-p_i)/\|p_j-p_i\|\) — what a camera measures. The bearing rigidity matrix has rows built from the orthogonal projectors \(P_{g_{ij}}=I-g_{ij}g_{ij}^T\); a framework is infinitesimally bearing rigid iff the rank is \(dN-d-1\) (bearings fix the shape up to translation <em>and scale</em>), and in that case the bearing-based law of Part 12 is almost globally stable — a cleaner result than the distance case, at the price of needing a common orientation.</p>
+        <p><strong>Persistence</strong> (Hendrickx, Anderson, Delvenne &amp; Blondel 2007) handles <em>directed</em> sensing: if aircraft \(i\) measures its distance to \(j\) but not vice versa, only \(i\) is responsible for that constraint. A directed framework is persistent if, whenever every aircraft satisfies all the constraints it can, the shape is rigid. The condition adds to rigidity a degree rule — no aircraft may be responsible for more than \(d\) constraints (it has only \(d\) degrees of freedom to satisfy them) — and ties into the leader-first-follower structures of Part 8. The course's main design uses undirected (mutually communicated) constraints and does not need it.</p>
+      </section>
+
+      <section id="fixed-wing">
+        <h2>10. Fixed-Wing Interpretation</h2>
+        <h3>10.1 When a fixed-wing swarm needs rigidity</h3>
+        <p>With GPS and a shared compass, aircraft exchange positions in a common frame and the displacement law needs no rigidity at all (a spanning tree of displacements suffices, Part 10). Rigidity becomes the governing constraint when the formation must be held from <em>relative</em> measurements in body frames — radar or optical ranging, GPS-denied flight, or a design that refuses to depend on every aircraft's heading estimate. Then the sensing graph must be rigid at the formation's actual geometry.</p>
+        <h3>10.2 The geometry problem: standard formations are degenerate</h3>
+        <ul>
+          <li><strong>Trail and line abreast are collinear</strong> — never infinitesimally rigid in the plane, with any number of ranges (Section 6). Distance-only control cannot hold them; the lateral degree of freedom is unobservable. Use displacements (needs heading), bearings, or break collinearity by a small lateral or vertical offset — and note that in 3-D a line is even worse (rotation about the line is free).</li>
+          <li><strong>The vee contains collinear triples.</strong> Part 10's five-aircraft vee \(r=\{(0,0),(-60,40),(-60,-40),(-120,80),(-120,-80)\}\) has aircraft 1, 2, 4 on one line and 1, 3, 5 on another. A Henneberg-style graph \(\{12,13,23,24,14,35,45\}\) has 7 edges and passes Laman, yet has rank 6: the edges 1–2, 2–4, 1–4 lie on one line and are dependent. The alternative \(\{12,13,23,24,34,35,45\}\) has rank 7 — rigid. Same count, different answer, decided only by computing the rank at the slots.</li>
+          <li><strong>Single-link loss.</strong> Removing <em>any</em> one of the seven edges of the rigid vee graph drops the rank to 6: a minimally rigid formation is one lost range away from flexing. Adding 2–5 and 1–4 (nine edges) protects against the loss of some edges but not all — the collinear triples again — so a redundantly rigid sensing graph for the vee needs more than two spares, and the only reliable test is "remove each edge, recompute the rank".</li>
+        </ul>
+        <h3>10.3 Flips at the sensing level</h3>
+        <p>A distance-based controller cannot tell a vee from its partial mirror image if the sensing graph is only minimally rigid (Section 7). Assembly from scattered starting positions must therefore begin from a placement already near the correct shape — the displacement law of Part 12, or the slot assignment of Part 22, does that — or the graph must be globally rigid.</p>
+        <div class="note"><strong>High-speed note.</strong> Rank is scale-free: a 400 m vee is exactly as rigid as a 40 m one. Stiffness is not — the rate of the distance law grows with spacing squared (Section 8), so gains must be normalised by \(\bar d^2\) or a controller tuned for a small UAV formation will demand accelerations \(10^2\)–\(10^4\) times larger when the same code flies a wide high-speed formation. Sensing range also enters: at 400 m spacing the sensing graph is whatever the ranging sensor can reach, and that graph — not the ideal one — must pass the rank test.</div>
+        <div class="claw"><strong>Toward the CLAW</strong>
+          The capstone's default formation layer is displacement-based in the NED frame (Part 24 §7), so rigidity is not a run-time computation there. It enters the design in three places: (i) the GPS-denied extension (Part 24 §17) replaces the coupling term by the distance-based gradient law of Part 12 over a sensing graph, and this part is the admission test for that graph — rank \(2N-3\) at the slot geometry, redundantly rigid for single-link loss, globally rigid or assembled from a nearby start; (ii) the mission layer's choice of formation (Part 10) must avoid collinear slots when relative sensing is the plan; (iii) the gain normalisation \(1/\bar d^2\) is what keeps one control law valid from 40 m to 400 m spacing.</div>
+      </section>
+
+      <section id="implementation">
+        <h2>11. Implementation</h2>
+        <p>Pure NumPy. Builds \(R(p)\), separates trivial from non-trivial infinitesimal motions, checks Laman by brute force (fine up to \(N\approx12\)), and prints the stiffness eigenvalues.</p>
+<pre><code>import numpy as np, itertools
+
+def rigidity_matrix(p, E):
+    """R(p): one row per edge (i,j): (p_i - p_j)^T in block i, -(p_i - p_j)^T in block j."""
+    p = np.asarray(p, float); N, d = p.shape
+    R = np.zeros((len(E), d*N))
+    for k, (i, j) in enumerate(E):
+        diff = p[i] - p[j]
+        R[k, d*i:d*i+d] = diff
+        R[k, d*j:d*j+d] = -diff
+    return R
+
+def trivial_motions(p):
+    """Basis of the d(d+1)/2 trivial infinitesimal motions (translations + rotations)."""
+    p = np.asarray(p, float); N, d = p.shape; T = []
+    for a in range(d):                                   # translations
+        v = np.zeros((N, d)); v[:, a] = 1.0; T.append(v.ravel())
+    for a, b in itertools.combinations(range(d), 2):     # rotation in the (a,b)-plane
+        v = np.zeros((N, d)); v[:, a] = -p[:, b]; v[:, b] = p[:, a]; T.append(v.ravel())
+    return np.array(T).T
+
+def analyse(name, p, E):
+    p = np.asarray(p, float); N, d = p.shape
+    R = rigidity_matrix(p, E); rk = np.linalg.matrix_rank(R)
+    need = d*N - d*(d+1)//2
+    T = trivial_motions(p)
+    kernel = np.linalg.svd(R)[2][rk:].T                  # null-space basis (dN x (dN-rk))
+    Q = np.linalg.qr(T)[0]
+    flex = kernel - Q @ (Q.T @ kernel)                   # remove trivial components
+    nflex = np.linalg.matrix_rank(flex, tol=1e-9)
+    verdict = ("infinitesimally rigid" + (" (minimal)" if len(E) == need else " (redundant)")
+               if rk == need else "FLEXIBLE")
+    print("%-22s |E|=%d rank=%d need=%d -&gt; %s, non-trivial flexes: %d"
+          % (name, len(E), rk, need, verdict, nflex))
+    print("   |R @ trivial| = %.1e" % np.abs(R @ T).max())
+    if nflex:                                            # show one pure flex
+        u = np.linalg.svd(flex)[0][:, 0]; u /= np.abs(u).max()
+        print("   flex velocities:", np.round(u.reshape(N, d), 3).tolist())
+    return R
+
+def laman(N, E):
+    """Brute-force Laman check: |E| = 2N-3 and every k-subset spans &lt;= 2k-3 edges."""
+    if len(E) != 2*N - 3: return False
+    return all(sum(i in S and j in S for i, j in E) &lt;= 2*len(S) - 3
+               for k in range(2, N+1) for S in map(set, itertools.combinations(range(N), k)))
+
+tri = [[0, 0], [1, 0], [0, 1]];            E_tri = [(0, 1), (1, 2), (0, 2)]
+sq  = [[0, 0], [1, 0], [1, 1], [0, 1]];    E_sq  = [(0, 1), (1, 2), (2, 3), (3, 0)]
+R_tri = analyse("triangle", tri, E_tri)
+R_sq  = analyse("square", sq, E_sq)
+R_sqd = analyse("square + diagonal", sq, E_sq + [(0, 2)])
+R_k4  = analyse("K4", sq, E_sq + [(0, 2), (1, 3)])
+analyse("collinear triangle", [[0, 0], [1, 0], [2, 0]], E_tri)
+print("square + diagonal matrix:\n", R_sqd)
+u = np.array([0, 0, 0, 0, 1, 0, 1, 0.])                  # top edge of the square slides right
+print("R_sq @ (top edge slides) =", R_sq @ u)
+for name, N, E in (("triangle", 3, E_tri), ("square", 4, E_sq),
+                   ("square+diag", 4, E_sq + [(0, 2)]), ("K4", 4, E_sq + [(0, 2), (1, 3)])):
+    print("Laman(%s) = %s" % (name, laman(N, E)))
+for name, R in (("triangle", R_tri), ("square+diag", R_sqd), ("K4", R_k4)):
+    print("eig(R R^T) %-12s" % name, np.round(np.linalg.eigvalsh(R @ R.T), 4))
+</code></pre>
+<pre><code>triangle               |E|=3 rank=3 need=3 -&gt; infinitesimally rigid (minimal), non-trivial flexes: 0
+   |R @ trivial| = 0.0e+00
+square                 |E|=4 rank=4 need=5 -&gt; FLEXIBLE, non-trivial flexes: 1
+   |R @ trivial| = 0.0e+00
+   flex velocities: [[1.0, 1.0], [1.0, -1.0], [-1.0, -1.0], [-1.0, 1.0]]
+square + diagonal      |E|=5 rank=5 need=5 -&gt; infinitesimally rigid (minimal), non-trivial flexes: 0
+   |R @ trivial| = 0.0e+00
+K4                     |E|=6 rank=5 need=5 -&gt; infinitesimally rigid (redundant), non-trivial flexes: 0
+   |R @ trivial| = 0.0e+00
+collinear triangle     |E|=3 rank=2 need=3 -&gt; FLEXIBLE, non-trivial flexes: 1
+   |R @ trivial| = 0.0e+00
+   flex velocities: [[-0.0, 0.5], [-0.0, -1.0], [0.0, 0.5]]
+square + diagonal matrix:
+ [[-1.  0.  1. -0.  0.  0.  0.  0.]
+ [ 0.  0.  0. -1. -0.  1.  0.  0.]
+ [ 0.  0.  0.  0.  1.  0. -1. -0.]
+ [-0. -1.  0.  0.  0.  0.  0.  1.]
+ [-1. -1.  0.  0.  1.  1.  0.  0.]]
+R_sq @ (top edge slides) = [0. 0. 0. 0.]
+Laman(triangle) = True
+Laman(square) = False
+Laman(square+diag) = True
+Laman(K4) = False
+eig(R R^T) triangle     [1.2679 2.     4.7321]
+eig(R R^T) square+diag  [0.7639 2.     2.     2.     5.2361]
+eig(R R^T) K4           [-0.  2.  2.  2.  4.  6.]
+</code></pre>
+      </section>
+
+      <section id="pitfalls">
+        <h2>12. Common Pitfalls</h2>
+        <ul>
+          <li><strong>Counting edges instead of computing rank.</strong> \(2N-3\) edges is necessary; Laman is necessary and sufficient for generic placements only; the actual formation geometry can still be degenerate.</li>
+          <li><strong>Collinear formations.</strong> Trail and line abreast cannot be held by distances alone, with any number of links.</li>
+          <li><strong>Forgetting the trivial motions.</strong> The rank target is \(2N-3\), not \(2N\): a kernel of dimension 3 is <em>required</em>, not a defect.</li>
+          <li><strong>Confusing rigid with globally rigid.</strong> A minimally rigid graph admits flips; a distance-based controller can converge to the mirror image.</li>
+          <li><strong>Trusting a minimally rigid sensing graph in flight.</strong> One lost range makes it flexible; design for redundancy and test every single-edge removal.</li>
+          <li><strong>Reusing gains across spacings.</strong> The rate of the distance law scales with spacing squared; normalise by \(\bar d^2\).</li>
+          <li><strong>Applying Laman in 3-D.</strong> No counting characterisation exists (double banana); compute the rank against \(3N-6\).</li>
+        </ul>
+      </section>
+
+      <section id="exercises">
+        <h2>13. Exercises</h2>
+        <div class="exercise">
+          <strong>Exercise 1 (pentagon).</strong> Five aircraft on a regular pentagon of circumradius 100 m. Is the graph "five sides" rigid? "Five sides plus the two diagonals from vertex 1"? All ten pairs?
+          <details><summary>Show solution</summary><div class="solution">Need \(2\cdot5-3=7\). Sides only: rank 5, two flexes. Sides + diagonals 1–3, 1–4: \(|E|=7\), rank 7 — minimally rigid (a Henneberg sequence: triangle 1-2-3, vertex addition of 4 on 1 and 3, of 5 on 1 and 4). \(K_5\): rank 7 with three redundant edges. Singular values of the 7-edge case: \(\{336,239,186,186,158,105,90\}\) m.</div></details>
+        </div>
+        <div class="exercise">
+          <strong>Exercise 2 (vee sensing graphs).</strong> For the vee \(r=\{(0,0),(-60,40),(-60,-40),(-120,80),(-120,-80)\}\), compute the rank for (a) the displacement tree \(\{12,13,24,35\}\), (b) the tree plus 2–3 and 4–5, (c) \(\{12,13,23,24,14,35,45\}\), (d) \(\{12,13,23,24,34,35,45\}\). Explain (c).
+          <details><summary>Show solution</summary><div class="solution">(a) rank 4, three flexes; (b) rank 6, one flex; (c) rank 6 despite seven Laman-valid edges — aircraft 1, 2, 4 are collinear (cross product zero), so the three edge vectors 1–2, 2–4, 1–4 are parallel and span only two independent rows; (d) rank 7, rigid. Removing any one of (d)'s edges gives rank 6.</div></details>
+        </div>
+        <div class="exercise">
+          <strong>Exercise 3 (trivial motions).</strong> Show directly that a planar rotation \(\dot p_i=Jp_i\) satisfies \(R(p)\dot p=0\) for every framework.
+          <details><summary>Show solution</summary><div class="solution">Row \((i,j)\) gives \((p_i-p_j)^T(Jp_i-Jp_j)=(p_i-p_j)^TJ(p_i-p_j)=0\) because \(J\) is skew-symmetric (\(x^TJx=0\) for all \(x\)). Translations: \((p_i-p_j)^T(c-c)=0\).</div></details>
+        </div>
+        <div class="exercise">
+          <strong>Exercise 4 (stiffness scaling).</strong> The unit triangle has \(\sigma_{\min}(R)=1.126\). What is \(\sigma_{\min}\) at 40 m and 400 m spacing, and by what factor does the local convergence rate \(2\sigma_{\min}^2\) of the distance law change? Propose a normalisation.
+          <details><summary>Show solution</summary><div class="solution">\(\sigma_{\min}\) scales linearly: 45.0 and 450; the rate \(2\sigma_{\min}^2\) is 2.5, 4057 and 405 744 s⁻¹ — a factor \(10^4\) between 40 m and 400 m. Use \(\dot p=-\frac{k}{\bar d^2}R^Te\) (or errors \(e_k/d_k^2\)), which makes the rate \(2k\sigma_{\min}^2/\bar d^2\) independent of scale.</div></details>
+        </div>
+        <div class="exercise">
+          <strong>Exercise 5 (3-D).</strong> Four aircraft at the corners of a level square with the square-plus-diagonal graph (5 edges). Rigid in 3-D? What is the flex, and what fixes it?
+          <details><summary>Show solution</summary><div class="solution">Need \(3\cdot4-6=6\); rank is 5: one flex — the two triangles fold about the diagonal like a hinge. Add the sixth edge (the other diagonal) to get the tetrahedron graph \(K_4\), rank 6, rigid. In general a 3-D formation needs \(3N-6\) independent ranges and must avoid coplanar sub-formations with too few cross-links.</div></details>
+        </div>
+      </section>
+
+      <section id="summary">
+        <h2>14. Key Takeaways &amp; Formula Sheet</h2>
+        <ul>
+          <li>Framework \((G,p)\); rigidity function \(g(p)=[\|p_i-p_j\|^2]_{E}\); rigidity matrix \(R(p)=\tfrac12\partial g/\partial p\) with rows \((p_i-p_j)^T\) at block \(i\), \(-(p_i-p_j)^T\) at block \(j\).</li>
+          <li>Infinitesimal motions \(=\ker R(p)\); trivial motions span \(d(d+1)/2\) dimensions; infinitesimally rigid iff \(\operatorname{rank}R=dN-d(d+1)/2\) (\(2N-3\) plane, \(3N-6\) space).</li>
+          <li>Minimal rigidity \(|E|=2N-3\); Laman: every \(k\)-subset spans \(\le2k-3\) edges; Henneberg vertex addition and edge splitting build all minimally rigid graphs.</li>
+          <li>Non-generic placements (collinear points, parallel or concurrent braces) can lose rank; always test at the actual slots.</li>
+          <li>Global rigidity excludes flips; generic planar criterion: 3-connected and redundantly rigid.</li>
+          <li>Distance law \(\dot p=-R^Te\Rightarrow\dot e=-2RR^Te\): locally exponentially stable iff infinitesimally rigid; rate \(2\sigma_{\min}^2\), scales with spacing squared.</li>
+          <li>Trail and line abreast are never distance-rigid; vees contain collinear triples; design sensing graphs by rank and single-edge-removal tests.</li>
+        </ul>
+      </section>
+
+      <section id="references">
+        <h2>15. References</h2>
+        <ul>
+          <li>L. Asimow and B. Roth, "The rigidity of graphs," <em>Trans. American Mathematical Society</em> 245, 1978; and "The rigidity of graphs II," <em>J. Math. Analysis and Applications</em> 68, 1979 — infinitesimal rigidity, generic placements.</li>
+          <li>G. Laman, "On graphs and rigidity of plane skeletal structures," <em>J. Engineering Mathematics</em> 4(4), 1970.</li>
+          <li>T.-S. Tay and W. Whiteley, "Generating isostatic frameworks," <em>Structural Topology</em> 11, 1985 — Henneberg constructions.</li>
+          <li>B. Jackson and T. Jordán, "Connected rigidity matroids and unique realizations of graphs," <em>J. Combinatorial Theory B</em> 94(1), 2005; R. Connelly, "Generic global rigidity," <em>Discrete &amp; Computational Geometry</em> 33, 2005.</li>
+          <li>B. D. O. Anderson, C. Yu, B. Fidan and J. M. Hendrickx, "Rigid graph control architectures for autonomous formations," <em>IEEE Control Systems Magazine</em> 28(6), 2008 — rigidity for formation control, persistence.</li>
+          <li>L. Krick, M. E. Broucke and B. A. Francis, "Stabilisation of infinitesimally rigid formations of multi-robot networks," <em>Int. J. Control</em> 82(3), 2009 — local exponential stability of the gradient law.</li>
+          <li>J. M. Hendrickx, B. D. O. Anderson, J.-C. Delvenne and V. D. Blondel, "Directed graphs for the analysis of rigidity and persistence in autonomous agent systems," <em>Int. J. Robust and Nonlinear Control</em> 17(10–11), 2007.</li>
+          <li>S. Zhao and D. Zelazo, "Bearing rigidity and almost global bearing-only formation stabilization," <em>IEEE Trans. Automatic Control</em> 61(5), 2016.</li>
+          <li>K.-K. Oh, M.-C. Park and H.-S. Ahn, "A survey of multi-agent formation control," <em>Automatica</em> 53, 2015.</li>
+        </ul>
+      </section>
+
+      <div class="prevnext">
+        <a class="prev" href="10_formation_specification.html"><span>&larr; Previous</span>Part 10: Formation Specification</a>
+        <a class="next" href="12_formation_control.html"><span>Next &rarr;</span>Part 12: Formation Control</a>
+      </div>
+      <div class="done-box"><button id="done-btn" data-lesson="11">Mark Part 11 as complete</button></div>
+    </main>
+  </div>
+
+  <footer>Fixed-Wing Swarm Learning · Part 11 · Graph &amp; Framework Rigidity</footer>
+
+  <script>
+    (function () {
+      try {
+        var btn = document.getElementById('done-btn');
+        if (!btn) return;
+        var id = btn.getAttribute('data-lesson');
+        var key = 'fwswarm_done';
+        var done = JSON.parse(localStorage.getItem(key) || '[]');
+        function render() {
+          var is = done.indexOf(id) >= 0;
+          btn.textContent = is ? 'Completed ✓ (click to undo)' : 'Mark Part ' + id + ' as complete';
+          btn.className = is ? 'undone' : '';
+        }
+        btn.addEventListener('click', function () {
+          var i = done.indexOf(id);
+          if (i >= 0) done.splice(i, 1); else done.push(id);
+          localStorage.setItem(key, JSON.stringify(done));
+          render();
+        });
+        render();
+      } catch (e) { /* storage unavailable: ignore */ }
+    })();
+  </script>
+</body>
+</html>
